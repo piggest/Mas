@@ -113,11 +113,59 @@ class SelectionView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        guard let rect = selectionRect, rect.width > 10, rect.height > 10 else {
-            onCancel()
+        // 十分な大きさの選択範囲がある場合はそのまま使用
+        if let rect = selectionRect, rect.width > 10, rect.height > 10 {
+            onComplete(rect)
             return
         }
-        onComplete(rect)
+
+        // クリックのみの場合、その位置にあるウィンドウを検出
+        let clickPoint = convert(event.locationInWindow, from: nil)
+        if let windowRect = findWindowAtPoint(clickPoint) {
+            onComplete(windowRect)
+        } else {
+            onCancel()
+        }
+    }
+
+    private func findWindowAtPoint(_ point: CGPoint) -> CGRect? {
+        // スクリーン座標に変換（左上原点）
+        guard let screen = window?.screen else { return nil }
+        let screenPoint = CGPoint(
+            x: screen.frame.origin.x + point.x,
+            y: point.y  // isFlipped = true なので、そのまま
+        )
+
+        // ウィンドウリストを取得
+        guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            return nil
+        }
+
+        for windowInfo in windowList {
+            guard let ownerName = windowInfo[kCGWindowOwnerName as String] as? String,
+                  let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: Any],
+                  let x = boundsDict["X"] as? CGFloat,
+                  let y = boundsDict["Y"] as? CGFloat,
+                  let width = boundsDict["Width"] as? CGFloat,
+                  let height = boundsDict["Height"] as? CGFloat else {
+                continue
+            }
+
+            // 自分自身のアプリとオーバーレイは除外
+            if ownerName == "Mas" { continue }
+
+            // 小さすぎるウィンドウは除外
+            guard width > 50 && height > 50 else { continue }
+
+            let windowRect = CGRect(x: x, y: y, width: width, height: height)
+
+            // クリック位置がウィンドウ内にあるか確認
+            if windowRect.contains(screenPoint) {
+                return windowRect
+            }
+        }
+
+        return nil
     }
 
     override func keyDown(with event: NSEvent) {
