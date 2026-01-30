@@ -54,25 +54,32 @@ struct EditorWindow: View {
                 // ボタン群（常に右上に固定）
                 if screenshot.mode == .region && screenshot.captureRegion != nil {
                     HStack(spacing: 4) {
-                        // パススルートグル
-                        Button(action: {
-                            passThroughEnabled.toggle()
-                            updatePassThrough()
-                        }) {
-                            Image(systemName: passThroughEnabled ? "hand.tap.fill" : "hand.tap")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(passThroughEnabled ? .blue : (showImage ? .white : .gray))
-                                .padding(6)
-                                .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
-                                .clipShape(Circle())
+                        // パススルートグル（画像非表示時のみ）
+                        if !showImage {
+                            Button(action: {
+                                passThroughEnabled.toggle()
+                                updatePassThrough()
+                            }) {
+                                Image(systemName: passThroughEnabled ? "hand.tap.fill" : "hand.tap")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(passThroughEnabled ? .blue : .gray)
+                                    .padding(6)
+                                    .background(Color.white.opacity(0.8))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
 
                         // 再キャプチャボタン
                         Button(action: {
                             let rect = getCurrentWindowRect()
                             onRecapture?(rect)
                             showImage = true
+                            // 再キャプチャ時はパススルーをOFFに
+                            if passThroughEnabled {
+                                passThroughEnabled = false
+                                updatePassThrough()
+                            }
                         }) {
                             Image(systemName: "arrow.clockwise")
                                 .font(.system(size: 12, weight: .bold))
@@ -83,7 +90,7 @@ struct EditorWindow: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .position(x: geometry.size.width - 36, y: 20)
+                    .position(x: geometry.size.width - (showImage ? 20 : 36), y: 20)
                 }
             }
             .clipped()
