@@ -211,16 +211,33 @@ class CaptureViewModel: ObservableObject {
         isCapturing = false
     }
 
+    private var passThroughContainerView: PassThroughContainerView?
+
     private func showEditorWindow(for screenshot: Screenshot, at region: CGRect? = nil) {
         let editorView = EditorWindow(screenshot: screenshot, onRecapture: { [weak self] rect in
             guard let self = self else { return }
             Task {
                 await self.recaptureRegion(for: screenshot, at: rect)
             }
+        }, onPassThroughChanged: { [weak self] enabled in
+            self?.passThroughContainerView?.passThroughEnabled = enabled
+            if let window = self?.editorWindowController?.window as? ResizableWindow {
+                window.passThroughEnabled = enabled
+                window.isMovableByWindowBackground = !enabled
+            }
         })
         let hostingController = NSHostingController(rootView: editorView)
 
-        let window = ResizableWindow(contentViewController: hostingController)
+        // PassThroughContainerViewでラップ
+        let containerView = PassThroughContainerView()
+        containerView.autoresizingMask = [.width, .height]
+        hostingController.view.frame = containerView.bounds
+        hostingController.view.autoresizingMask = [.width, .height]
+        containerView.addSubview(hostingController.view)
+        passThroughContainerView = containerView
+
+        let window = ResizableWindow(contentRect: .zero, styleMask: [.borderless, .resizable], backing: .buffered, defer: false)
+        window.contentView = containerView
         window.styleMask = [.borderless, .resizable]
         window.isMovableByWindowBackground = true
         window.backgroundColor = NSColor.white.withAlphaComponent(0.001)

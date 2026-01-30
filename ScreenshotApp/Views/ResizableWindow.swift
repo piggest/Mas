@@ -2,9 +2,78 @@ import AppKit
 
 class ResizableWindow: NSWindow {
     private let resizeMargin: CGFloat = 8
+    var passThroughEnabled: Bool = false {
+        didSet {
+            if passThroughEnabled {
+                startMouseTracking()
+            } else {
+                stopMouseTracking()
+                ignoresMouseEvents = false
+            }
+        }
+    }
+    private var mouseTrackingMonitor: Any?
 
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
+    }
+
+    private func startMouseTracking() {
+        mouseTrackingMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown]) { [weak self] event in
+            self?.updateIgnoresMouseEvents()
+            return event
+        }
+        // グローバルモニターも追加（ウィンドウ外からの移動を検知）
+        NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self] _ in
+            self?.updateIgnoresMouseEvents()
+        }
+    }
+
+    private func stopMouseTracking() {
+        if let monitor = mouseTrackingMonitor {
+            NSEvent.removeMonitor(monitor)
+            mouseTrackingMonitor = nil
+        }
+    }
+
+    private func updateIgnoresMouseEvents() {
+        guard passThroughEnabled else { return }
+
+        let mouseLocation = NSEvent.mouseLocation
+        let windowFrame = frame
+
+        // マウスがウィンドウ内にあるかチェック
+        guard windowFrame.contains(mouseLocation) else {
+            ignoresMouseEvents = true
+            return
+        }
+
+        // ウィンドウ座標に変換
+        let localPoint = NSPoint(
+            x: mouseLocation.x - windowFrame.origin.x,
+            y: mouseLocation.y - windowFrame.origin.y
+        )
+
+        // 枠線部分（リサイズマージン）
+        let onEdge = localPoint.x < resizeMargin ||
+                     localPoint.x > windowFrame.width - resizeMargin ||
+                     localPoint.y < resizeMargin ||
+                     localPoint.y > windowFrame.height - resizeMargin
+
+        // ボタンエリア（右上）
+        let buttonRect = CGRect(
+            x: windowFrame.width - 80,
+            y: windowFrame.height - 50,
+            width: 80,
+            height: 50
+        )
+        let onButton = buttonRect.contains(localPoint)
+
+        ignoresMouseEvents = !(onEdge || onButton)
+    }
+
+    deinit {
+        stopMouseTracking()
     }
 
     convenience init(contentViewController: NSViewController) {
@@ -14,6 +83,14 @@ class ResizableWindow: NSWindow {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    // パススルー時でもボタンエリアはマウスイベントを受け取る
+    func isInButtonArea(_ point: NSPoint) -> Bool {
+        let buttonX = frame.width - 80
+        let buttonY = frame.height - 40
+        let buttonRect = CGRect(x: buttonX, y: buttonY, width: 80, height: 40)
+        return buttonRect.contains(point)
+    }
 
     private func resizeDirection(for point: NSPoint) -> ResizeDirection? {
         let frame = self.frame
@@ -120,5 +197,43 @@ class ResizableWindow: NSWindow {
     enum ResizeDirection {
         case top, bottom, left, right
         case topLeft, topRight, bottomLeft, bottomRight
+    }
+}
+
+// パススルー対応のコンテナビュー
+class PassThroughContainerView: NSView {
+    var passThroughEnabled: Bool = false
+    private let resizeMargin: CGFloat = 8
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if passThroughEnabled {
+            // 枠線部分（リサイズマージン）
+            let onLeft = point.x < resizeMargin
+            let onRight = point.x > bounds.width - resizeMargin
+            let onTop = point.y > bounds.height - resizeMargin  // 左下原点なので上はheightに近い
+            let onBottom = point.y < resizeMargin
+
+            if onLeft || onRight || onTop || onBottom {
+                return self
+            }
+
+            // ボタンエリア（右上）- 左下原点の座標系
+            // EditorWindowでボタンは .position(x: width - 36, y: 20) なので
+            // NSView座標系では y = height - 20 付近
+            let buttonRect = CGRect(
+                x: bounds.width - 80,
+                y: bounds.height - 50,
+                width: 80,
+                height: 50
+            )
+
+            if buttonRect.contains(point) {
+                return super.hitTest(point)
+            }
+
+            // それ以外はパススルー
+            return nil
+        }
+        return super.hitTest(point)
     }
 }
