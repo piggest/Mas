@@ -187,10 +187,6 @@ xcodebuild -scheme ScreenshotApp -configuration Release build
 - **画面収録**: スクリーンショットの撮影に必要
   - システム設定 → プライバシーとセキュリティ → 画面収録 で許可
 
-## ライセンス
-
-MIT License
-
 ## コントリビューション
 
 バグ報告や機能リクエストは [Issues](https://github.com/piggest/Mas/issues) でお願いします。
