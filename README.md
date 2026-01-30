@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/appicon.png" alt="Mas App Icon" width="128" height="128">
+</p>
+
 # Mas - macOS スクリーンショットアプリ
 
 > まるでマスですくうように簡単に正確にスクリーンショットを作成します
