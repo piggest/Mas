@@ -1,0 +1,29 @@
+name: ScreenshotApp
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "14.3"
+
+targets:
+  ScreenshotApp:
+    type: application
+    platform: macOS
+    sources:
+      - ScreenshotApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.ScreenshotApp
+        PRODUCT_NAME: ScreenshotApp
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_FILE: ScreenshotApp/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.8"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        LD_RUNPATH_SEARCH_PATHS:
+          - "@executable_path/../Frameworks"
+    entitlements:
+      path: ScreenshotApp/ScreenshotApp.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
