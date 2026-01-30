@@ -102,8 +102,24 @@ struct MenuBarView: View {
         .frame(width: 250)
     }
 
+    private func dismissMenu() {
+        // MenuBarExtraのパネルを閉じる
+        for window in NSApp.windows {
+            // NSPanelでlevelがpopUpMenu付近のものを探す
+            if window.level.rawValue >= NSWindow.Level.popUpMenu.rawValue - 1 &&
+               window.level.rawValue <= NSWindow.Level.popUpMenu.rawValue + 1 {
+                window.orderOut(nil)
+                break
+            }
+        }
+    }
+
     private func performCapture(mode: CaptureMode) {
+        if mode != .window {
+            dismissMenu()
+        }
         Task {
+            try? await Task.sleep(nanoseconds: 150_000_000)
             switch mode {
             case .fullScreen:
                 await viewModel.captureFullScreen()
@@ -116,12 +132,15 @@ struct MenuBarView: View {
     }
 
     private func captureWindow(_ window: ScreenCaptureService.WindowInfo) {
+        dismissMenu()
         Task {
+            try? await Task.sleep(nanoseconds: 150_000_000)
             await viewModel.captureWindow(window)
         }
     }
 
     private func openSettings() {
+        dismissMenu()
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
