@@ -6,7 +6,7 @@ struct ScreenshotApp: App {
     @StateObject private var captureViewModel = CaptureViewModel()
 
     var body: some Scene {
-        MenuBarExtra("Mas", systemImage: "camera.viewfinder") {
+        MenuBarExtra("Mas", image: "MenuBarIcon") {
             MenuBarView()
                 .environmentObject(captureViewModel)
         }
