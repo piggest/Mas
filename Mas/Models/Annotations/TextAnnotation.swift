@@ -22,7 +22,10 @@ class TextAnnotation: Annotation {
         ]
 
         let attributedString = NSAttributedString(string: text, attributes: attributes)
-        attributedString.draw(at: position)
+        // positionをテキストの左上として扱う
+        // draw(at:)はベースライン左端基準なので、ascender分下げる
+        let drawPosition = CGPoint(x: position.x, y: position.y - font.ascender)
+        attributedString.draw(at: drawPosition)
     }
 
     func contains(point: CGPoint) -> Bool {
