@@ -4,6 +4,7 @@ struct EditorWindow: View {
     @StateObject private var viewModel: EditorViewModel
     @ObservedObject var screenshot: Screenshot
     @State private var copiedToClipboard = false
+    @State private var showImage = true
 
     let onRecapture: ((CGRect) -> Void)?
 
@@ -37,25 +38,28 @@ struct EditorWindow: View {
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
                 // 画像を選択範囲と同じサイズで表示（拡縮しない）
-                if let region = screenshot.captureRegion {
-                    Image(nsImage: screenshot.originalImage)
-                        .resizable()
-                        .frame(width: region.width, height: region.height)
-                } else {
-                    Image(nsImage: screenshot.originalImage)
+                if showImage {
+                    if let region = screenshot.captureRegion {
+                        Image(nsImage: screenshot.originalImage)
+                            .resizable()
+                            .frame(width: region.width, height: region.height)
+                    } else {
+                        Image(nsImage: screenshot.originalImage)
+                    }
                 }
 
-                // 再キャプチャボタン（常に右上に固定）
+                // 再キャプチャボタン（常に右上に固定、画像非表示でも表示）
                 if screenshot.mode == .region && screenshot.captureRegion != nil {
                     Button(action: {
                         let rect = getCurrentWindowRect()
                         onRecapture?(rect)
+                        showImage = true  // 再キャプチャ後に画像を表示
                     }) {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(showImage ? .white : .gray)
                             .padding(6)
-                            .background(Color.black.opacity(0.5))
+                            .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -67,6 +71,9 @@ struct EditorWindow: View {
         .frame(minWidth: 50, minHeight: 50)
         .background(Color.white.opacity(0.001))
         .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            showImage = false
+        }
         .border(Color.gray.opacity(0.5), width: 1)
         .contextMenu {
             Button("閉じる") {
