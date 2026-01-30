@@ -5,13 +5,16 @@ struct EditorWindow: View {
     @ObservedObject var screenshot: Screenshot
     @State private var copiedToClipboard = false
     @State private var showImage = true
+    @State private var passThroughEnabled = false
 
     let onRecapture: ((CGRect) -> Void)?
+    let onPassThroughChanged: ((Bool) -> Void)?
 
-    init(screenshot: Screenshot, onRecapture: ((CGRect) -> Void)? = nil) {
+    init(screenshot: Screenshot, onRecapture: ((CGRect) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil) {
         _viewModel = StateObject(wrappedValue: EditorViewModel(screenshot: screenshot))
         self.screenshot = screenshot
         self.onRecapture = onRecapture
+        self.onPassThroughChanged = onPassThroughChanged
     }
 
     private func getCurrentWindowRect() -> CGRect {
@@ -48,22 +51,39 @@ struct EditorWindow: View {
                     }
                 }
 
-                // 再キャプチャボタン（常に右上に固定、画像非表示でも表示）
+                // ボタン群（常に右上に固定）
                 if screenshot.mode == .region && screenshot.captureRegion != nil {
-                    Button(action: {
-                        let rect = getCurrentWindowRect()
-                        onRecapture?(rect)
-                        showImage = true  // 再キャプチャ後に画像を表示
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(showImage ? .white : .gray)
-                            .padding(6)
-                            .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
-                            .clipShape(Circle())
+                    HStack(spacing: 4) {
+                        // パススルートグル
+                        Button(action: {
+                            passThroughEnabled.toggle()
+                            updatePassThrough()
+                        }) {
+                            Image(systemName: passThroughEnabled ? "hand.tap.fill" : "hand.tap")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(passThroughEnabled ? .blue : (showImage ? .white : .gray))
+                                .padding(6)
+                                .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+
+                        // 再キャプチャボタン
+                        Button(action: {
+                            let rect = getCurrentWindowRect()
+                            onRecapture?(rect)
+                            showImage = true
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(showImage ? .white : .gray)
+                                .padding(6)
+                                .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    .position(x: geometry.size.width - 20, y: 20)
+                    .position(x: geometry.size.width - 36, y: 20)
                 }
             }
             .clipped()
@@ -90,6 +110,10 @@ struct EditorWindow: View {
         if viewModel.copyToClipboard() {
             copiedToClipboard = true
         }
+    }
+
+    private func updatePassThrough() {
+        onPassThroughChanged?(passThroughEnabled)
     }
 
     private func closeWindow() {
