@@ -51,6 +51,20 @@ struct EditorWindow: View {
                     }
                 }
 
+                // 閉じるボタン（左上）
+                Button(action: {
+                    closeWindow()
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(showImage ? .white : .gray)
+                        .padding(6)
+                        .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .position(x: 20, y: 20)
+
                 // ボタン群（常に右上に固定）
                 if screenshot.mode == .region && screenshot.captureRegion != nil {
                     HStack(spacing: 4) {
