@@ -69,6 +69,14 @@ class EditorViewModel: ObservableObject {
                 height: abs(endPoint.y - startPoint.y)
             )
             return RectAnnotation(rect: rect, color: selectedColor, lineWidth: lineWidth)
+        case .ellipse:
+            let rect = CGRect(
+                x: min(startPoint.x, endPoint.x),
+                y: min(startPoint.y, endPoint.y),
+                width: abs(endPoint.x - startPoint.x),
+                height: abs(endPoint.y - startPoint.y)
+            )
+            return EllipseAnnotation(rect: rect, color: selectedColor, lineWidth: lineWidth)
         case .highlight:
             let rect = CGRect(
                 x: min(startPoint.x, endPoint.x),

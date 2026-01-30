@@ -9,8 +9,9 @@ protocol Annotation: Identifiable {
 
 enum AnnotationType: String, CaseIterable, Identifiable {
     case arrow = "矢印"
+    case rectangle = "四角"
+    case ellipse = "丸"
     case text = "テキスト"
-    case rectangle = "矩形"
     case highlight = "ハイライト"
     case mosaic = "モザイク"
 
@@ -19,8 +20,9 @@ enum AnnotationType: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .arrow: return "arrow.up.right"
-        case .text: return "textformat"
         case .rectangle: return "rectangle"
+        case .ellipse: return "circle"
+        case .text: return "textformat"
         case .highlight: return "highlighter"
         case .mosaic: return "square.grid.3x3"
         }
