@@ -40,14 +40,16 @@ struct EditorWindow: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
-                // 画像を選択範囲と同じサイズで表示（拡縮しない）
+                // 画像をスクロール可能に表示
                 if showImage {
-                    if let region = screenshot.captureRegion {
-                        Image(nsImage: screenshot.originalImage)
-                            .resizable()
-                            .frame(width: region.width, height: region.height)
-                    } else {
-                        Image(nsImage: screenshot.originalImage)
+                    ScrollView([.horizontal, .vertical], showsIndicators: true) {
+                        if let region = screenshot.captureRegion {
+                            Image(nsImage: screenshot.originalImage)
+                                .resizable()
+                                .frame(width: region.width, height: region.height)
+                        } else {
+                            Image(nsImage: screenshot.originalImage)
+                        }
                     }
                 }
 
@@ -107,7 +109,6 @@ struct EditorWindow: View {
                     .position(x: geometry.size.width - (showImage ? 20 : 36), y: 20)
                 }
             }
-            .clipped()
         }
         .frame(minWidth: 50, minHeight: 50)
         .background(Color.white.opacity(0.001))
