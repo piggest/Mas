@@ -12,27 +12,31 @@ class ResizableWindow: NSWindow {
             }
         }
     }
-    private var mouseTrackingMonitor: Any?
+    private var localMonitor: Any?
+    private var globalMonitor: Any?
 
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
     }
 
     private func startMouseTracking() {
-        mouseTrackingMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown]) { [weak self] event in
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown]) { [weak self] event in
             self?.updateIgnoresMouseEvents()
             return event
         }
-        // グローバルモニターも追加（ウィンドウ外からの移動を検知）
-        NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self] _ in
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self] _ in
             self?.updateIgnoresMouseEvents()
         }
     }
 
     private func stopMouseTracking() {
-        if let monitor = mouseTrackingMonitor {
+        if let monitor = localMonitor {
             NSEvent.removeMonitor(monitor)
-            mouseTrackingMonitor = nil
+            localMonitor = nil
+        }
+        if let monitor = globalMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalMonitor = nil
         }
     }
 
@@ -42,9 +46,9 @@ class ResizableWindow: NSWindow {
         let mouseLocation = NSEvent.mouseLocation
         let windowFrame = frame
 
-        // マウスがウィンドウ内にあるかチェック
+        // マウスがウィンドウ外にある時はイベントを受け取る（メニュー等に影響しないように）
         guard windowFrame.contains(mouseLocation) else {
-            ignoresMouseEvents = true
+            ignoresMouseEvents = false
             return
         }
 
@@ -61,13 +65,22 @@ class ResizableWindow: NSWindow {
                      localPoint.y > windowFrame.height - resizeMargin
 
         // ボタンエリア（右上）
-        let buttonRect = CGRect(
+        let rightButtonRect = CGRect(
             x: windowFrame.width - 80,
             y: windowFrame.height - 50,
             width: 80,
             height: 50
         )
-        let onButton = buttonRect.contains(localPoint)
+
+        // 閉じるボタンエリア（左上）
+        let closeButtonRect = CGRect(
+            x: 0,
+            y: windowFrame.height - 50,
+            width: 50,
+            height: 50
+        )
+
+        let onButton = rightButtonRect.contains(localPoint) || closeButtonRect.contains(localPoint)
 
         ignoresMouseEvents = !(onEdge || onButton)
     }
@@ -218,16 +231,22 @@ class PassThroughContainerView: NSView {
             }
 
             // ボタンエリア（右上）- 左下原点の座標系
-            // EditorWindowでボタンは .position(x: width - 36, y: 20) なので
-            // NSView座標系では y = height - 20 付近
-            let buttonRect = CGRect(
+            let rightButtonRect = CGRect(
                 x: bounds.width - 80,
                 y: bounds.height - 50,
                 width: 80,
                 height: 50
             )
 
-            if buttonRect.contains(point) {
+            // 閉じるボタンエリア（左上）
+            let closeButtonRect = CGRect(
+                x: 0,
+                y: bounds.height - 50,
+                width: 50,
+                height: 50
+            )
+
+            if rightButtonRect.contains(point) || closeButtonRect.contains(point) {
                 return super.hitTest(point)
             }
 
