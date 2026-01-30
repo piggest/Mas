@@ -122,7 +122,7 @@
 				70E770341EF497C5313149DD /* ViewModels */,
 				035746E6B5C00AC6EF5712CD /* Views */,
 			);
-			path = ScreenshotApp;
+			path = Mas;
 			sourceTree = "<group>";
 		};
 		70E770341EF497C5313149DD /* ViewModels */ = {
@@ -253,11 +253,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = ScreenshotApp/ScreenshotApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Mas/ScreenshotApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				INFOPLIST_FILE = ScreenshotApp/Info.plist;
+				INFOPLIST_FILE = Mas/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@executable_path/../Frameworks",
 				);
@@ -393,11 +393,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = ScreenshotApp/ScreenshotApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Mas/ScreenshotApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				INFOPLIST_FILE = ScreenshotApp/Info.plist;
+				INFOPLIST_FILE = Mas/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@executable_path/../Frameworks",
 				);
