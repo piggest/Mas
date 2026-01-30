@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CAPFLASH001BUILD /* CaptureFlashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAPFLASH001FILEREF /* CaptureFlashView.swift */; };
 		RESIZE74158BUILD /* ResizableWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = RESIZE60656FILE /* ResizableWindow.swift */; };
 		042B782ECB5FA1E045C2236D /* Annotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0C035641F7CFE5019E75B3 /* Annotation.swift */; };
 		043C577D0F42433673F56F0A /* WindowPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */; };
@@ -35,6 +36,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		CAPFLASH001FILEREF /* CaptureFlashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlashView.swift; sourceTree = "<group>"; };
 		RESIZE60656FILE /* ResizableWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResizableWindow.swift; sourceTree = "<group>"; };
 		002A68B3D208C945FEA1D830 /* PermissionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionService.swift; sourceTree = "<group>"; };
 		13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPickerView.swift; sourceTree = "<group>"; };
@@ -69,6 +71,7 @@
 		035746E6B5C00AC6EF5712CD /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				CAPFLASH001FILEREF /* CaptureFlashView.swift */,
 				RESIZE60656FILE /* ResizableWindow.swift */,
 				788C0D7CDED4A7DA6FA0F286 /* CanvasView.swift */,
 				D798FE0D9F51C7776EC6EE3F /* EditorWindow.swift */,
@@ -234,6 +237,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CAPFLASH001BUILD /* CaptureFlashView.swift in Sources */,
 				RESIZE74158BUILD /* ResizableWindow.swift in Sources */,
 				042B782ECB5FA1E045C2236D /* Annotation.swift in Sources */,
 				621F46F34B68FFB6CBA35643 /* AppDelegate.swift in Sources */,
