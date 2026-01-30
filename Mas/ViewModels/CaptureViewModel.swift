@@ -10,6 +10,7 @@ class CaptureViewModel: ObservableObject {
     private let captureService = ScreenCaptureService()
     private let clipboardService = ClipboardService()
     private let fileStorageService = FileStorageService()
+    private let permissionService = PermissionService()
     private var editorWindowController: NSWindowController?
 
     init() {
@@ -49,7 +50,17 @@ class CaptureViewModel: ObservableObject {
         Task { await loadAvailableWindows() }
     }
 
+    private func checkPermission() async -> Bool {
+        guard permissionService.hasScreenCapturePermission() else {
+            await permissionService.requestScreenCapturePermission()
+            return false
+        }
+        return true
+    }
+
     func captureFullScreen() async {
+        guard await checkPermission() else { return }
+
         isCapturing = true
         errorMessage = nil
 
@@ -79,6 +90,8 @@ class CaptureViewModel: ObservableObject {
     }
 
     func startRegionSelection() async {
+        guard await checkPermission() else { return }
+
         isCapturing = true
         errorMessage = nil
 
@@ -210,6 +223,8 @@ class CaptureViewModel: ObservableObject {
     }
 
     func captureWindow(_ window: ScreenCaptureService.WindowInfo) async {
+        guard await checkPermission() else { return }
+
         isCapturing = true
         errorMessage = nil
 
