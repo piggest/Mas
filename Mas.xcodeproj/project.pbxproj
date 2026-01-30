@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		TOOLBOX001BUILD /* ToolboxWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = TOOLBOX001FILEREF /* ToolboxWindow.swift */; };
+		ELLIPSE001BUILD /* EllipseAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ELLIPSE001FILEREF /* EllipseAnnotation.swift */; };
 		CAPFLASH001BUILD /* CaptureFlashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAPFLASH001FILEREF /* CaptureFlashView.swift */; };
 		RESIZE74158BUILD /* ResizableWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = RESIZE60656FILE /* ResizableWindow.swift */; };
 		042B782ECB5FA1E045C2236D /* Annotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0C035641F7CFE5019E75B3 /* Annotation.swift */; };
@@ -36,6 +38,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		TOOLBOX001FILEREF /* ToolboxWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolboxWindow.swift; sourceTree = "<group>"; };
+		ELLIPSE001FILEREF /* EllipseAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EllipseAnnotation.swift; sourceTree = "<group>"; };
 		CAPFLASH001FILEREF /* CaptureFlashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlashView.swift; sourceTree = "<group>"; };
 		RESIZE60656FILE /* ResizableWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResizableWindow.swift; sourceTree = "<group>"; };
 		002A68B3D208C945FEA1D830 /* PermissionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionService.swift; sourceTree = "<group>"; };
@@ -73,6 +77,7 @@
 			children = (
 				CAPFLASH001FILEREF /* CaptureFlashView.swift */,
 				RESIZE60656FILE /* ResizableWindow.swift */,
+				TOOLBOX001FILEREF /* ToolboxWindow.swift */,
 				788C0D7CDED4A7DA6FA0F286 /* CanvasView.swift */,
 				D798FE0D9F51C7776EC6EE3F /* EditorWindow.swift */,
 				BD3B265CA8F46C67C372C189 /* MenuBarView.swift */,
@@ -107,6 +112,7 @@
 			children = (
 				8E0C035641F7CFE5019E75B3 /* Annotation.swift */,
 				9702C9A674BA192EFF166589 /* ArrowAnnotation.swift */,
+				ELLIPSE001FILEREF /* EllipseAnnotation.swift */,
 				F26D94A3B6CFB41C0B3E7DC1 /* HighlightAnnotation.swift */,
 				83F83616E14B03BE4E917A2E /* MosaicAnnotation.swift */,
 				2089CBB684BD2E5D5853CAD1 /* RectAnnotation.swift */,
@@ -237,6 +243,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				TOOLBOX001BUILD /* ToolboxWindow.swift in Sources */,
+				ELLIPSE001BUILD /* EllipseAnnotation.swift in Sources */,
 				CAPFLASH001BUILD /* CaptureFlashView.swift in Sources */,
 				RESIZE74158BUILD /* ResizableWindow.swift in Sources */,
 				042B782ECB5FA1E045C2236D /* Annotation.swift in Sources */,
