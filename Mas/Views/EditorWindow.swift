@@ -95,7 +95,7 @@ struct EditorWindow: View {
                                 updatePassThrough()
                             }
                         }) {
-                            Image(systemName: "arrow.clockwise")
+                            Image(systemName: "camera.viewfinder")
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(showImage ? .white : .gray)
                                 .padding(6)
