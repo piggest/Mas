@@ -74,6 +74,16 @@ class CanvasNSView: NSView {
             let rectAnnotation = RectAnnotation(rect: rect, color: viewModel.selectedColor, lineWidth: viewModel.lineWidth)
             rectAnnotation.draw(in: bounds)
 
+        case .ellipse:
+            let rect = CGRect(
+                x: min(start.x, current.x),
+                y: min(start.y, current.y),
+                width: abs(current.x - start.x),
+                height: abs(current.y - start.y)
+            )
+            let ellipseAnnotation = EllipseAnnotation(rect: rect, color: viewModel.selectedColor, lineWidth: viewModel.lineWidth)
+            ellipseAnnotation.draw(in: bounds)
+
         case .highlight:
             let rect = CGRect(
                 x: min(start.x, current.x),
