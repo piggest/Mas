@@ -9,6 +9,7 @@ class CaptureViewModel: ObservableObject {
 
     private let captureService = ScreenCaptureService()
     private let clipboardService = ClipboardService()
+    private let fileStorageService = FileStorageService()
     private var editorWindowController: NSWindowController?
 
     init() {
@@ -67,6 +68,7 @@ class CaptureViewModel: ObservableObject {
 
             let screenshot = Screenshot(cgImage: cgImage, mode: .fullScreen, region: fullScreenRect)
             currentScreenshot = screenshot
+            processScreenshot(screenshot)
             showEditorWindow(for: screenshot, at: fullScreenRect)
         } catch {
             errorMessage = error.localizedDescription
@@ -134,6 +136,7 @@ class CaptureViewModel: ObservableObject {
         // 選択範囲を保存してスクリーンショットを作成
         let screenshot = Screenshot(cgImage: croppedImage, mode: .region, region: rect)
         currentScreenshot = screenshot
+        processScreenshot(screenshot)
         showEditorWindow(for: screenshot, at: rect)
         isCapturing = false
     }
@@ -190,6 +193,9 @@ class CaptureViewModel: ObservableObject {
             screenshot.captureRegion = region
             print("Image updated")
 
+            // 新しい画像を保存
+            processScreenshot(screenshot)
+
             // ウィンドウを再表示
             window?.makeKeyAndOrderFront(nil)
             print("=== Recapture completed ===")
@@ -209,9 +215,11 @@ class CaptureViewModel: ObservableObject {
 
         do {
             let cgImage = try await captureService.captureWindow(windowID: window.id)
-            let screenshot = Screenshot(cgImage: cgImage, mode: .window)
+            // ウィンドウのboundsをregionとして使用
+            let screenshot = Screenshot(cgImage: cgImage, mode: .window, region: window.bounds)
             currentScreenshot = screenshot
-            showEditorWindow(for: screenshot)
+            processScreenshot(screenshot)
+            showEditorWindow(for: screenshot, at: window.bounds)
         } catch {
             errorMessage = error.localizedDescription
             print("Window capture error: \(error)")
@@ -291,5 +299,33 @@ class CaptureViewModel: ObservableObject {
         guard let screenshot = currentScreenshot else { return }
         let finalImage = screenshot.renderFinalImage()
         _ = clipboardService.copyToClipboard(finalImage)
+    }
+
+    private func processScreenshot(_ screenshot: Screenshot) {
+        // クリップボードにコピー（デフォルトはON）
+        let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
+        if autoCopyToClipboard {
+            _ = clipboardService.copyToClipboard(screenshot.originalImage)
+            print("Screenshot copied to clipboard")
+        }
+
+        // 自動保存（デフォルトはON）
+        let autoSaveEnabled = UserDefaults.standard.object(forKey: "autoSaveEnabled") as? Bool ?? true
+        if autoSaveEnabled {
+            let formatString = UserDefaults.standard.string(forKey: "defaultFormat") ?? "PNG"
+            let format: FileStorageService.ImageFormat = formatString == "JPEG" ? .jpeg : .png
+            let quality = UserDefaults.standard.double(forKey: "jpegQuality")
+
+            do {
+                let url = try fileStorageService.autoSaveImage(
+                    screenshot.originalImage,
+                    format: format,
+                    quality: quality > 0 ? quality : 0.9
+                )
+                print("Screenshot saved to: \(url.path)")
+            } catch {
+                print("Failed to auto-save screenshot: \(error)")
+            }
+        }
     }
 }
