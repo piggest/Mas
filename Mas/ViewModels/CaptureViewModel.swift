@@ -11,6 +11,7 @@ class CaptureViewModel: ObservableObject {
     private let clipboardService = ClipboardService()
     private let fileStorageService = FileStorageService()
     private let permissionService = PermissionService()
+    private let captureFlash = CaptureFlashView()
     private var editorWindowController: NSWindowController?
 
     init() {
@@ -79,6 +80,7 @@ class CaptureViewModel: ObservableObject {
 
             let screenshot = Screenshot(cgImage: cgImage, mode: .fullScreen, region: fullScreenRect)
             currentScreenshot = screenshot
+            captureFlash.showFlash(in: fullScreenRect)
             processScreenshot(screenshot)
             showEditorWindow(for: screenshot, at: fullScreenRect)
         } catch {
@@ -149,6 +151,7 @@ class CaptureViewModel: ObservableObject {
         // 選択範囲を保存してスクリーンショットを作成
         let screenshot = Screenshot(cgImage: croppedImage, mode: .region, region: rect)
         currentScreenshot = screenshot
+        captureFlash.showFlash(in: rect)
         processScreenshot(screenshot)
         showEditorWindow(for: screenshot, at: rect)
         isCapturing = false
@@ -201,6 +204,9 @@ class CaptureViewModel: ObservableObject {
 
             print("Cropped image size: \(croppedImage.width) x \(croppedImage.height)")
 
+            // フラッシュアニメーション
+            captureFlash.showFlash(in: region)
+
             // 画像と範囲を更新
             screenshot.updateImage(croppedImage)
             screenshot.captureRegion = region
@@ -233,6 +239,7 @@ class CaptureViewModel: ObservableObject {
             // ウィンドウのboundsをregionとして使用
             let screenshot = Screenshot(cgImage: cgImage, mode: .window, region: window.bounds)
             currentScreenshot = screenshot
+            captureFlash.showFlash(in: window.bounds)
             processScreenshot(screenshot)
             showEditorWindow(for: screenshot, at: window.bounds)
         } catch {
