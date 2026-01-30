@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ page.title | default: site.title }}</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
+  color: #1d1d1f;
+  background: #faf8f5;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.7;
+}
+
+/* Top Bar */
+.top-bar {
+  background: linear-gradient(90deg, #8b6914, #a67c2e, #c4993a);
+  height: 24px;
+}
+
+/* Navigation */
+.nav {
+  background: #fff;
+  border-bottom: 1px solid #e8e8ed;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,0.85);
+}
+
+.nav-inner {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.nav a {
+  color: #6e6e73;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+  padding: 4px 0;
+}
+
+.nav a:hover { color: #1d1d1f; text-decoration: none; }
+
+.nav a.home {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1d1d1f;
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.nav a.home img {
+  width: 26px;
+  height: 26px;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+}
+
+/* Page Header */
+.page-header {
+  background: linear-gradient(180deg, #fff 0%, #faf8f5 100%);
+  padding: 48px 24px 32px;
+  text-align: center;
+  border-bottom: 1px solid #e8e8ed;
+}
+
+.page-header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin: 0;
+}
+
+.page-header .subtitle {
+  font-size: 16px;
+  color: #6e6e73;
+  margin-top: 8px;
+}
+
+/* Main Content with Sidebar */
+.content-wrapper {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.sidebar {
+  flex: 0 0 240px;
+  position: sticky;
+  top: 76px;
+  margin: 32px 0;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.sidebar-inner {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.04);
+  padding: 20px 18px;
+}
+
+.sidebar-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #86868b;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0eeea;
+}
+
+.sidebar-toc {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-toc li { margin: 0; padding: 0; }
+
+.sidebar-toc .toc-h2 {
+  display: flex;
+  align-items: stretch;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+  margin-top: 2px;
+}
+
+.sidebar-toc .toc-h2:hover {
+  background: #faf7f0;
+}
+
+.sidebar-toc .toc-h2.active {
+  background: linear-gradient(90deg, rgba(196,153,58,0.08), transparent);
+  border-left-color: #c4993a;
+}
+
+.sidebar-toc .toc-h2 > a {
+  flex: 1;
+  display: block;
+  padding: 6px 4px 6px 10px;
+  font-size: 13px;
+  color: #424245;
+  text-decoration: none;
+  line-height: 1.5;
+  min-width: 0;
+}
+
+.sidebar-toc .toc-h2 > a:hover { color: #1d1d1f; text-decoration: none; }
+.sidebar-toc .toc-h2.active > a { color: #8b6914; font-weight: 600; }
+
+.sidebar-toc .toc-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 10px 0 4px;
+  color: #86868b;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.sidebar-toc .toc-toggle:hover { color: #1d1d1f; }
+.sidebar-toc .toc-toggle::before {
+  content: "▶";
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+.sidebar-toc .toc-h2.expanded .toc-toggle::before { transform: rotate(90deg); }
+
+.sidebar-toc .toc-children {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+
+.sidebar-toc .toc-h2.expanded + .toc-children {
+  max-height: 1200px;
+  margin-bottom: 4px;
+}
+
+.sidebar-toc .toc-children a {
+  display: block;
+  padding: 4px 10px 4px 28px;
+  font-size: 12.5px;
+  color: #6e6e73;
+  text-decoration: none;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  margin-left: 12px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  line-height: 1.45;
+}
+
+.sidebar-toc .toc-children a:hover {
+  background: #faf7f0;
+  color: #1d1d1f;
+}
+
+.sidebar-toc .toc-children a.active {
+  color: #8b6914;
+  font-weight: 600;
+  border-left-color: #c4993a;
+  background: linear-gradient(90deg, rgba(196,153,58,0.08), transparent);
+}
+
+.content-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.content {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.04);
+  padding: 48px 48px 56px;
+  margin: 32px 0;
+}
+
+@media (max-width: 960px) {
+  .content-wrapper { flex-direction: column; gap: 0; }
+  .sidebar {
+    flex: 1 1 auto;
+    position: static;
+    max-height: none;
+    width: 100%;
+    margin: 24px 0 0;
+  }
+  .sidebar-inner { padding: 16px 14px; }
+}
+
+@media (max-width: 640px) {
+  .content { padding: 24px 20px 32px; border-radius: 12px; }
+}
+
+/* Typography */
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  letter-spacing: -0.3px;
+}
+
+h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 48px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e8e8ed;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+h2::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 22px;
+  background: linear-gradient(180deg, #c4993a, #8b6914);
+  border-radius: 2px;
+}
+
+h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin-top: 32px;
+  margin-bottom: 12px;
+  color: #1d1d1f;
+}
+
+h3 img {
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+p {
+  margin-bottom: 16px;
+  font-size: 15px;
+  color: #424245;
+}
+
+/* Links */
+a { color: #0071e3; text-decoration: none; transition: color 0.15s; }
+a:hover { color: #0077ed; text-decoration: underline; }
+
+/* Lists */
+ul, ol {
+  padding-left: 1.5em;
+  margin-bottom: 16px;
+}
+
+li {
+  font-size: 15px;
+  margin-bottom: 8px;
+  color: #424245;
+}
+
+li strong { color: #1d1d1f; }
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0 24px;
+  font-size: 14px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e8e8ed;
+}
+
+th {
+  background: linear-gradient(180deg, #f9f8f6, #f0eeea);
+  font-weight: 600;
+  text-align: left;
+  padding: 11px 14px;
+  border-bottom: 1px solid #e8e8ed;
+}
+
+th:not(:last-child),
+td:not(:last-child) {
+  border-right: 1px solid #e8e8ed;
+}
+
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f0f0f2;
+}
+
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #faf9f7; }
+
+/* Images */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+.content > p > img,
+.content > p > a > img {
+  max-width: 400px;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  margin: 12px 0 20px;
+  transition: box-shadow 0.2s;
+}
+
+.content > p > img:hover,
+.content > p > a > img:hover {
+  box-shadow: 0 6px 28px rgba(0,0,0,0.12);
+}
+
+/* Inline tool icons in tables */
+td img {
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  vertical-align: middle;
+}
+
+/* Center-aligned images */
+p[align="center"] img {
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+/* Code */
+code {
+  background: #f5f3ef;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: "SF Mono", Menlo, monospace;
+  color: #8b6914;
+}
+
+pre {
+  background: #2d2d2d;
+  color: #e6e6e6;
+  padding: 18px 22px;
+  border-radius: 10px;
+  overflow-x: auto;
+  margin: 16px 0 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  color: #e6e6e6;
+}
+
+/* Horizontal rule */
+hr {
+  border: none;
+  border-top: 1px solid #e8e8ed;
+  margin: 40px 0;
+}
+
+/* Blockquote */
+blockquote {
+  background: #faf7f0;
+  border-left: 4px solid #c4993a;
+  padding: 14px 20px;
+  margin: 16px 0;
+  border-radius: 0 8px 8px 0;
+  font-size: 14px;
+}
+
+blockquote p { margin-bottom: 0; color: #6e6e73; }
+
+/* Strong */
+strong { color: #1d1d1f; }
+
+/* Footer */
+footer {
+  max-width: 860px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 24px;
+  font-size: 13px;
+  color: #86868b;
+}
+
+footer a { color: #86868b; }
+footer a:hover { color: #1d1d1f; }
+</style>
+</head>
+<body>
+
+<div class="top-bar"></div>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="home" href="{{ '/' | relative_url }}">
+      <img src="{{ '/images/icon.png' | relative_url }}" alt="Mas">
+      Mas
+    </a>
+    <a href="{{ '/user-guide' | relative_url }}">ユーザーガイド</a>
+    <a href="{{ '/cli' | relative_url }}">CLI</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <h1>{{ page.title }}</h1>
+</div>
+
+<div class="content-wrapper">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-inner">
+      <div class="sidebar-title">目次</div>
+      <ul class="sidebar-toc" id="sidebar-toc"></ul>
+    </div>
+  </aside>
+  <div class="content-main">
+    <div class="content" id="content">
+      {{ content }}
+    </div>
+  </div>
+</div>
+
+<footer>
+  <a href="https://github.com/piggest/Mas">GitHub</a>
+</footer>
+
+<script>
+(function() {
+  // 目次自動生成: コンテンツ内の h2/h3 から階層構造の TOC を構築
+  var content = document.getElementById('content');
+  var tocEl = document.getElementById('sidebar-toc');
+  if (!content || !tocEl) return;
+
+  var headings = content.querySelectorAll('h2, h3');
+  if (headings.length === 0) {
+    document.getElementById('sidebar').style.display = 'none';
+    return;
+  }
+
+  // h2 をグループの親、h3 を子としてツリー化
+  var tree = [];
+  var currentGroup = null;
+  headings.forEach(function(h) {
+    var text = h.textContent.trim();
+    if (text === '目次') return; // 自身を載せない
+    if (!h.id) {
+      var id = text.toLowerCase().replace(/[\s\/]+/g, '-').replace(/[^\w\-぀-ヿ一-鿿]/g, '');
+      h.id = id || 'section-' + tree.length;
+    }
+    if (h.tagName === 'H2') {
+      currentGroup = { heading: h, text: text, children: [] };
+      tree.push(currentGroup);
+    } else if (h.tagName === 'H3') {
+      if (!currentGroup) {
+        // h2 が前置されていない孤立 h3 は単独項目として扱う
+        currentGroup = { heading: h, text: text, children: [] };
+        tree.push(currentGroup);
+      } else {
+        currentGroup.children.push({ heading: h, text: text });
+      }
+    }
+  });
+
+  // DOM 構築
+  var allLinks = []; // { link, target, parentLi }
+  tree.forEach(function(group) {
+    var li = document.createElement('li');
+    var row = document.createElement('div');
+    row.className = 'toc-h2';
+    var a = document.createElement('a');
+    a.href = '#' + group.heading.id;
+    a.textContent = group.text;
+    row.appendChild(a);
+
+    if (group.children.length > 0) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'toc-toggle';
+      btn.setAttribute('aria-label', '展開/折りたたみ');
+      row.appendChild(btn);
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        row.classList.toggle('expanded');
+      });
+    }
+
+    li.appendChild(row);
+
+    if (group.children.length > 0) {
+      var ul = document.createElement('ul');
+      ul.className = 'toc-children';
+      group.children.forEach(function(child) {
+        var clLi = document.createElement('li');
+        var clA = document.createElement('a');
+        clA.href = '#' + child.heading.id;
+        clA.textContent = child.text;
+        clLi.appendChild(clA);
+        ul.appendChild(clLi);
+        allLinks.push({ link: clA, target: child.heading, parentRow: row, isChild: true });
+      });
+      li.appendChild(ul);
+    }
+    tocEl.appendChild(li);
+    allLinks.push({ link: a, target: group.heading, parentRow: row, isChild: false });
+  });
+
+  // クリックで親を自動展開
+  allLinks.forEach(function(item) {
+    item.link.addEventListener('click', function() {
+      if (item.parentRow && !item.parentRow.classList.contains('expanded')) {
+        item.parentRow.classList.add('expanded');
+      }
+    });
+  });
+
+  // スクロール連動: アクティブな見出しを判定し、親グループを展開
+  function updateActive() {
+    var scrollY = window.scrollY + 120;
+    var currentIdx = -1;
+    for (var i = 0; i < allLinks.length; i++) {
+      if (allLinks[i].target.offsetTop <= scrollY) {
+        currentIdx = i;
+      } else {
+        break;
+      }
+    }
+    allLinks.forEach(function(t) {
+      t.link.classList.remove('active');
+      t.parentRow.classList.remove('active');
+    });
+    if (currentIdx === -1) return;
+    var current = allLinks[currentIdx];
+    current.link.classList.add('active');
+    current.parentRow.classList.add('active');
+    // 現在のセクションの親グループだけ展開、他は閉じる
+    document.querySelectorAll('.toc-h2.expanded').forEach(function(el) {
+      if (el !== current.parentRow) el.classList.remove('expanded');
+    });
+    if (current.isChild || current.parentRow.querySelector('.toc-toggle')) {
+      // 親に子があれば展開
+      if (current.parentRow.querySelector('.toc-toggle')) {
+        current.parentRow.classList.add('expanded');
+      }
+    }
+  }
+
+  var ticking = false;
+  window.addEventListener('scroll', function() {
+    if (!ticking) {
+      window.requestAnimationFrame(function() {
+        updateActive();
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
+  updateActive();
+})();
+</script>
+
+</body>
+</html>
