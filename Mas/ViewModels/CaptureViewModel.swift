@@ -56,9 +56,18 @@ class CaptureViewModel: ObservableObject {
             try await Task.sleep(nanoseconds: 200_000_000)
 
             let cgImage = try await captureService.captureFullScreen()
-            let screenshot = Screenshot(cgImage: cgImage, mode: .fullScreen)
+
+            // 画面全体をregionとして設定
+            guard let screen = NSScreen.main else {
+                errorMessage = "ディスプレイが見つかりません"
+                isCapturing = false
+                return
+            }
+            let fullScreenRect = CGRect(x: 0, y: 0, width: screen.frame.width, height: screen.frame.height)
+
+            let screenshot = Screenshot(cgImage: cgImage, mode: .fullScreen, region: fullScreenRect)
             currentScreenshot = screenshot
-            showEditorWindow(for: screenshot)
+            showEditorWindow(for: screenshot, at: fullScreenRect)
         } catch {
             errorMessage = error.localizedDescription
             print("Capture error: \(error)")

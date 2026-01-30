@@ -66,7 +66,7 @@ struct EditorWindow: View {
                 .position(x: 20, y: 20)
 
                 // ボタン群（常に右上に固定）
-                if screenshot.mode == .region && screenshot.captureRegion != nil {
+                if screenshot.captureRegion != nil {
                     HStack(spacing: 4) {
                         // パススルートグル（画像非表示時のみ）
                         if !showImage {
