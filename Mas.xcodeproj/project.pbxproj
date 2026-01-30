@@ -31,6 +31,7 @@
 		D66BF3341C56BEA60138ECB4 /* CaptureMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9206D463AC21C096C205611 /* CaptureMode.swift */; };
 		DC72F4D5D427101A6CC14BBA /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4009DABA3E02A6EE77D22CBC /* HotkeyManager.swift */; };
 		EAF180B1DEE2403ACB271CA3 /* MosaicAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83F83616E14B03BE4E917A2E /* MosaicAnnotation.swift */; };
+		ASSETS00001BUILD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ASSETS00001FILEREF /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -61,6 +62,7 @@
 		F26D94A3B6CFB41C0B3E7DC1 /* HighlightAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlightAnnotation.swift; sourceTree = "<group>"; };
 		F9206D463AC21C096C205611 /* CaptureMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureMode.swift; sourceTree = "<group>"; };
 		FF4902973D365480BDC4D51F /* ScreenshotApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotApp.swift; sourceTree = "<group>"; };
+		ASSETS00001FILEREF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -113,6 +115,7 @@
 		707C970C1A9F09FCA72CE7CE /* ScreenshotApp */ = {
 			isa = PBXGroup;
 			children = (
+				ASSETS00001FILEREF /* Assets.xcassets */,
 				58B158848BF386BA360D112A /* Info.plist */,
 				AC96B8C5055AFEA295B48A8A /* ScreenshotApp.entitlements */,
 				FF4902973D365480BDC4D51F /* ScreenshotApp.swift */,
@@ -163,12 +166,24 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXResourcesBuildPhase section */
+		RESOURCES001PHASE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ASSETS00001BUILD /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXNativeTarget section */
 		B9D8B1503E1993CAF1A5DCD1 /* ScreenshotApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 3AFFA3B5C53B8E5C6D6A1B4F /* Build configuration list for PBXNativeTarget "ScreenshotApp" */;
 			buildPhases = (
 				B7215A09520CAF379CE59658 /* Sources */,
+				RESOURCES001PHASE /* Resources */,
 			);
 			buildRules = (
 			);
