@@ -1,5 +1,119 @@
 import SwiftUI
 
+// ドラッグ可能な領域（ウィンドウ移動をブロック）
+struct DraggableImageView: NSViewRepresentable {
+    let image: NSImage
+    let showImage: Bool
+
+    func makeNSView(context: Context) -> DragSourceView {
+        let view = DragSourceView()
+        view.image = image
+        view.showImage = showImage
+        return view
+    }
+
+    func updateNSView(_ nsView: DragSourceView, context: Context) {
+        nsView.image = image
+        nsView.showImage = showImage
+        nsView.needsDisplay = true
+    }
+}
+
+class DragSourceView: NSView {
+    var image: NSImage?
+    var showImage: Bool = true
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes([.fileURL, .png, .tiff])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // ウィンドウ移動を完全にブロック
+    override var mouseDownCanMoveWindow: Bool {
+        return false
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        // 背景
+        let bgColor = showImage ? NSColor.black.withAlphaComponent(0.5) : NSColor.white.withAlphaComponent(0.8)
+        bgColor.setFill()
+        let path = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
+        path.fill()
+
+        // アイコン
+        let iconColor = showImage ? NSColor.white : NSColor.gray
+        if let symbolImage = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: nil) {
+            let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .bold)
+            let configuredImage = symbolImage.withSymbolConfiguration(config)
+            configuredImage?.lockFocus()
+            iconColor.set()
+            let imageRect = NSRect(x: 0, y: 0, width: configuredImage?.size.width ?? 0, height: configuredImage?.size.height ?? 0)
+            imageRect.fill(using: .sourceAtop)
+            configuredImage?.unlockFocus()
+
+            let iconSize: CGFloat = 18
+            let iconRect = NSRect(
+                x: (bounds.width - iconSize) / 2,
+                y: (bounds.height - iconSize) / 2,
+                width: iconSize,
+                height: iconSize
+            )
+            configuredImage?.draw(in: iconRect)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        // ウィンドウ移動をブロック - 何もしない
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let image = image else { return }
+
+        // 一時ファイルに保存
+        let tempDir = FileManager.default.temporaryDirectory
+        let fileName = "Mas_Screenshot_\(Int(Date().timeIntervalSince1970)).png"
+        let fileURL = tempDir.appendingPathComponent(fileName)
+
+        if let tiffData = image.tiffRepresentation,
+           let bitmapRep = NSBitmapImageRep(data: tiffData),
+           let pngData = bitmapRep.representation(using: .png, properties: [:]) {
+            try? pngData.write(to: fileURL)
+        }
+
+        let draggingItem = NSDraggingItem(pasteboardWriter: fileURL as NSURL)
+
+        // ドラッグ時のプレビュー画像
+        let thumbnailSize = NSSize(width: 64, height: 64)
+        let thumbnail = NSImage(size: thumbnailSize)
+        thumbnail.lockFocus()
+        image.draw(in: NSRect(origin: .zero, size: thumbnailSize),
+                   from: NSRect(origin: .zero, size: image.size),
+                   operation: .copy,
+                   fraction: 0.8)
+        thumbnail.unlockFocus()
+
+        draggingItem.setDraggingFrame(bounds, contents: thumbnail)
+
+        beginDraggingSession(with: [draggingItem], event: event, source: self)
+    }
+}
+
+extension DragSourceView: NSDraggingSource {
+    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        return .copy
+    }
+}
+
 struct EditorWindow: View {
     @StateObject private var viewModel: EditorViewModel
     @ObservedObject var screenshot: Screenshot
@@ -108,6 +222,11 @@ struct EditorWindow: View {
                     }
                     .position(x: geometry.size.width - (showImage ? 20 : 36), y: 20)
                 }
+
+                // ドラッグ領域（右下）
+                DraggableImageView(image: screenshot.originalImage, showImage: showImage)
+                    .frame(width: 32, height: 32)
+                    .position(x: geometry.size.width - 24, y: geometry.size.height - 24)
             }
         }
         .frame(minWidth: 50, minHeight: 50)
@@ -146,5 +265,21 @@ struct EditorWindow: View {
                 return
             }
         }
+    }
+
+    private func createDragItem() -> NSItemProvider {
+        // 一時ファイルに画像を保存
+        let tempDir = FileManager.default.temporaryDirectory
+        let fileName = "Mas_Screenshot_\(Int(Date().timeIntervalSince1970)).png"
+        let fileURL = tempDir.appendingPathComponent(fileName)
+
+        if let tiffData = screenshot.originalImage.tiffRepresentation,
+           let bitmapRep = NSBitmapImageRep(data: tiffData),
+           let pngData = bitmapRep.representation(using: .png, properties: [:]) {
+            try? pngData.write(to: fileURL)
+        }
+
+        let provider = NSItemProvider(contentsOf: fileURL) ?? NSItemProvider()
+        return provider
     }
 }
