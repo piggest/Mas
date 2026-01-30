@@ -27,10 +27,33 @@ struct GeneralSettingsView: View {
     @AppStorage("jpegQuality") private var jpegQuality = 0.9
     @AppStorage("showCursor") private var showCursor = false
     @AppStorage("playSound") private var playSound = true
+    @AppStorage("autoSaveEnabled") private var autoSaveEnabled = true
+    @AppStorage("autoSaveFolder") private var autoSaveFolder = ""
+    @AppStorage("autoCopyToClipboard") private var autoCopyToClipboard = true
+    @State private var displayPath = ""
 
     var body: some View {
         Form {
-            Section {
+            Section("キャプチャ時の動作") {
+                Toggle("クリップボードにコピー", isOn: $autoCopyToClipboard)
+                Toggle("ファイルに保存", isOn: $autoSaveEnabled)
+
+                if autoSaveEnabled {
+                    HStack {
+                        Text("保存先")
+                        Spacer()
+                        Text(displayPath.isEmpty ? "~/Pictures/Mas" : displayPath)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Button("変更...") {
+                            selectFolder()
+                        }
+                    }
+                }
+            }
+
+            Section("保存形式") {
                 Picker("デフォルト保存形式", selection: $defaultFormat) {
                     Text("PNG").tag("PNG")
                     Text("JPEG").tag("JPEG")
@@ -46,12 +69,42 @@ struct GeneralSettingsView: View {
                 }
             }
 
-            Section {
+            Section("オプション") {
                 Toggle("マウスカーソルを含める", isOn: $showCursor)
                 Toggle("キャプチャ時にサウンドを再生", isOn: $playSound)
             }
         }
         .padding()
+        .onAppear {
+            updateDisplayPath()
+        }
+    }
+
+    private func selectFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+
+        if panel.runModal() == .OK, let url = panel.url {
+            autoSaveFolder = url.path
+            updateDisplayPath()
+        }
+    }
+
+    private func updateDisplayPath() {
+        if autoSaveFolder.isEmpty {
+            displayPath = ""
+        } else {
+            // ホームディレクトリを~に置換
+            let home = FileManager.default.homeDirectoryForCurrentUser.path
+            if autoSaveFolder.hasPrefix(home) {
+                displayPath = autoSaveFolder.replacingOccurrences(of: home, with: "~")
+            } else {
+                displayPath = autoSaveFolder
+            }
+        }
     }
 }
 
