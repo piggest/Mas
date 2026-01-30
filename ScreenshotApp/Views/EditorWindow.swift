@@ -138,14 +138,12 @@ struct EditorWindow: View {
     }
 
     private func closeWindow() {
-        // borderlessウィンドウを閉じる
+        // floatingレベルのウィンドウ（エディタウィンドウ）を閉じる
         for window in NSApp.windows {
-            if window.contentViewController?.view.window == window && window.styleMask.contains(.borderless) {
+            if window.level == .floating && window.isVisible {
                 window.close()
                 return
             }
         }
-        // フォールバック
-        NSApp.mainWindow?.close()
     }
 }
