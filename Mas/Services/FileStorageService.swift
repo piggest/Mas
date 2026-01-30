@@ -53,6 +53,35 @@ class FileStorageService {
         return url
     }
 
+    func autoSaveImage(_ image: NSImage, format: ImageFormat = .png, quality: CGFloat = 0.9) throws -> URL {
+        let saveFolder = getSaveFolder()
+
+        // フォルダが存在しない場合は作成
+        if !FileManager.default.fileExists(atPath: saveFolder.path) {
+            try FileManager.default.createDirectory(at: saveFolder, withIntermediateDirectories: true)
+        }
+
+        let filename = generateFilename(format: format)
+        let url = saveFolder.appendingPathComponent(filename)
+
+        try saveImageToURL(image, url: url, format: format, quality: quality)
+        return url
+    }
+
+    func getSaveFolder() -> URL {
+        if let savedPath = UserDefaults.standard.string(forKey: "autoSaveFolder"),
+           !savedPath.isEmpty {
+            return URL(fileURLWithPath: savedPath)
+        }
+        // デフォルトはピクチャフォルダ内のMasフォルダ
+        let picturesURL = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first!
+        return picturesURL.appendingPathComponent("Mas")
+    }
+
+    func setSaveFolder(_ url: URL) {
+        UserDefaults.standard.set(url.path, forKey: "autoSaveFolder")
+    }
+
     private func saveImageToURL(_ image: NSImage, url: URL, format: ImageFormat, quality: CGFloat) throws {
         guard let tiffData = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData) else {
