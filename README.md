@@ -8,7 +8,7 @@
 
 ![macOS](https://img.shields.io/badge/macOS-13.0+-blue.svg)
 ![Swift](https://img.shields.io/badge/Swift-5.8-orange.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+[![Download](https://img.shields.io/github/v/release/piggest/Mas?label=Download)](https://github.com/piggest/Mas/releases/latest)
 
 ## 概要
 
@@ -28,7 +28,15 @@ Mas（Mac Area Screenshot）は、macOS向けのネイティブスクリーン�
 - macOS 13.0（Ventura）以上
 - 画面収録の権限（初回起動時に許可が必要）
 
-## インストール
+## ダウンロード
+
+[最新版をダウンロード](https://github.com/piggest/Mas/releases/latest)
+
+1. `Mas-x.x.zip`をダウンロード
+2. 解凍して`Mas.app`を`/Applications`フォルダに移動
+3. 初回起動時に画面収録の権限を許可
+
+## ソースからビルド
 
 ### ビルド方法
 
