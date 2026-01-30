@@ -105,25 +105,31 @@ struct ShortcutsSettingsView: View {
 
 struct AboutView: View {
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "camera.viewfinder")
-                .font(.system(size: 64))
-                .foregroundColor(.accentColor)
+        VStack(spacing: 12) {
+            Image(nsImage: NSImage(named: "AppIcon") ?? NSImage())
+                .resizable()
+                .frame(width: 64, height: 64)
 
-            Text("Screenshot App")
+            Text("Mas")
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("バージョン 1.0")
+            Text("Mac Area Screenshot")
+                .font(.subheadline)
                 .foregroundColor(.secondary)
 
-            Text("macOS用のシンプルなスクリーンショットアプリ")
+            Text("バージョン 1.0")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Text("まるでマスですくうように\n簡単に正確にスクリーンショットを作成します")
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
+                .padding(.top, 8)
 
             Spacer()
 
-            Text("© 2024")
+            Text("© 2025")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
