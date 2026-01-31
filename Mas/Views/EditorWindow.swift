@@ -931,7 +931,8 @@ class AnnotationCanvas: NSView {
 
     private func startRefreshTimer() {
         guard refreshTimer == nil else { return }
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+        // 約30fpsでリアルタイム更新
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             guard let self = self, self.needsRefreshTimer else { return }
             // モザイクのキャッシュをクリアして再描画
             for annotation in self.annotations {
