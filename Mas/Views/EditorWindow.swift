@@ -112,6 +112,16 @@ extension DragSourceView: NSDraggingSource {
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
         return .copy
     }
+
+    func draggingSession(_ session: NSDraggingSession, willBeginAt screenPoint: NSPoint) {
+        // ドラッグ開始時にウィンドウを非表示
+        window?.orderOut(nil)
+    }
+
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        // ドラッグ終了時にウィンドウを再表示
+        window?.makeKeyAndOrderFront(nil)
+    }
 }
 
 // 編集ツールの種類
