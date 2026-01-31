@@ -100,9 +100,10 @@ class HotkeyManager {
 }
 
 struct HotkeyConfig {
-    static let fullScreenKeyCode: UInt32 = 20
-    static let regionKeyCode: UInt32 = 21
-    static let windowKeyCode: UInt32 = 23
+    static let fullScreenKeyCode: UInt32 = 20  // 3
+    static let regionKeyCode: UInt32 = 21      // 4
+    static let windowKeyCode: UInt32 = 23      // 5
+    static let frameKeyCode: UInt32 = 22       // 6 (Cmd+Shift+6)
 
     static let modifiers = UInt32(NSEvent.ModifierFlags.command.rawValue | NSEvent.ModifierFlags.shift.rawValue)
 }

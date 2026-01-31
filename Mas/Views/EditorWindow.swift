@@ -155,7 +155,7 @@ struct EditorWindow: View {
     @ObservedObject private var toolboxState = ToolboxState.shared
     @ObservedObject private var resizeState = WindowResizeState.shared
     @State private var copiedToClipboard = false
-    @State private var showImage = true
+    @State private var showImage: Bool
     @State private var passThroughEnabled = false
     @State private var editMode = false
     @State private var currentAnnotation: (any Annotation)?
@@ -167,11 +167,12 @@ struct EditorWindow: View {
     let onRecapture: ((CGRect) -> Void)?
     let onPassThroughChanged: ((Bool) -> Void)?
 
-    init(screenshot: Screenshot, onRecapture: ((CGRect) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil) {
+    init(screenshot: Screenshot, onRecapture: ((CGRect) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil, showImageInitially: Bool = true) {
         _viewModel = StateObject(wrappedValue: EditorViewModel(screenshot: screenshot))
         self.screenshot = screenshot
         self.onRecapture = onRecapture
         self.onPassThroughChanged = onPassThroughChanged
+        _showImage = State(initialValue: showImageInitially)
     }
 
     private func getCurrentWindowRect() -> CGRect {
