@@ -157,6 +157,10 @@ struct ShortcutsSettingsView: View {
 }
 
 struct AboutView: View {
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    }
+
     var body: some View {
         VStack(spacing: 12) {
             Image(nsImage: NSImage(named: "AppIcon") ?? NSImage())
@@ -171,7 +175,7 @@ struct AboutView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
 
-            Text("バージョン 1.0")
+            Text("バージョン \(appVersion)")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
