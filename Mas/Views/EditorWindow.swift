@@ -338,24 +338,22 @@ struct EditorWindow: View {
 
     @ViewBuilder
     private func editModeToggle(geometry: GeometryProxy) -> some View {
-        if showImage {
-            Button(action: {
-                editMode.toggle()
-                // 編集モード終了時もアノテーションは保持（自動保存のみ）
-                if !editMode && !toolboxState.annotations.isEmpty {
-                    applyAnnotationsToImage()
-                }
-            }) {
-                Image(systemName: editMode ? "pencil.circle.fill" : "pencil.circle")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(editMode ? .blue : .white)
-                    .padding(8)
-                    .background(editMode ? Color.white.opacity(0.9) : Color.black.opacity(0.5))
-                    .clipShape(Circle())
+        Button(action: {
+            editMode.toggle()
+            // 編集モード終了時もアノテーションは保持（自動保存のみ）
+            if !editMode && !toolboxState.annotations.isEmpty && showImage {
+                applyAnnotationsToImage()
             }
-            .buttonStyle(.plain)
-            .position(x: 24, y: geometry.size.height - 24)
+        }) {
+            Image(systemName: editMode ? "pencil.circle.fill" : "pencil.circle")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(editMode ? .blue : (showImage ? .white : .gray))
+                .padding(8)
+                .background(editMode ? Color.white.opacity(0.9) : (showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8)))
+                .clipShape(Circle())
         }
+        .buttonStyle(.plain)
+        .position(x: 24, y: geometry.size.height - 24)
     }
 
     @ViewBuilder
