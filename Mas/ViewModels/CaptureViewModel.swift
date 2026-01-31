@@ -212,6 +212,9 @@ class CaptureViewModel: ObservableObject {
             screenshot.captureRegion = region
             print("Image updated")
 
+            // リサイズ状態をリセット（オフセットをクリア）
+            WindowResizeState.shared.reset()
+
             // 新しい画像を保存
             processScreenshot(screenshot)
 
