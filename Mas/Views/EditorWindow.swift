@@ -116,20 +116,22 @@ extension DragSourceView: NSDraggingSource {
 
 // 編集ツールの種類
 enum EditTool: String, CaseIterable {
+    case pen = "ペン"
+    case highlight = "マーカー"
     case arrow = "矢印"
     case rectangle = "四角"
     case ellipse = "丸"
     case text = "文字"
-    case highlight = "マーカー"
     case mosaic = "ぼかし"
 
     var icon: String {
         switch self {
+        case .pen: return "pencil.tip"
+        case .highlight: return "highlighter"
         case .arrow: return "arrow.up.right"
         case .rectangle: return "rectangle"
         case .ellipse: return "circle"
         case .text: return "textformat"
-        case .highlight: return "highlighter"
         case .mosaic: return "square.grid.3x3"
         }
     }
@@ -511,6 +513,17 @@ struct EditorWindow: View {
                 pixelSize: Int(CGFloat(mosaic.pixelSize) * scale)
             )
             scaledAnnotation.draw(in: .zero)
+        } else if let freehand = annotation as? FreehandAnnotation {
+            let scaledPoints = freehand.points.map { point in
+                CGPoint(x: point.x * scale, y: point.y * scale)
+            }
+            let scaledAnnotation = FreehandAnnotation(
+                points: scaledPoints,
+                color: freehand.color,
+                lineWidth: freehand.lineWidth * scale,
+                isHighlighter: freehand.isHighlighter
+            )
+            scaledAnnotation.draw(in: .zero)
         }
     }
 
@@ -685,6 +698,10 @@ class AnnotationCanvas: NSView {
         }
 
         switch selectedTool {
+        case .pen:
+            currentAnnotation = FreehandAnnotation(points: [point], color: selectedColor, lineWidth: lineWidth, isHighlighter: false)
+        case .highlight:
+            currentAnnotation = FreehandAnnotation(points: [point], color: selectedColor, lineWidth: lineWidth, isHighlighter: true)
         case .arrow:
             currentAnnotation = ArrowAnnotation(startPoint: point, endPoint: point, color: selectedColor, lineWidth: lineWidth)
         case .rectangle:
@@ -693,8 +710,6 @@ class AnnotationCanvas: NSView {
             currentAnnotation = EllipseAnnotation(rect: CGRect(origin: point, size: .zero), color: selectedColor, lineWidth: lineWidth)
         case .text:
             break
-        case .highlight:
-            currentAnnotation = HighlightAnnotation(rect: CGRect(origin: point, size: .zero), color: selectedColor)
         case .mosaic:
             currentAnnotation = MosaicAnnotation(rect: CGRect(origin: point, size: .zero), pixelSize: Int(lineWidth * 3), sourceImage: sourceImage)
         }
@@ -714,6 +729,10 @@ class AnnotationCanvas: NSView {
         )
 
         switch selectedTool {
+        case .pen, .highlight:
+            if let freehand = currentAnnotation as? FreehandAnnotation {
+                freehand.addPoint(point)
+            }
         case .arrow:
             if let arrow = currentAnnotation as? ArrowAnnotation {
                 arrow.endPoint = point
@@ -728,10 +747,6 @@ class AnnotationCanvas: NSView {
             }
         case .text:
             break
-        case .highlight:
-            if let highlight = currentAnnotation as? HighlightAnnotation {
-                highlight.rect = newRect
-            }
         case .mosaic:
             if let mosaic = currentAnnotation as? MosaicAnnotation {
                 mosaic.rect = newRect

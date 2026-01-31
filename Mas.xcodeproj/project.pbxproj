@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FREEHAND01BUILD /* FreehandAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FREEHAND01FILEREF /* FreehandAnnotation.swift */; };
 		TOOLBOX001BUILD /* ToolboxWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = TOOLBOX001FILEREF /* ToolboxWindow.swift */; };
 		ELLIPSE001BUILD /* EllipseAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ELLIPSE001FILEREF /* EllipseAnnotation.swift */; };
 		CAPFLASH001BUILD /* CaptureFlashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAPFLASH001FILEREF /* CaptureFlashView.swift */; };
@@ -38,6 +39,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		FREEHAND01FILEREF /* FreehandAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreehandAnnotation.swift; sourceTree = "<group>"; };
 		TOOLBOX001FILEREF /* ToolboxWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolboxWindow.swift; sourceTree = "<group>"; };
 		ELLIPSE001FILEREF /* EllipseAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EllipseAnnotation.swift; sourceTree = "<group>"; };
 		CAPFLASH001FILEREF /* CaptureFlashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlashView.swift; sourceTree = "<group>"; };
@@ -113,6 +115,7 @@
 				8E0C035641F7CFE5019E75B3 /* Annotation.swift */,
 				9702C9A674BA192EFF166589 /* ArrowAnnotation.swift */,
 				ELLIPSE001FILEREF /* EllipseAnnotation.swift */,
+				FREEHAND01FILEREF /* FreehandAnnotation.swift */,
 				F26D94A3B6CFB41C0B3E7DC1 /* HighlightAnnotation.swift */,
 				83F83616E14B03BE4E917A2E /* MosaicAnnotation.swift */,
 				2089CBB684BD2E5D5853CAD1 /* RectAnnotation.swift */,
@@ -243,6 +246,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FREEHAND01BUILD /* FreehandAnnotation.swift in Sources */,
 				TOOLBOX001BUILD /* ToolboxWindow.swift in Sources */,
 				ELLIPSE001BUILD /* EllipseAnnotation.swift in Sources */,
 				CAPFLASH001BUILD /* CaptureFlashView.swift in Sources */,

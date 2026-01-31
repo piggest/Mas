@@ -5,7 +5,7 @@ import AppKit
 class ToolboxState: ObservableObject {
     static let shared = ToolboxState()
 
-    @Published var selectedTool: EditTool = .arrow
+    @Published var selectedTool: EditTool = .pen
     @Published var selectedColor: Color = .red
     @Published var lineWidth: CGFloat = 3
     @Published var annotations: [any Annotation] = []
@@ -49,8 +49,8 @@ struct ToolboxContentView: View {
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.secondary)
             let tools = EditTool.allCases
-            let firstRow = Array(tools.prefix(3))
-            let secondRow = Array(tools.dropFirst(3))
+            let firstRow = Array(tools.prefix(4))
+            let secondRow = Array(tools.dropFirst(4))
             VStack(spacing: 4) {
                 HStack(spacing: 4) {
                     ForEach(firstRow, id: \.self) { tool in
@@ -75,7 +75,7 @@ struct ToolboxContentView: View {
                     .font(.system(size: 8))
             }
             .foregroundColor(state.selectedTool == tool ? .white : .primary)
-            .frame(width: 50, height: 36)
+            .frame(width: 42, height: 36)
             .background(state.selectedTool == tool ? Color.blue : Color.gray.opacity(0.2))
             .clipShape(RoundedRectangle(cornerRadius: 6))
         }
