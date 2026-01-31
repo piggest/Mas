@@ -253,12 +253,37 @@ struct EditorWindow: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             for window in NSApp.windows {
                 if window.level == .floating && window.isVisible && window.contentView != nil {
-                    self.toolbarController?.show(attachedTo: window, state: self.toolboxState) {
-                        _ = self.toolboxState.annotations.popLast()
-                    }
+                    self.toolbarController?.show(
+                        attachedTo: window,
+                        state: self.toolboxState,
+                        onUndo: {
+                            _ = self.toolboxState.annotations.popLast()
+                        },
+                        onDelete: {
+                            self.deleteSelectedAnnotation()
+                        }
+                    )
                     break
                 }
             }
+        }
+    }
+
+    private func deleteSelectedAnnotation() {
+        guard let index = toolboxState.selectedAnnotationIndex,
+              index < toolboxState.annotations.count else { return }
+
+        toolboxState.annotations.remove(at: index)
+
+        // 削除後に次のアノテーションを自動選択
+        if toolboxState.annotations.isEmpty {
+            toolboxState.selectedAnnotationIndex = nil
+        } else if index < toolboxState.annotations.count {
+            // 同じ位置に次のアノテーションがあればそれを選択
+            toolboxState.selectedAnnotationIndex = index
+        } else {
+            // 最後の要素だった場合は一つ前を選択
+            toolboxState.selectedAnnotationIndex = toolboxState.annotations.count - 1
         }
     }
 
@@ -837,6 +862,10 @@ struct AnnotationCanvasView: NSViewRepresentable {
         // 編集モード終了時に選択をクリア
         if !isEditing {
             nsView.clearSelection()
+            ToolboxState.shared.selectedAnnotationIndex = nil
+        } else {
+            // ToolboxStateの選択状態をCanvasに同期
+            nsView.setSelectedIndex(ToolboxState.shared.selectedAnnotationIndex)
         }
         // ウィンドウフレームを更新
         nsView.updateWindowFrame()
@@ -887,6 +916,34 @@ struct AnnotationCanvasView: NSViewRepresentable {
             }
             parent.onAnnotationChanged()
         }
+
+        func selectionChanged(_ index: Int?) {
+            ToolboxState.shared.selectedAnnotationIndex = index
+        }
+
+        func deleteSelectedAnnotation() {
+            guard let index = ToolboxState.shared.selectedAnnotationIndex,
+                  index < parent.annotations.count else { return }
+            parent.annotations.remove(at: index)
+            canvas?.annotations = parent.annotations
+
+            // 削除後に次のアノテーションを自動選択
+            let newIndex: Int?
+            if parent.annotations.isEmpty {
+                newIndex = nil
+            } else if index < parent.annotations.count {
+                // 同じ位置に次のアノテーションがあればそれを選択
+                newIndex = index
+            } else {
+                // 最後の要素だった場合は一つ前を選択
+                newIndex = parent.annotations.count - 1
+            }
+
+            canvas?.setSelectedIndex(newIndex)
+            ToolboxState.shared.selectedAnnotationIndex = newIndex
+            canvas?.needsDisplay = true
+            parent.onAnnotationChanged()
+        }
     }
 }
 
@@ -895,6 +952,8 @@ protocol AnnotationCanvasDelegate: AnyObject {
     func currentAnnotationUpdated(_ annotation: (any Annotation)?)
     func textTapped(at position: CGPoint)
     func annotationMoved()
+    func selectionChanged(_ index: Int?)
+    func deleteSelectedAnnotation()
 }
 
 class AnnotationCanvas: NSView {
@@ -915,10 +974,16 @@ class AnnotationCanvas: NSView {
     private var windowFrame: CGRect = .zero
     private var refreshTimer: Timer?
 
+    override var acceptsFirstResponder: Bool { true }
+
     override var mouseDownCanMoveWindow: Bool { !isEditing }
 
     func clearSelection() {
         selectedAnnotationIndex = nil
+    }
+
+    func setSelectedIndex(_ index: Int?) {
+        selectedAnnotationIndex = index
     }
 
     func updateWindowFrame() {
@@ -1044,9 +1109,12 @@ class AnnotationCanvas: NSView {
 
         // 移動モードの場合
         if selectedTool == .move {
-            // 前の選択状態を記録
+            // 前の選択状態を記録（インデックスが有効な場合のみ）
             let previousSelectedIndex = selectedAnnotationIndex
-            let previousWasMosaic = previousSelectedIndex.map { annotations[$0] is MosaicAnnotation } ?? false
+            let previousWasMosaic: Bool = {
+                guard let index = previousSelectedIndex, index < annotations.count else { return false }
+                return annotations[index] is MosaicAnnotation
+            }()
 
             // クリックした位置にあるアノテーションを探す（配列のインデックス順）
             let clickedIndices = annotations.enumerated()
@@ -1108,6 +1176,7 @@ class AnnotationCanvas: NSView {
                     }
                 }
             }
+            delegate?.selectionChanged(selectedAnnotationIndex)
             needsDisplay = true
             return
         }
@@ -1218,6 +1287,17 @@ class AnnotationCanvas: NSView {
         currentAnnotation = nil
         dragStart = nil
         needsDisplay = true
+    }
+
+    override func keyDown(with event: NSEvent) {
+        // Delete (51) または Backspace (117) キー
+        if event.keyCode == 51 || event.keyCode == 117 {
+            if selectedAnnotationIndex != nil {
+                delegate?.deleteSelectedAnnotation()
+            }
+        } else {
+            super.keyDown(with: event)
+        }
     }
 
     // ぼかしを最背面（インデックス0）に移動
