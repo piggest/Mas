@@ -14,6 +14,9 @@ class CaptureViewModel: ObservableObject {
     private let captureFlash = CaptureFlashView()
     private var editorWindowController: NSWindowController?
 
+    // 前回のキャプチャ範囲を保存するキー
+    private let lastCaptureRectKey = "lastCaptureRect"
+
     init() {
         setupNotifications()
     }
@@ -37,6 +40,12 @@ class CaptureViewModel: ObservableObject {
             name: .captureWindow,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleShowCaptureFrame),
+            name: .showCaptureFrame,
+            object: nil
+        )
     }
 
     @objc private func handleCaptureFullScreen() {
@@ -49,6 +58,47 @@ class CaptureViewModel: ObservableObject {
 
     @objc private func handleCaptureWindow() {
         Task { await loadAvailableWindows() }
+    }
+
+    @objc private func handleShowCaptureFrame() {
+        Task { await showCaptureFrame() }
+    }
+
+    // 前回のキャプチャ範囲を保存
+    private func saveLastCaptureRect(_ rect: CGRect) {
+        let rectDict: [String: CGFloat] = [
+            "x": rect.origin.x,
+            "y": rect.origin.y,
+            "width": rect.width,
+            "height": rect.height
+        ]
+        UserDefaults.standard.set(rectDict, forKey: lastCaptureRectKey)
+    }
+
+    // 前回のキャプチャ範囲を読み込み
+    private func loadLastCaptureRect() -> CGRect? {
+        guard let rectDict = UserDefaults.standard.dictionary(forKey: lastCaptureRectKey) as? [String: CGFloat],
+              let x = rectDict["x"],
+              let y = rectDict["y"],
+              let width = rectDict["width"],
+              let height = rectDict["height"] else {
+            return nil
+        }
+        return CGRect(x: x, y: y, width: width, height: height)
+    }
+
+    // デフォルトのキャプチャ範囲（画面中央、幅1/3）
+    private func defaultCaptureRect() -> CGRect {
+        guard let screen = NSScreen.main else {
+            return CGRect(x: 100, y: 100, width: 400, height: 300)
+        }
+        let screenWidth = screen.frame.width
+        let screenHeight = screen.frame.height
+        let frameWidth = screenWidth / 3
+        let frameHeight = frameWidth * 0.75 // 4:3のアスペクト比
+        let x = (screenWidth - frameWidth) / 2
+        let y = (screenHeight - frameHeight) / 2
+        return CGRect(x: x, y: y, width: frameWidth, height: frameHeight)
     }
 
     private func checkPermission() async -> Bool {
@@ -154,6 +204,10 @@ class CaptureViewModel: ObservableObject {
         captureFlash.showFlash(in: rect)
         processScreenshot(screenshot)
         showEditorWindow(for: screenshot, at: rect)
+
+        // 前回のキャプチャ範囲を保存
+        saveLastCaptureRect(rect)
+
         isCapturing = false
     }
 
@@ -253,9 +307,43 @@ class CaptureViewModel: ObservableObject {
         isCapturing = false
     }
 
+    // キャプチャ枠だけを表示（画像なし）
+    func showCaptureFrame() async {
+        guard await checkPermission() else { return }
+
+        // 前回のキャプチャ範囲を読み込み、なければデフォルト
+        let frameRect = loadLastCaptureRect() ?? defaultCaptureRect()
+
+        // 透明な画像を作成
+        let width = Int(frameRect.width)
+        let height = Int(frameRect.height)
+        guard width > 0, height > 0 else { return }
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return }
+
+        // 完全に透明な画像
+        context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+
+        guard let cgImage = context.makeImage() else { return }
+
+        let screenshot = Screenshot(cgImage: cgImage, mode: .region, region: frameRect)
+        currentScreenshot = screenshot
+        showEditorWindow(for: screenshot, at: frameRect, showImageInitially: false)
+    }
+
     private var passThroughContainerView: PassThroughContainerView?
 
-    private func showEditorWindow(for screenshot: Screenshot, at region: CGRect? = nil) {
+    private func showEditorWindow(for screenshot: Screenshot, at region: CGRect? = nil, showImageInitially: Bool = true) {
         let editorView = EditorWindow(screenshot: screenshot, onRecapture: { [weak self] rect in
             guard let self = self else { return }
             Task {
@@ -267,7 +355,7 @@ class CaptureViewModel: ObservableObject {
                 window.passThroughEnabled = enabled
                 window.isMovableByWindowBackground = !enabled
             }
-        })
+        }, showImageInitially: showImageInitially)
         let hostingController = NSHostingController(rootView: editorView)
 
         // PassThroughContainerViewでラップ
