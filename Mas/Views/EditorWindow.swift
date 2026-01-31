@@ -116,6 +116,7 @@ extension DragSourceView: NSDraggingSource {
 
 // 編集ツールの種類
 enum EditTool: String, CaseIterable {
+    case move = "移動"
     case pen = "ペン"
     case highlight = "マーカー"
     case arrow = "矢印"
@@ -126,6 +127,7 @@ enum EditTool: String, CaseIterable {
 
     var icon: String {
         switch self {
+        case .move: return "arrow.up.and.down.and.arrow.left.and.right"
         case .pen: return "pencil.tip"
         case .highlight: return "highlighter"
         case .arrow: return "arrow.up.right"
@@ -237,7 +239,8 @@ struct EditorWindow: View {
             ScrollView([.horizontal, .vertical], showsIndicators: true) {
                 ZStack(alignment: .topLeading) {
                     screenshotImage
-                    if editMode {
+                    // 編集モードまたはアノテーションがある場合は表示
+                    if editMode || !toolboxState.annotations.isEmpty {
                         annotationCanvas
                     }
                 }
@@ -268,6 +271,9 @@ struct EditorWindow: View {
             onTextTap: { position in
                 textPosition = position
                 showTextInput = true
+            },
+            onAnnotationChanged: {
+                applyAnnotationsToImage()
             }
         )
         .frame(
@@ -294,8 +300,9 @@ struct EditorWindow: View {
         if showImage {
             Button(action: {
                 editMode.toggle()
+                // 編集モード終了時もアノテーションは保持（自動保存のみ）
                 if !editMode && !toolboxState.annotations.isEmpty {
-                    applyAnnotations()
+                    applyAnnotationsToImage()
                 }
             }) {
                 Image(systemName: editMode ? "pencil.circle.fill" : "pencil.circle")
@@ -364,16 +371,150 @@ struct EditorWindow: View {
             .position(x: geometry.size.width - 24, y: geometry.size.height - 24)
     }
 
-    private func applyAnnotations() {
+    // アノテーションを画像に反映して自動保存（アノテーションは保持）
+    private func applyAnnotationsToImage() {
         guard !toolboxState.annotations.isEmpty else { return }
 
-        let imageSize = screenshot.originalImage.size
-        let canvasSize = screenshot.captureRegion?.size ?? imageSize
+        // 現在のアノテーション情報をキャプチャ
+        let annotations = toolboxState.annotations
+        let originalImage = screenshot.originalImage
+        let captureRegion = screenshot.captureRegion
+        let savedURL = screenshot.savedURL
 
-        // スケールファクターを計算（Retina対応）
+        // バックグラウンドで処理（UIをブロックしない）
+        DispatchQueue.global(qos: .userInitiated).async {
+            let renderedImage = Self.renderImageInBackground(
+                originalImage: originalImage,
+                annotations: annotations,
+                captureRegion: captureRegion
+            )
+
+            guard let image = renderedImage else { return }
+
+            let autoSaveEnabled = UserDefaults.standard.object(forKey: "autoSaveEnabled") as? Bool ?? true
+            if autoSaveEnabled {
+                Self.saveImageToFile(image, url: savedURL)
+            }
+
+            let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
+            if autoCopyToClipboard {
+                DispatchQueue.main.async {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.writeObjects([image])
+                }
+            }
+        }
+    }
+
+    // バックグラウンドで画像をレンダリング
+    private static func renderImageInBackground(originalImage: NSImage, annotations: [any Annotation], captureRegion: CGRect?) -> NSImage? {
+        let imageSize = originalImage.size
+        let canvasSize = captureRegion?.size ?? imageSize
         let scale = imageSize.width / canvasSize.width
 
-        // まずモザイク効果を適用（画像自体を変更）
+        // CGContextを使ってバックグラウンドで描画
+        guard let cgImage = originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let context = CGContext(
+            data: nil,
+            width: Int(imageSize.width),
+            height: Int(imageSize.height),
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+
+        // 元画像を描画
+        context.draw(cgImage, in: CGRect(origin: .zero, size: imageSize))
+
+        // NSGraphicsContextを作成してアノテーションを描画
+        let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = nsContext
+
+        // モザイク効果を適用
+        var baseImage = originalImage
+        for annotation in annotations {
+            if let mosaic = annotation as? MosaicAnnotation {
+                let scaledRect = CGRect(
+                    x: mosaic.rect.origin.x * scale,
+                    y: mosaic.rect.origin.y * scale,
+                    width: mosaic.rect.width * scale,
+                    height: mosaic.rect.height * scale
+                )
+                let scaledMosaic = MosaicAnnotation(
+                    rect: scaledRect,
+                    pixelSize: max(Int(CGFloat(mosaic.pixelSize) * scale), 5)
+                )
+                baseImage = scaledMosaic.applyBlurToImage(baseImage, in: scaledRect)
+            }
+        }
+
+        // モザイク適用済み画像を再描画
+        if let mosaicCgImage = baseImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            context.draw(mosaicCgImage, in: CGRect(origin: .zero, size: imageSize))
+        }
+
+        // その他のアノテーションを描画
+        for annotation in annotations {
+            if !(annotation is MosaicAnnotation) {
+                Self.drawScaledAnnotationStatic(annotation, scale: scale, imageHeight: imageSize.height, canvasHeight: canvasSize.height)
+            }
+        }
+
+        NSGraphicsContext.restoreGraphicsState()
+
+        guard let resultCgImage = context.makeImage() else { return nil }
+        return NSImage(cgImage: resultCgImage, size: imageSize)
+    }
+
+    // ファイルに保存（バックグラウンド用）
+    private static func saveImageToFile(_ image: NSImage, url: URL?) {
+        // 保存先URLが指定されていればそこに上書き、なければ新規作成
+        let fileURL: URL
+        if let existingURL = url {
+            fileURL = existingURL
+        } else {
+            let saveFolder = UserDefaults.standard.string(forKey: "autoSaveFolder") ?? "~/Pictures/Mas"
+            let expandedPath = NSString(string: saveFolder).expandingTildeInPath
+            let folderURL = URL(fileURLWithPath: expandedPath)
+
+            let formatString = UserDefaults.standard.string(forKey: "defaultFormat") ?? "PNG"
+            let fileExtension = formatString.lowercased()
+
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
+            let fileName = "Mas_\(dateFormatter.string(from: Date())).\(fileExtension)"
+            fileURL = folderURL.appendingPathComponent(fileName)
+        }
+
+        guard let tiffData = image.tiffRepresentation,
+              let bitmapRep = NSBitmapImageRep(data: tiffData) else { return }
+
+        // ファイル拡張子から形式を判断
+        let isJpeg = fileURL.pathExtension.lowercased() == "jpg" || fileURL.pathExtension.lowercased() == "jpeg"
+
+        let imageData: Data?
+        if isJpeg {
+            let quality = UserDefaults.standard.double(forKey: "jpegQuality")
+            imageData = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: quality > 0 ? quality : 0.9])
+        } else {
+            imageData = bitmapRep.representation(using: .png, properties: [:])
+        }
+
+        try? imageData?.write(to: fileURL)
+    }
+
+    // 画像とアノテーションを合成した画像を生成
+    private func renderImageWithAnnotations() -> NSImage {
+        let imageSize = screenshot.originalImage.size
+        let canvasSize = screenshot.captureRegion?.size ?? imageSize
+        let scale = imageSize.width / canvasSize.width
+
+        // まずモザイク効果を適用
         var baseImage = screenshot.originalImage
         for annotation in toolboxState.annotations {
             if let mosaic = annotation as? MosaicAnnotation {
@@ -392,20 +533,23 @@ struct EditorWindow: View {
         }
 
         let newImage = NSImage(size: imageSize)
-
         newImage.lockFocus()
-
-        // モザイク適用済みの画像を描画
         baseImage.draw(in: NSRect(origin: .zero, size: imageSize))
 
-        // モザイク以外の注釈を描画
         for annotation in toolboxState.annotations {
             if !(annotation is MosaicAnnotation) {
-                drawScaledAnnotation(annotation, scale: scale, imageHeight: imageSize.height, canvasHeight: canvasSize.height)
+                Self.drawScaledAnnotationStatic(annotation, scale: scale, imageHeight: imageSize.height, canvasHeight: canvasSize.height)
             }
         }
 
         newImage.unlockFocus()
+        return newImage
+    }
+
+    private func applyAnnotations() {
+        guard !toolboxState.annotations.isEmpty else { return }
+
+        let newImage = renderImageWithAnnotations()
 
         if let cgImage = newImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
             screenshot.updateImage(cgImage)
@@ -426,7 +570,7 @@ struct EditorWindow: View {
         toolboxState.annotations.removeAll()
     }
 
-    private func drawScaledAnnotation(_ annotation: any Annotation, scale: CGFloat, imageHeight: CGFloat, canvasHeight: CGFloat) {
+    private static func drawScaledAnnotationStatic(_ annotation: any Annotation, scale: CGFloat, imageHeight: CGFloat, canvasHeight: CGFloat) {
         // 単純にスケーリングのみ（NSViewとNSImageは同じ左下原点座標系）
         if let arrow = annotation as? ArrowAnnotation {
             let startPoint = CGPoint(
@@ -527,30 +671,43 @@ struct EditorWindow: View {
     }
 
     private func saveEditedImage(_ image: NSImage) {
-        let saveFolder = UserDefaults.standard.string(forKey: "autoSaveFolder") ?? "~/Pictures/Mas"
-        let expandedPath = NSString(string: saveFolder).expandingTildeInPath
-        let folderURL = URL(fileURLWithPath: expandedPath)
+        // 保存先URLが指定されていればそこに上書き、なければ新規作成
+        let fileURL: URL
+        if let existingURL = screenshot.savedURL {
+            fileURL = existingURL
+        } else {
+            let saveFolder = UserDefaults.standard.string(forKey: "autoSaveFolder") ?? "~/Pictures/Mas"
+            let expandedPath = NSString(string: saveFolder).expandingTildeInPath
+            let folderURL = URL(fileURLWithPath: expandedPath)
 
-        let formatString = UserDefaults.standard.string(forKey: "defaultFormat") ?? "PNG"
-        let fileExtension = formatString.lowercased()
+            let formatString = UserDefaults.standard.string(forKey: "defaultFormat") ?? "PNG"
+            let fileExtension = formatString.lowercased()
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
-        let fileName = "Mas_\(dateFormatter.string(from: Date())).\(fileExtension)"
-        let fileURL = folderURL.appendingPathComponent(fileName)
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
+            let fileName = "Mas_\(dateFormatter.string(from: Date())).\(fileExtension)"
+            fileURL = folderURL.appendingPathComponent(fileName)
+        }
 
         guard let tiffData = image.tiffRepresentation,
               let bitmapRep = NSBitmapImageRep(data: tiffData) else { return }
 
+        // ファイル拡張子から形式を判断
+        let isJpeg = fileURL.pathExtension.lowercased() == "jpg" || fileURL.pathExtension.lowercased() == "jpeg"
+
         let imageData: Data?
-        if formatString == "JPEG" {
+        if isJpeg {
             let quality = UserDefaults.standard.double(forKey: "jpegQuality")
             imageData = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: quality > 0 ? quality : 0.9])
         } else {
             imageData = bitmapRep.representation(using: .png, properties: [:])
         }
 
-        try? imageData?.write(to: fileURL)
+        // バックグラウンドスレッドでファイル書き込み
+        guard let data = imageData else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            try? data.write(to: fileURL)
+        }
     }
 
     private func copyToClipboard() {
@@ -615,6 +772,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let strokeEnabled: Bool
     let sourceImage: NSImage
     let onTextTap: (CGPoint) -> Void
+    let onAnnotationChanged: () -> Void
 
     func makeNSView(context: Context) -> AnnotationCanvas {
         let canvas = AnnotationCanvas()
@@ -648,6 +806,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
         func annotationAdded(_ annotation: any Annotation) {
             parent.annotations.append(annotation)
             parent.currentAnnotation = nil
+            parent.onAnnotationChanged()
         }
 
         func currentAnnotationUpdated(_ annotation: (any Annotation)?) {
@@ -657,6 +816,10 @@ struct AnnotationCanvasView: NSViewRepresentable {
         func textTapped(at position: CGPoint) {
             parent.onTextTap(position)
         }
+
+        func annotationMoved() {
+            parent.onAnnotationChanged()
+        }
     }
 }
 
@@ -664,6 +827,7 @@ protocol AnnotationCanvasDelegate: AnyObject {
     func annotationAdded(_ annotation: any Annotation)
     func currentAnnotationUpdated(_ annotation: (any Annotation)?)
     func textTapped(at position: CGPoint)
+    func annotationMoved()
 }
 
 class AnnotationCanvas: NSView {
@@ -676,22 +840,98 @@ class AnnotationCanvas: NSView {
     var strokeEnabled: Bool = true
     var sourceImage: NSImage?
     private var dragStart: CGPoint?
+    private var selectedAnnotationIndex: Int?
+    private var lastDragPoint: CGPoint?
+    private var didMoveAnnotation: Bool = false
 
     override var mouseDownCanMoveWindow: Bool { false }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        for annotation in annotations {
+        for (index, annotation) in annotations.enumerated() {
             annotation.draw(in: bounds)
+            // 選択されたアノテーションにハイライト
+            if selectedTool == .move && index == selectedAnnotationIndex {
+                drawSelectionHighlight(for: annotation)
+            }
         }
 
         currentAnnotation?.draw(in: bounds)
     }
 
+    private func drawSelectionHighlight(for annotation: any Annotation) {
+        let highlightPath = NSBezierPath()
+        highlightPath.lineWidth = 2
+
+        if let arrow = annotation as? ArrowAnnotation {
+            let minX = min(arrow.startPoint.x, arrow.endPoint.x) - 10
+            let minY = min(arrow.startPoint.y, arrow.endPoint.y) - 10
+            let maxX = max(arrow.startPoint.x, arrow.endPoint.x) + 10
+            let maxY = max(arrow.startPoint.y, arrow.endPoint.y) + 10
+            highlightPath.appendRect(CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY))
+        } else if let rect = annotation as? RectAnnotation {
+            highlightPath.appendRect(rect.rect.insetBy(dx: -5, dy: -5))
+        } else if let ellipse = annotation as? EllipseAnnotation {
+            highlightPath.appendRect(ellipse.rect.insetBy(dx: -5, dy: -5))
+        } else if let text = annotation as? TextAnnotation {
+            let size = text.textSize()
+            highlightPath.appendRect(CGRect(origin: CGPoint(x: text.position.x - 5, y: text.position.y - size.height - 5), size: CGSize(width: size.width + 10, height: size.height + 10)))
+        } else if let mosaic = annotation as? MosaicAnnotation {
+            highlightPath.appendRect(mosaic.rect.insetBy(dx: -5, dy: -5))
+        } else if let freehand = annotation as? FreehandAnnotation {
+            if let minX = freehand.points.map({ $0.x }).min(),
+               let minY = freehand.points.map({ $0.y }).min(),
+               let maxX = freehand.points.map({ $0.x }).max(),
+               let maxY = freehand.points.map({ $0.y }).max() {
+                highlightPath.appendRect(CGRect(x: minX - 5, y: minY - 5, width: maxX - minX + 10, height: maxY - minY + 10))
+            }
+        }
+
+        let dashPattern: [CGFloat] = [4, 4]
+        highlightPath.setLineDash(dashPattern, count: 2, phase: 0)
+        NSColor.systemBlue.setStroke()
+        highlightPath.stroke()
+    }
+
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         dragStart = point
+        lastDragPoint = point
+
+        // 移動モードの場合
+        if selectedTool == .move {
+            // クリックした位置にあるアノテーションを探す
+            let clickedIndices = annotations.enumerated().filter { $0.element.contains(point: point) }.map { $0.offset }
+
+            if clickedIndices.isEmpty {
+                // 何もない場所をクリック
+                selectedAnnotationIndex = nil
+            } else if let currentIndex = selectedAnnotationIndex, clickedIndices.contains(currentIndex) {
+                // 選択中のオブジェクトがクリックされた場合
+                // 現在選択中のオブジェクトを配列の先頭（一番後ろ）に移動
+                let movedAnnotation = annotations.remove(at: currentIndex)
+                annotations.insert(movedAnnotation, at: 0)
+
+                // 同じ位置にある他のオブジェクトを選択（一番上のもの）
+                let newClickedIndices = annotations.enumerated().filter { $0.element.contains(point: point) }.map { $0.offset }
+                if let lastIndex = newClickedIndices.last, lastIndex != 0 {
+                    selectedAnnotationIndex = lastIndex
+                } else if newClickedIndices.count > 1 {
+                    // 先頭に移動したオブジェクト以外で一番上のものを選択
+                    selectedAnnotationIndex = newClickedIndices.filter { $0 != 0 }.last
+                } else {
+                    // 他にオブジェクトがない場合は先頭のものを選択
+                    selectedAnnotationIndex = 0
+                }
+                // Zオーダー変更だけでは保存しない
+            } else {
+                // 新しいオブジェクトを選択（一番上のもの）
+                selectedAnnotationIndex = clickedIndices.last
+            }
+            needsDisplay = true
+            return
+        }
 
         if selectedTool == .text {
             delegate?.textTapped(at: point)
@@ -699,6 +939,8 @@ class AnnotationCanvas: NSView {
         }
 
         switch selectedTool {
+        case .move:
+            break
         case .pen:
             currentAnnotation = FreehandAnnotation(points: [point], color: selectedColor, lineWidth: lineWidth, isHighlighter: false, strokeEnabled: strokeEnabled)
         case .highlight:
@@ -719,8 +961,19 @@ class AnnotationCanvas: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard let start = dragStart else { return }
         let point = convert(event.locationInWindow, from: nil)
+
+        // 移動モードで選択中のアノテーションがある場合
+        if selectedTool == .move, let index = selectedAnnotationIndex, let lastPoint = lastDragPoint {
+            let delta = CGPoint(x: point.x - lastPoint.x, y: point.y - lastPoint.y)
+            annotations[index].move(by: delta)
+            lastDragPoint = point
+            didMoveAnnotation = true
+            needsDisplay = true
+            return
+        }
+
+        guard let start = dragStart else { return }
 
         let newRect = CGRect(
             x: min(start.x, point.x),
@@ -730,6 +983,8 @@ class AnnotationCanvas: NSView {
         )
 
         switch selectedTool {
+        case .move:
+            break
         case .pen, .highlight:
             if let freehand = currentAnnotation as? FreehandAnnotation {
                 freehand.addPoint(point)
@@ -758,6 +1013,18 @@ class AnnotationCanvas: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        // 移動モードでアノテーションを移動した場合（選択は保持）
+        if selectedTool == .move && selectedAnnotationIndex != nil {
+            // 実際に移動した場合のみ保存
+            if didMoveAnnotation {
+                delegate?.annotationMoved()
+                didMoveAnnotation = false
+            }
+            lastDragPoint = nil
+            needsDisplay = true
+            return
+        }
+
         if let annotation = currentAnnotation {
             // モザイクの場合はドラッグ終了フラグを設定
             if let mosaic = annotation as? MosaicAnnotation {

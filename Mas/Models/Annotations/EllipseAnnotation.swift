@@ -42,4 +42,8 @@ class EllipseAnnotation: Annotation {
         let expandedRect = rect.insetBy(dx: -5, dy: -5)
         return expandedRect.contains(point)
     }
+
+    func move(by delta: CGPoint) {
+        rect = CGRect(x: rect.origin.x + delta.x, y: rect.origin.y + delta.y, width: rect.width, height: rect.height)
+    }
 }

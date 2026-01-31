@@ -92,23 +92,21 @@ class ArrowAnnotation: Annotation {
     }
 
     func contains(point: CGPoint) -> Bool {
-        let distance = distanceFromPointToLine(point: point, lineStart: startPoint, lineEnd: endPoint)
-        return distance < 10
+        // 矢印を囲む矩形で判定
+        let boundingRect = self.boundingRect()
+        return boundingRect.contains(point)
     }
 
-    private func distanceFromPointToLine(point: CGPoint, lineStart: CGPoint, lineEnd: CGPoint) -> CGFloat {
-        let dx = lineEnd.x - lineStart.x
-        let dy = lineEnd.y - lineStart.y
-        let length = sqrt(dx * dx + dy * dy)
+    func boundingRect() -> CGRect {
+        let minX = min(startPoint.x, endPoint.x) - lineWidth * 3
+        let minY = min(startPoint.y, endPoint.y) - lineWidth * 3
+        let maxX = max(startPoint.x, endPoint.x) + lineWidth * 3
+        let maxY = max(startPoint.y, endPoint.y) + lineWidth * 3
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
 
-        if length == 0 {
-            return sqrt(pow(point.x - lineStart.x, 2) + pow(point.y - lineStart.y, 2))
-        }
-
-        let t = max(0, min(1, ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / (length * length)))
-        let projectionX = lineStart.x + t * dx
-        let projectionY = lineStart.y + t * dy
-
-        return sqrt(pow(point.x - projectionX, 2) + pow(point.y - projectionY, 2))
+    func move(by delta: CGPoint) {
+        startPoint = CGPoint(x: startPoint.x + delta.x, y: startPoint.y + delta.y)
+        endPoint = CGPoint(x: endPoint.x + delta.x, y: endPoint.y + delta.y)
     }
 }

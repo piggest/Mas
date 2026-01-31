@@ -59,13 +59,21 @@ class FreehandAnnotation: Annotation {
     }
 
     func contains(point: CGPoint) -> Bool {
-        // 線の近くをタップしたかどうか
-        for p in points {
-            let distance = hypot(p.x - point.x, p.y - point.y)
-            if distance < lineWidth + 5 {
-                return true
-            }
-        }
-        return false
+        // 描画範囲の矩形で判定
+        let boundingRect = self.boundingRect()
+        return boundingRect.contains(point)
+    }
+
+    func boundingRect() -> CGRect {
+        guard !points.isEmpty else { return .zero }
+        let minX = points.map { $0.x }.min()! - lineWidth
+        let minY = points.map { $0.y }.min()! - lineWidth
+        let maxX = points.map { $0.x }.max()! + lineWidth
+        let maxY = points.map { $0.y }.max()! + lineWidth
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
+    func move(by delta: CGPoint) {
+        points = points.map { CGPoint(x: $0.x + delta.x, y: $0.y + delta.y) }
     }
 }

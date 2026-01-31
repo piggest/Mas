@@ -127,6 +127,13 @@ class MosaicAnnotation: Annotation {
         return rect.contains(point)
     }
 
+    func move(by delta: CGPoint) {
+        rect = CGRect(x: rect.origin.x + delta.x, y: rect.origin.y + delta.y, width: rect.width, height: rect.height)
+        // キャッシュをクリア
+        cachedBlurredImage = nil
+        cachedRect = nil
+    }
+
     func applyToImage(_ image: NSImage) -> NSImage {
         guard let tiffData = image.tiffRepresentation,
               let ciImage = CIImage(data: tiffData) else {
