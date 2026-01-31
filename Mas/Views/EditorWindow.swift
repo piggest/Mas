@@ -308,6 +308,7 @@ struct EditorWindow: View {
             strokeEnabled: toolboxState.strokeEnabled,
             sourceImage: screenshot.originalImage,
             isEditing: editMode,
+            showImage: showImage,
             onTextTap: { position in
                 textPosition = position
                 showTextInput = true
@@ -813,6 +814,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let strokeEnabled: Bool
     let sourceImage: NSImage
     let isEditing: Bool
+    let showImage: Bool
     let onTextTap: (CGPoint) -> Void
     let onAnnotationChanged: () -> Void
 
@@ -833,10 +835,15 @@ struct AnnotationCanvasView: NSViewRepresentable {
         nsView.strokeEnabled = strokeEnabled
         nsView.sourceImage = sourceImage
         nsView.isEditing = isEditing
+        nsView.showImage = showImage
         // 編集モード終了時に選択をクリア
         if !isEditing {
             nsView.clearSelection()
         }
+        // ウィンドウフレームを更新
+        nsView.updateWindowFrame()
+        // リアルタイムキャプチャモードのタイマー制御
+        nsView.updateRefreshTimer(hasMosaicAnnotations: annotations.contains { $0 is MosaicAnnotation })
         nsView.needsDisplay = true
     }
 
@@ -902,15 +909,53 @@ class AnnotationCanvas: NSView {
     var strokeEnabled: Bool = true
     var sourceImage: NSImage?
     var isEditing: Bool = false
+    var showImage: Bool = true
     private var dragStart: CGPoint?
     private var selectedAnnotationIndex: Int?
     private var lastDragPoint: CGPoint?
     private var didMoveAnnotation: Bool = false
+    private var windowFrame: CGRect = .zero
+    private var refreshTimer: Timer?
 
     override var mouseDownCanMoveWindow: Bool { !isEditing }
 
     func clearSelection() {
         selectedAnnotationIndex = nil
+    }
+
+    func updateWindowFrame() {
+        if let windowFrame = window?.frame {
+            self.windowFrame = windowFrame
+        }
+    }
+
+    private var needsRefreshTimer: Bool = false
+
+    private func startRefreshTimer() {
+        guard refreshTimer == nil else { return }
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            guard let self = self, self.needsRefreshTimer else { return }
+            // モザイクのキャッシュをクリアして再描画
+            for annotation in self.annotations {
+                if let mosaic = annotation as? MosaicAnnotation {
+                    mosaic.clearCache()
+                }
+            }
+            self.needsDisplay = true
+        }
+    }
+
+    private func stopRefreshTimer() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+    }
+
+    func updateRefreshTimer(hasMosaicAnnotations: Bool) {
+        needsRefreshTimer = !showImage && hasMosaicAnnotations
+        if needsRefreshTimer {
+            startRefreshTimer()
+        }
+        // タイマーは停止しない（再開コストが高いため）
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -924,8 +969,19 @@ class AnnotationCanvas: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
+        // ウィンドウフレームを更新
+        updateWindowFrame()
+        let winNum = window?.windowNumber ?? 0
+
         // 配列の順序通りに描画（インデックス0が最背面、最後が最前面）
         for (index, annotation) in annotations.enumerated() {
+            // モザイクアノテーションの場合、リアルタイムキャプチャモードを設定
+            if let mosaic = annotation as? MosaicAnnotation {
+                mosaic.useRealTimeCapture = !showImage
+                mosaic.windowFrame = windowFrame
+                mosaic.windowNumber = winNum
+                mosaic.canvasSize = bounds.size
+            }
             annotation.draw(in: bounds)
             // 編集モード中の移動モードのみバウンディングボックスを描画
             if isEditing && selectedTool == .move {
@@ -934,7 +990,16 @@ class AnnotationCanvas: NSView {
             }
         }
 
-        currentAnnotation?.draw(in: bounds)
+        // 現在描画中のアノテーション
+        if let current = currentAnnotation {
+            if let mosaic = current as? MosaicAnnotation {
+                mosaic.useRealTimeCapture = !showImage
+                mosaic.windowFrame = windowFrame
+                mosaic.windowNumber = winNum
+                mosaic.canvasSize = bounds.size
+            }
+            current.draw(in: bounds)
+        }
     }
 
     private func drawBoundingBox(for annotation: any Annotation, isSelected: Bool) {
