@@ -8,8 +8,13 @@ class MosaicAnnotation: Annotation {
     var pixelSize: Int
     var sourceImage: NSImage?
     var isDrawing: Bool = true  // ドラッグ中かどうか
+    var useRealTimeCapture: Bool = false  // リアルタイムキャプチャを使用するか
+    var windowFrame: CGRect = .zero  // ウィンドウの画面上の位置（NS座標系、左下原点）
+    var windowNumber: Int = 0  // 自分のウィンドウを除外するため
+    var canvasSize: CGSize = .zero  // キャンバスサイズ
     private var cachedBlurredImage: NSImage?
     private var cachedRect: CGRect?
+    private var cachedWindowFrame: CGRect?
 
     init(rect: CGRect, pixelSize: Int = 10, sourceImage: NSImage? = nil) {
         self.rect = rect
@@ -20,8 +25,11 @@ class MosaicAnnotation: Annotation {
     func draw(in bounds: NSRect) {
         guard rect.width > 5 && rect.height > 5 else { return }
 
-        // 画像があればぼかしプレビューを表示
-        if let image = sourceImage {
+        // リアルタイムキャプチャモードの場合（一時的に無効化）
+        if useRealTimeCapture && windowNumber > 0 {
+            drawRealTimeBlur(in: bounds)
+        } else if let image = sourceImage {
+            // 通常モード：画像があればぼかしプレビューを表示
             // キャッシュが有効か確認
             if cachedBlurredImage == nil || cachedRect != rect {
                 cachedBlurredImage = createBlurredPreview(from: image, canvasSize: bounds.size)
@@ -50,6 +58,77 @@ class MosaicAnnotation: Annotation {
             innerPath.lineWidth = 1
             innerPath.stroke()
         }
+    }
+
+    private func drawRealTimeBlur(in bounds: NSRect) {
+        guard let screen = NSScreen.main else { return }
+        guard rect.width > 5 && rect.height > 5 else { return }
+        guard windowNumber > 0 else {
+            // ウィンドウ番号がない場合はグレーで表示
+            NSColor.gray.withAlphaComponent(0.5).setFill()
+            NSBezierPath(rect: rect).fill()
+            return
+        }
+
+        let screenHeight = screen.frame.height
+
+        // キャンバス座標（上左原点）からスクリーン座標（CG座標系、上左原点）への変換
+        // 1. rectはキャンバス座標（上左原点、isFlipped=true）
+        // 2. windowFrameはNS座標（左下原点）
+        // 3. CGWindowListCreateImageはCG座標（上左原点）
+
+        // windowの左上のスクリーン座標（CG座標系）
+        let windowTopLeftY_CG = screenHeight - windowFrame.origin.y - windowFrame.height
+
+        // キャプチャ領域のスクリーン座標（CG座標系）
+        let screenRect = CGRect(
+            x: windowFrame.origin.x + rect.origin.x,
+            y: windowTopLeftY_CG + rect.origin.y,
+            width: rect.width,
+            height: rect.height
+        )
+
+        // キャッシュが有効か確認（位置が変わっていなければ再利用）
+        if let cached = cachedBlurredImage,
+           cachedRect == rect,
+           cachedWindowFrame == windowFrame {
+            cached.draw(in: rect, from: NSRect(origin: .zero, size: cached.size), operation: .sourceOver, fraction: 1.0)
+            return
+        }
+
+        // 自分のウィンドウより下にある画面をキャプチャ
+        guard let cgImage = CGWindowListCreateImage(
+            screenRect,
+            .optionOnScreenBelowWindow,
+            CGWindowID(windowNumber),
+            [.bestResolution]
+        ) else {
+            NSColor.gray.withAlphaComponent(0.5).setFill()
+            NSBezierPath(rect: rect).fill()
+            return
+        }
+
+        // キャプチャした画像にぼかしを適用
+        let ciImage = CIImage(cgImage: cgImage)
+
+        guard let pixellateFilter = CIFilter(name: "CIPixellate") else { return }
+        pixellateFilter.setValue(ciImage, forKey: kCIInputImageKey)
+        pixellateFilter.setValue(NSNumber(value: max(pixelSize * 2, 8)), forKey: kCIInputScaleKey)
+        pixellateFilter.setValue(CIVector(x: ciImage.extent.midX, y: ciImage.extent.midY), forKey: kCIInputCenterKey)
+
+        guard let outputImage = pixellateFilter.outputImage else { return }
+
+        let context = CIContext()
+        guard let outputCGImage = context.createCGImage(outputImage, from: ciImage.extent) else { return }
+
+        let blurredImage = NSImage(cgImage: outputCGImage, size: rect.size)
+
+        // キャッシュを更新
+        cachedBlurredImage = blurredImage
+        cachedRect = rect
+        cachedWindowFrame = windowFrame
+
+        blurredImage.draw(in: rect, from: NSRect(origin: .zero, size: blurredImage.size), operation: .sourceOver, fraction: 1.0)
     }
 
     private func createBlurredPreview(from image: NSImage, canvasSize: CGSize) -> NSImage? {
@@ -129,9 +208,13 @@ class MosaicAnnotation: Annotation {
 
     func move(by delta: CGPoint) {
         rect = CGRect(x: rect.origin.x + delta.x, y: rect.origin.y + delta.y, width: rect.width, height: rect.height)
-        // キャッシュをクリア
+        clearCache()
+    }
+
+    func clearCache() {
         cachedBlurredImage = nil
         cachedRect = nil
+        cachedWindowFrame = nil
     }
 
     func applyToImage(_ image: NSImage) -> NSImage {
