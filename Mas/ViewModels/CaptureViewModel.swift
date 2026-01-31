@@ -344,6 +344,7 @@ class CaptureViewModel: ObservableObject {
                     format: format,
                     quality: quality > 0 ? quality : 0.9
                 )
+                screenshot.savedURL = url
                 print("Screenshot saved to: \(url.path)")
             } catch {
                 print("Failed to auto-save screenshot: \(error)")

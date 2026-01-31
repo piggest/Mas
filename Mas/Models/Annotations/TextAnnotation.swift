@@ -39,4 +39,8 @@ class TextAnnotation: Annotation {
         let size = (text as NSString).size(withAttributes: attributes)
         return size
     }
+
+    func move(by delta: CGPoint) {
+        position = CGPoint(x: position.x + delta.x, y: position.y + delta.y)
+    }
 }

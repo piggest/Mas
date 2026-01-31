@@ -5,6 +5,7 @@ protocol Annotation: Identifiable {
     var id: UUID { get }
     func draw(in rect: NSRect)
     func contains(point: CGPoint) -> Bool
+    func move(by delta: CGPoint)
 }
 
 enum AnnotationType: String, CaseIterable, Identifiable {
