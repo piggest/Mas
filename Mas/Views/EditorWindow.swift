@@ -143,6 +143,7 @@ struct EditorWindow: View {
     @StateObject private var viewModel: EditorViewModel
     @ObservedObject var screenshot: Screenshot
     @ObservedObject private var toolboxState = ToolboxState.shared
+    @ObservedObject private var resizeState = WindowResizeState.shared
     @State private var copiedToClipboard = false
     @State private var showImage = true
     @State private var passThroughEnabled = false
@@ -252,17 +253,27 @@ struct EditorWindow: View {
 
     @ViewBuilder
     private var imageContent: some View {
-        if showImage {
-            ScrollView([.horizontal, .vertical], showsIndicators: true) {
-                ZStack(alignment: .topLeading) {
+        let offsetX = resizeState.originDelta.x
+        let offsetY = resizeState.originDelta.y
+
+        GeometryReader { geometry in
+            let imageWidth = screenshot.captureRegion?.width ?? screenshot.originalImage.size.width
+            let imageHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
+
+            ZStack(alignment: .topLeading) {
+                if showImage {
                     screenshotImage
-                    // 編集モードまたはアノテーションがある場合は表示
-                    if editMode || !toolboxState.annotations.isEmpty {
-                        annotationCanvas
-                    }
+                } else {
+                    Color.clear
+                        .frame(width: imageWidth, height: imageHeight)
+                }
+                if editMode || !toolboxState.annotations.isEmpty {
+                    annotationCanvas
                 }
             }
+            .offset(x: offsetX, y: offsetY)
         }
+        .clipped()
     }
 
     @ViewBuilder
