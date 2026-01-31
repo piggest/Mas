@@ -151,6 +151,7 @@ struct EditorWindow: View {
     @State private var textInput: String = ""
     @State private var showTextInput = false
     @State private var textPosition: CGPoint = .zero
+    @State private var toolbarController: FloatingToolbarWindowController?
 
     let onRecapture: ((CGRect) -> Void)?
     let onPassThroughChanged: ((Bool) -> Void)?
@@ -181,25 +182,14 @@ struct EditorWindow: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .bottom) {
-                // 画像コンテンツ
-                ZStack(alignment: .topLeading) {
-                    imageContent
-                    closeButton
-                    editModeToggle(geometry: geometry)
-                    topRightButtons(geometry: geometry)
-                    dragArea(geometry: geometry)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                // 下からスライドするツールバー（オーバーレイ）
-                if editMode {
-                    InlineToolboxView(state: toolboxState) {
-                        _ = toolboxState.annotations.popLast()
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+            ZStack(alignment: .topLeading) {
+                imageContent
+                closeButton
+                editModeToggle(geometry: geometry)
+                topRightButtons(geometry: geometry)
+                dragArea(geometry: geometry)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 50, minHeight: 50)
         .background(Color.white.opacity(0.001))
@@ -230,7 +220,34 @@ struct EditorWindow: View {
                 showTextInput = false
             })
         }
-        .animation(.easeInOut(duration: 0.25), value: editMode)
+        .onAppear {
+            toolbarController = FloatingToolbarWindowController()
+        }
+        .onDisappear {
+            toolbarController?.close()
+        }
+        .onChange(of: editMode) { newValue in
+            if newValue {
+                showToolbar()
+            } else {
+                toolbarController?.hide()
+                currentAnnotation = nil  // 進行中のアノテーションをクリア
+            }
+        }
+    }
+
+    private func showToolbar() {
+        // 親ウィンドウを見つけてツールバーを表示
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            for window in NSApp.windows {
+                if window.level == .floating && window.isVisible && window.contentView != nil {
+                    self.toolbarController?.show(attachedTo: window, state: self.toolboxState) {
+                        _ = self.toolboxState.annotations.popLast()
+                    }
+                    break
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -268,6 +285,7 @@ struct EditorWindow: View {
             lineWidth: toolboxState.lineWidth,
             strokeEnabled: toolboxState.strokeEnabled,
             sourceImage: screenshot.originalImage,
+            isEditing: editMode,
             onTextTap: { position in
                 textPosition = position
                 showTextInput = true
@@ -725,6 +743,7 @@ struct EditorWindow: View {
             applyAnnotations()
         }
         toolboxState.annotations.removeAll()
+        toolbarController?.close()
         for window in NSApp.windows {
             if window.level == .floating && window.isVisible {
                 window.close()
@@ -771,6 +790,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let lineWidth: CGFloat
     let strokeEnabled: Bool
     let sourceImage: NSImage
+    let isEditing: Bool
     let onTextTap: (CGPoint) -> Void
     let onAnnotationChanged: () -> Void
 
@@ -790,6 +810,11 @@ struct AnnotationCanvasView: NSViewRepresentable {
         nsView.lineWidth = lineWidth
         nsView.strokeEnabled = strokeEnabled
         nsView.sourceImage = sourceImage
+        nsView.isEditing = isEditing
+        // 編集モード終了時に選択をクリア
+        if !isEditing {
+            nsView.clearSelection()
+        }
         nsView.needsDisplay = true
     }
 
@@ -854,12 +879,25 @@ class AnnotationCanvas: NSView {
     var lineWidth: CGFloat = 3
     var strokeEnabled: Bool = true
     var sourceImage: NSImage?
+    var isEditing: Bool = false
     private var dragStart: CGPoint?
     private var selectedAnnotationIndex: Int?
     private var lastDragPoint: CGPoint?
     private var didMoveAnnotation: Bool = false
 
-    override var mouseDownCanMoveWindow: Bool { false }
+    override var mouseDownCanMoveWindow: Bool { !isEditing }
+
+    func clearSelection() {
+        selectedAnnotationIndex = nil
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        // 編集モードでない場合はヒットテストを無効にしてイベントを通過させる
+        if !isEditing {
+            return nil
+        }
+        return super.hitTest(point)
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
@@ -867,7 +905,8 @@ class AnnotationCanvas: NSView {
         // 配列の順序通りに描画（インデックス0が最背面、最後が最前面）
         for (index, annotation) in annotations.enumerated() {
             annotation.draw(in: bounds)
-            if selectedTool == .move {
+            // 編集モード中の移動モードのみバウンディングボックスを描画
+            if isEditing && selectedTool == .move {
                 let isSelected = index == selectedAnnotationIndex
                 drawBoundingBox(for: annotation, isSelected: isSelected)
             }
@@ -911,6 +950,8 @@ class AnnotationCanvas: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        guard isEditing else { return }
+
         let point = convert(event.locationInWindow, from: nil)
         dragStart = point
         lastDragPoint = point
@@ -1013,6 +1054,8 @@ class AnnotationCanvas: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        guard isEditing else { return }
+
         let point = convert(event.locationInWindow, from: nil)
 
         // 移動モードで選択中のアノテーションがある場合
@@ -1065,6 +1108,8 @@ class AnnotationCanvas: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        guard isEditing else { return }
+
         // 移動モードでアノテーションを移動した場合（選択は保持）
         if selectedTool == .move && selectedAnnotationIndex != nil {
             // 実際に移動した場合のみ保存
@@ -1107,105 +1152,3 @@ class AnnotationCanvas: NSView {
     }
 }
 
-// インラインツールバー（ウィンドウ下部に表示）
-struct InlineToolboxView: View {
-    @ObservedObject var state: ToolboxState
-    let onUndo: () -> Void
-
-    private let colors: [Color] = [.red, .blue, .green, .yellow, .black, .white]
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // ツール選択
-            HStack(spacing: 4) {
-                ForEach(EditTool.allCases, id: \.self) { tool in
-                    Button(action: { state.selectedTool = tool }) {
-                        Image(systemName: tool.icon)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(state.selectedTool == tool ? .white : .primary)
-                            .frame(width: 28, height: 28)
-                            .background(state.selectedTool == tool ? Color.blue : Color.gray.opacity(0.2))
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                    }
-                    .buttonStyle(.plain)
-                    .help(tool.rawValue)
-                }
-            }
-
-            Divider()
-                .frame(height: 24)
-
-            // 色選択
-            HStack(spacing: 4) {
-                ForEach(colors, id: \.self) { color in
-                    Button(action: { state.selectedColor = color }) {
-                        Circle()
-                            .fill(color)
-                            .frame(width: 20, height: 20)
-                            .overlay(
-                                Circle()
-                                    .stroke(state.selectedColor == color ? Color.blue : Color.gray.opacity(0.3), lineWidth: state.selectedColor == color ? 2 : 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            Divider()
-                .frame(height: 24)
-
-            // サイズスライダー
-            HStack(spacing: 4) {
-                Image(systemName: "line.diagonal")
-                    .font(.system(size: 8))
-                    .foregroundColor(.secondary)
-                Slider(value: $state.lineWidth, in: 1...10, step: 1)
-                    .frame(width: 60)
-                Image(systemName: "line.diagonal")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-            }
-
-            Divider()
-                .frame(height: 24)
-
-            // 縁取りトグル
-            Button(action: { state.strokeEnabled.toggle() }) {
-                Image(systemName: state.strokeEnabled ? "square.dashed" : "square")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(state.strokeEnabled ? .white : .primary)
-                    .frame(width: 28, height: 28)
-                    .background(state.strokeEnabled ? Color.blue : Color.gray.opacity(0.2))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
-            .buttonStyle(.plain)
-            .help("縁取り")
-
-            // 取消ボタン
-            if !state.annotations.isEmpty {
-                Divider()
-                    .frame(height: 24)
-
-                Button(action: onUndo) {
-                    Image(systemName: "arrow.uturn.backward")
-                        .font(.system(size: 12))
-                        .foregroundColor(.primary)
-                        .frame(width: 28, height: 28)
-                        .background(Color.gray.opacity(0.2))
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                }
-                .buttonStyle(.plain)
-                .help("取消")
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color(NSColor.windowBackgroundColor))
-        .overlay(
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(Color.gray.opacity(0.3)),
-            alignment: .top
-        )
-    }
-}
