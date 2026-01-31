@@ -305,11 +305,15 @@ class PassThroughContainerView: NSView {
     private let resizeMargin: CGFloat = 8
 
     override func hitTest(_ point: NSPoint) -> NSView? {
+        // 現在のフレームサイズを取得（boundsではなくframeを使用）
+        let viewWidth = frame.size.width
+        let viewHeight = frame.size.height
+
         if passThroughEnabled {
             // 枠線部分（リサイズマージン）
             let onLeft = point.x < resizeMargin
-            let onRight = point.x > bounds.width - resizeMargin
-            let onTop = point.y > bounds.height - resizeMargin  // 左下原点なので上はheightに近い
+            let onRight = point.x > viewWidth - resizeMargin
+            let onTop = point.y > viewHeight - resizeMargin  // 左下原点なので上はheightに近い
             let onBottom = point.y < resizeMargin
 
             if onLeft || onRight || onTop || onBottom {
@@ -318,8 +322,8 @@ class PassThroughContainerView: NSView {
 
             // ボタンエリア（右上）- 左下原点の座標系
             let rightButtonRect = CGRect(
-                x: bounds.width - 80,
-                y: bounds.height - 50,
+                x: viewWidth - 80,
+                y: viewHeight - 50,
                 width: 80,
                 height: 50
             )
@@ -327,7 +331,7 @@ class PassThroughContainerView: NSView {
             // 閉じるボタンエリア（左上）
             let closeButtonRect = CGRect(
                 x: 0,
-                y: bounds.height - 50,
+                y: viewHeight - 50,
                 width: 50,
                 height: 50
             )
