@@ -48,24 +48,38 @@ struct ToolboxContentView: View {
             Text("ツール")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.secondary)
-            HStack(spacing: 6) {
-                ForEach(EditTool.allCases, id: \.self) { tool in
-                    Button(action: { state.selectedTool = tool }) {
-                        VStack(spacing: 2) {
-                            Image(systemName: tool.icon)
-                                .font(.system(size: 16, weight: .medium))
-                            Text(tool.rawValue)
-                                .font(.system(size: 9))
-                        }
-                        .foregroundColor(state.selectedTool == tool ? .white : .primary)
-                        .frame(width: 36, height: 40)
-                        .background(state.selectedTool == tool ? Color.blue : Color.gray.opacity(0.2))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+            let tools = EditTool.allCases
+            let firstRow = Array(tools.prefix(3))
+            let secondRow = Array(tools.dropFirst(3))
+            VStack(spacing: 4) {
+                HStack(spacing: 4) {
+                    ForEach(firstRow, id: \.self) { tool in
+                        toolButton(for: tool)
                     }
-                    .buttonStyle(.plain)
+                }
+                HStack(spacing: 4) {
+                    ForEach(secondRow, id: \.self) { tool in
+                        toolButton(for: tool)
+                    }
                 }
             }
         }
+    }
+
+    private func toolButton(for tool: EditTool) -> some View {
+        Button(action: { state.selectedTool = tool }) {
+            VStack(spacing: 2) {
+                Image(systemName: tool.icon)
+                    .font(.system(size: 14, weight: .medium))
+                Text(tool.rawValue)
+                    .font(.system(size: 8))
+            }
+            .foregroundColor(state.selectedTool == tool ? .white : .primary)
+            .frame(width: 50, height: 36)
+            .background(state.selectedTool == tool ? Color.blue : Color.gray.opacity(0.2))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
     }
 
     private var colorSelection: some View {

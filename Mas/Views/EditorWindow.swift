@@ -119,7 +119,9 @@ enum EditTool: String, CaseIterable {
     case arrow = "矢印"
     case rectangle = "四角"
     case ellipse = "丸"
-    case text = "テキスト"
+    case text = "文字"
+    case highlight = "マーカー"
+    case mosaic = "ぼかし"
 
     var icon: String {
         switch self {
@@ -127,6 +129,8 @@ enum EditTool: String, CaseIterable {
         case .rectangle: return "rectangle"
         case .ellipse: return "circle"
         case .text: return "textformat"
+        case .highlight: return "highlighter"
+        case .mosaic: return "square.grid.3x3"
         }
     }
 }
@@ -263,6 +267,7 @@ struct EditorWindow: View {
             selectedTool: toolboxState.selectedTool,
             selectedColor: NSColor(toolboxState.selectedColor),
             lineWidth: toolboxState.lineWidth,
+            sourceImage: screenshot.originalImage,
             onTextTap: { position in
                 textPosition = position
                 showTextInput = true
@@ -371,16 +376,36 @@ struct EditorWindow: View {
         // スケールファクターを計算（Retina対応）
         let scale = imageSize.width / canvasSize.width
 
+        // まずモザイク効果を適用（画像自体を変更）
+        var baseImage = screenshot.originalImage
+        for annotation in toolboxState.annotations {
+            if let mosaic = annotation as? MosaicAnnotation {
+                let scaledRect = CGRect(
+                    x: mosaic.rect.origin.x * scale,
+                    y: mosaic.rect.origin.y * scale,
+                    width: mosaic.rect.width * scale,
+                    height: mosaic.rect.height * scale
+                )
+                let scaledMosaic = MosaicAnnotation(
+                    rect: scaledRect,
+                    pixelSize: max(Int(CGFloat(mosaic.pixelSize) * scale), 5)
+                )
+                baseImage = scaledMosaic.applyBlurToImage(baseImage, in: scaledRect)
+            }
+        }
+
         let newImage = NSImage(size: imageSize)
 
         newImage.lockFocus()
 
-        // 元の画像を描画
-        screenshot.originalImage.draw(in: NSRect(origin: .zero, size: imageSize))
+        // モザイク適用済みの画像を描画
+        baseImage.draw(in: NSRect(origin: .zero, size: imageSize))
 
-        // スケーリングされた注釈を描画
+        // モザイク以外の注釈を描画
         for annotation in toolboxState.annotations {
-            drawScaledAnnotation(annotation, scale: scale, imageHeight: imageSize.height, canvasHeight: canvasSize.height)
+            if !(annotation is MosaicAnnotation) {
+                drawScaledAnnotation(annotation, scale: scale, imageHeight: imageSize.height, canvasHeight: canvasSize.height)
+            }
         }
 
         newImage.unlockFocus()
@@ -460,6 +485,30 @@ struct EditorWindow: View {
                 text: text.text,
                 font: scaledFont,
                 color: text.color
+            )
+            scaledAnnotation.draw(in: .zero)
+        } else if let highlight = annotation as? HighlightAnnotation {
+            let scaledRect = CGRect(
+                x: highlight.rect.origin.x * scale,
+                y: highlight.rect.origin.y * scale,
+                width: highlight.rect.width * scale,
+                height: highlight.rect.height * scale
+            )
+            let scaledAnnotation = HighlightAnnotation(
+                rect: scaledRect,
+                color: highlight.color
+            )
+            scaledAnnotation.draw(in: .zero)
+        } else if let mosaic = annotation as? MosaicAnnotation {
+            let scaledRect = CGRect(
+                x: mosaic.rect.origin.x * scale,
+                y: mosaic.rect.origin.y * scale,
+                width: mosaic.rect.width * scale,
+                height: mosaic.rect.height * scale
+            )
+            let scaledAnnotation = MosaicAnnotation(
+                rect: scaledRect,
+                pixelSize: Int(CGFloat(mosaic.pixelSize) * scale)
             )
             scaledAnnotation.draw(in: .zero)
         }
@@ -552,11 +601,13 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let selectedTool: EditTool
     let selectedColor: NSColor
     let lineWidth: CGFloat
+    let sourceImage: NSImage
     let onTextTap: (CGPoint) -> Void
 
     func makeNSView(context: Context) -> AnnotationCanvas {
         let canvas = AnnotationCanvas()
         canvas.delegate = context.coordinator
+        canvas.sourceImage = sourceImage
         return canvas
     }
 
@@ -566,6 +617,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
         nsView.selectedTool = selectedTool
         nsView.selectedColor = selectedColor
         nsView.lineWidth = lineWidth
+        nsView.sourceImage = sourceImage
         nsView.needsDisplay = true
     }
 
@@ -608,6 +660,7 @@ class AnnotationCanvas: NSView {
     var selectedTool: EditTool = .arrow
     var selectedColor: NSColor = .red
     var lineWidth: CGFloat = 3
+    var sourceImage: NSImage?
     private var dragStart: CGPoint?
 
     override var mouseDownCanMoveWindow: Bool { false }
@@ -640,6 +693,10 @@ class AnnotationCanvas: NSView {
             currentAnnotation = EllipseAnnotation(rect: CGRect(origin: point, size: .zero), color: selectedColor, lineWidth: lineWidth)
         case .text:
             break
+        case .highlight:
+            currentAnnotation = HighlightAnnotation(rect: CGRect(origin: point, size: .zero), color: selectedColor)
+        case .mosaic:
+            currentAnnotation = MosaicAnnotation(rect: CGRect(origin: point, size: .zero), pixelSize: Int(lineWidth * 3), sourceImage: sourceImage)
         }
         delegate?.currentAnnotationUpdated(currentAnnotation)
         needsDisplay = true
@@ -649,6 +706,13 @@ class AnnotationCanvas: NSView {
         guard let start = dragStart else { return }
         let point = convert(event.locationInWindow, from: nil)
 
+        let newRect = CGRect(
+            x: min(start.x, point.x),
+            y: min(start.y, point.y),
+            width: abs(point.x - start.x),
+            height: abs(point.y - start.y)
+        )
+
         switch selectedTool {
         case .arrow:
             if let arrow = currentAnnotation as? ArrowAnnotation {
@@ -656,24 +720,22 @@ class AnnotationCanvas: NSView {
             }
         case .rectangle:
             if let rect = currentAnnotation as? RectAnnotation {
-                rect.rect = CGRect(
-                    x: min(start.x, point.x),
-                    y: min(start.y, point.y),
-                    width: abs(point.x - start.x),
-                    height: abs(point.y - start.y)
-                )
+                rect.rect = newRect
             }
         case .ellipse:
             if let ellipse = currentAnnotation as? EllipseAnnotation {
-                ellipse.rect = CGRect(
-                    x: min(start.x, point.x),
-                    y: min(start.y, point.y),
-                    width: abs(point.x - start.x),
-                    height: abs(point.y - start.y)
-                )
+                ellipse.rect = newRect
             }
         case .text:
             break
+        case .highlight:
+            if let highlight = currentAnnotation as? HighlightAnnotation {
+                highlight.rect = newRect
+            }
+        case .mosaic:
+            if let mosaic = currentAnnotation as? MosaicAnnotation {
+                mosaic.rect = newRect
+            }
         }
         delegate?.currentAnnotationUpdated(currentAnnotation)
         needsDisplay = true
@@ -681,6 +743,10 @@ class AnnotationCanvas: NSView {
 
     override func mouseUp(with event: NSEvent) {
         if let annotation = currentAnnotation {
+            // モザイクの場合はドラッグ終了フラグを設定
+            if let mosaic = annotation as? MosaicAnnotation {
+                mosaic.isDrawing = false
+            }
             delegate?.annotationAdded(annotation)
         }
         currentAnnotation = nil
