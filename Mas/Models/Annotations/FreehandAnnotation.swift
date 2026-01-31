@@ -7,12 +7,14 @@ class FreehandAnnotation: Annotation {
     var color: NSColor
     var lineWidth: CGFloat
     var isHighlighter: Bool  // trueの場合は半透明マーカー
+    var strokeEnabled: Bool
 
-    init(points: [CGPoint] = [], color: NSColor = .systemRed, lineWidth: CGFloat = 3, isHighlighter: Bool = false) {
+    init(points: [CGPoint] = [], color: NSColor = .systemRed, lineWidth: CGFloat = 3, isHighlighter: Bool = false, strokeEnabled: Bool = true) {
         self.points = points
         self.color = color
         self.lineWidth = lineWidth
         self.isHighlighter = isHighlighter
+        self.strokeEnabled = strokeEnabled
     }
 
     func addPoint(_ point: CGPoint) {
@@ -30,6 +32,20 @@ class FreehandAnnotation: Annotation {
         path.move(to: points[0])
         for i in 1..<points.count {
             path.line(to: points[i])
+        }
+
+        // 縁取り（白い境界線）- マーカー以外
+        if strokeEnabled && !isHighlighter {
+            let outerPath = NSBezierPath()
+            outerPath.lineWidth = path.lineWidth + 2
+            outerPath.lineCapStyle = .round
+            outerPath.lineJoinStyle = .round
+            outerPath.move(to: points[0])
+            for i in 1..<points.count {
+                outerPath.line(to: points[i])
+            }
+            NSColor.white.setStroke()
+            outerPath.stroke()
         }
 
         if isHighlighter {

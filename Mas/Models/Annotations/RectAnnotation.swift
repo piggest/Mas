@@ -7,12 +7,14 @@ class RectAnnotation: Annotation {
     var color: NSColor
     var lineWidth: CGFloat
     var isFilled: Bool
+    var strokeEnabled: Bool
 
-    init(rect: CGRect, color: NSColor = .systemRed, lineWidth: CGFloat = 2, isFilled: Bool = false) {
+    init(rect: CGRect, color: NSColor = .systemRed, lineWidth: CGFloat = 2, isFilled: Bool = false, strokeEnabled: Bool = true) {
         self.rect = rect
         self.color = color
         self.lineWidth = lineWidth
         self.isFilled = isFilled
+        self.strokeEnabled = strokeEnabled
     }
 
     func draw(in bounds: NSRect) {
@@ -22,6 +24,14 @@ class RectAnnotation: Annotation {
         if isFilled {
             color.withAlphaComponent(0.3).setFill()
             path.fill()
+        }
+
+        // 縁取り（白い境界線）
+        if strokeEnabled {
+            let outerPath = NSBezierPath(rect: rect)
+            outerPath.lineWidth = lineWidth + 2
+            NSColor.white.setStroke()
+            outerPath.stroke()
         }
 
         color.setStroke()

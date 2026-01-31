@@ -9,6 +9,7 @@ class ToolboxState: ObservableObject {
     private let toolKey = "selectedTool"
     private let colorKey = "selectedColor"
     private let lineWidthKey = "lineWidth"
+    private let strokeEnabledKey = "strokeEnabled"
 
     @Published var selectedTool: EditTool = .arrow {
         didSet { defaults.set(selectedTool.rawValue, forKey: toolKey) }
@@ -18,6 +19,9 @@ class ToolboxState: ObservableObject {
     }
     @Published var lineWidth: CGFloat = 5 {
         didSet { defaults.set(lineWidth, forKey: lineWidthKey) }
+    }
+    @Published var strokeEnabled: Bool = true {
+        didSet { defaults.set(strokeEnabled, forKey: strokeEnabledKey) }
     }
     @Published var annotations: [any Annotation] = []
 
@@ -42,6 +46,11 @@ class ToolboxState: ObservableObject {
         let savedWidth = defaults.double(forKey: lineWidthKey)
         if savedWidth > 0 {
             lineWidth = savedWidth
+        }
+
+        // 縁取り
+        if defaults.object(forKey: strokeEnabledKey) != nil {
+            strokeEnabled = defaults.bool(forKey: strokeEnabledKey)
         }
     }
 

@@ -7,12 +7,14 @@ class ArrowAnnotation: Annotation {
     var endPoint: CGPoint
     var color: NSColor
     var lineWidth: CGFloat
+    var strokeEnabled: Bool
 
-    init(startPoint: CGPoint, endPoint: CGPoint, color: NSColor = .systemRed, lineWidth: CGFloat = 3) {
+    init(startPoint: CGPoint, endPoint: CGPoint, color: NSColor = .systemRed, lineWidth: CGFloat = 3, strokeEnabled: Bool = true) {
         self.startPoint = startPoint
         self.endPoint = endPoint
         self.color = color
         self.lineWidth = lineWidth
+        self.strokeEnabled = strokeEnabled
     }
 
     func draw(in rect: NSRect) {
@@ -77,6 +79,13 @@ class ArrowAnnotation: Annotation {
         path.line(to: shaftEnd2)
         path.line(to: tailRight)
         path.close()
+
+        // 縁取り（白い境界線）
+        if strokeEnabled {
+            NSColor.white.setStroke()
+            path.lineWidth = lineWidth * 0.4
+            path.stroke()
+        }
 
         color.setFill()
         path.fill()
