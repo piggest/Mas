@@ -24,9 +24,14 @@ class ToolboxState: ObservableObject {
         didSet { defaults.set(strokeEnabled, forKey: strokeEnabledKey) }
     }
     @Published var annotations: [any Annotation] = []
+    @Published var selectedAnnotationIndex: Int? = nil
 
     var hasAnnotations: Bool {
         !annotations.isEmpty
+    }
+
+    var hasSelectedAnnotation: Bool {
+        selectedAnnotationIndex != nil
     }
 
     private init() {

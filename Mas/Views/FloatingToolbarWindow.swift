@@ -8,11 +8,14 @@ class FloatingToolbarWindowController {
     private var frameObserver: NSObjectProtocol?
     private var hostingView: NSView?
 
-    func show(attachedTo parent: NSWindow, state: ToolboxState, onUndo: @escaping () -> Void) {
+    private var onDelete: (() -> Void)?
+
+    func show(attachedTo parent: NSWindow, state: ToolboxState, onUndo: @escaping () -> Void, onDelete: @escaping () -> Void = {}) {
         parentWindow = parent
+        self.onDelete = onDelete
 
         if window == nil {
-            createWindow(state: state, onUndo: onUndo)
+            createWindow(state: state, onUndo: onUndo, onDelete: onDelete)
         }
 
         updatePosition()
@@ -52,8 +55,8 @@ class FloatingToolbarWindowController {
         parentWindow = nil
     }
 
-    private func createWindow(state: ToolboxState, onUndo: @escaping () -> Void) {
-        let toolbarView = FloatingToolbarView(state: state, onUndo: onUndo)
+    private func createWindow(state: ToolboxState, onUndo: @escaping () -> Void, onDelete: @escaping () -> Void) {
+        let toolbarView = FloatingToolbarView(state: state, onUndo: onUndo, onDelete: onDelete)
         let hosting = NSHostingView(rootView: toolbarView)
 
         // ツールバーの本来のサイズを取得
@@ -261,13 +264,14 @@ struct ColorPickerButton: View {
 struct FloatingToolbarView: View {
     @ObservedObject var state: ToolboxState
     let onUndo: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
             toolsSection
             Divider().frame(height: 24)
             optionsSection
-            undoSection
+            actionSection
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -334,20 +338,37 @@ struct FloatingToolbarView: View {
     }
 
     @ViewBuilder
-    private var undoSection: some View {
-        if state.hasAnnotations {
+    private var actionSection: some View {
+        if state.hasAnnotations || state.hasSelectedAnnotation {
             Divider().frame(height: 24)
 
-            Button(action: onUndo) {
-                Image(systemName: "arrow.uturn.backward")
-                    .font(.system(size: 12))
-                    .foregroundColor(.primary)
-                    .frame(width: 28, height: 28)
-                    .background(Color.gray.opacity(0.2))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            // 削除ボタン（選択中のアノテーションがある場合のみ）
+            if state.hasSelectedAnnotation {
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12))
+                        .foregroundColor(.red)
+                        .frame(width: 28, height: 28)
+                        .background(Color.red.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .help("削除 (Delete)")
             }
-            .buttonStyle(.plain)
-            .help("取消")
+
+            // 取消ボタン
+            if state.hasAnnotations {
+                Button(action: onUndo) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 12))
+                        .foregroundColor(.primary)
+                        .frame(width: 28, height: 28)
+                        .background(Color.gray.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .help("取消")
+            }
         }
     }
 
