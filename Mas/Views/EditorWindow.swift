@@ -43,14 +43,28 @@ class DragSourceView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        let bgColor = showImage ? NSColor.black.withAlphaComponent(0.5) : NSColor.white.withAlphaComponent(0.8)
-        bgColor.setFill()
-        let path = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
-        path.fill()
+        // 背景（白で塗りつぶし）
+        let bgPath = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6)
+        NSColor.white.setFill()
+        bgPath.fill()
 
+        // 外側の黒い縁取り
+        let outerPath = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
+        outerPath.lineWidth = 1
+        NSColor.black.setStroke()
+        outerPath.stroke()
+
+        // 内側のグレー縁取り
+        let innerPath = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 5, yRadius: 5)
+        innerPath.lineWidth = 1
+        NSColor.gray.withAlphaComponent(0.5).setStroke()
+        innerPath.stroke()
+
+        // アイコン（黒で描画）
         if let symbolImage = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: nil) {
             let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .bold)
-            let configuredImage = symbolImage.withSymbolConfiguration(config)
+            let configuredImage = symbolImage.withSymbolConfiguration(config)?
+                .withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.black]))
             let iconSize: CGFloat = 18
             let iconRect = NSRect(
                 x: (bounds.width - iconSize) / 2,
