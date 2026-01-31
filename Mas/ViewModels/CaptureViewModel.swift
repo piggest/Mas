@@ -275,6 +275,9 @@ class CaptureViewModel: ObservableObject {
         containerView.addSubview(hostingController.view)
         passThroughContainerView = containerView
 
+        // リサイズ状態をリセット
+        WindowResizeState.shared.reset()
+
         let window = ResizableWindow(contentRect: .zero, styleMask: [.borderless, .resizable], backing: .buffered, defer: false)
         window.contentView = containerView
         window.styleMask = [.borderless, .resizable]
