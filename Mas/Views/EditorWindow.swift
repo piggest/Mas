@@ -179,12 +179,24 @@ struct EditorWindow: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .topLeading) {
-                imageContent
-                closeButton
-                editModeToggle(geometry: geometry)
-                topRightButtons(geometry: geometry)
-                dragArea(geometry: geometry)
+            ZStack(alignment: .bottom) {
+                // 画像コンテンツ
+                ZStack(alignment: .topLeading) {
+                    imageContent
+                    closeButton
+                    editModeToggle(geometry: geometry)
+                    topRightButtons(geometry: geometry)
+                    dragArea(geometry: geometry)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // 下からスライドするツールバー（オーバーレイ）
+                if editMode {
+                    InlineToolboxView(state: toolboxState) {
+                        _ = toolboxState.annotations.popLast()
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
         }
         .frame(minWidth: 50, minHeight: 50)
@@ -216,25 +228,7 @@ struct EditorWindow: View {
                 showTextInput = false
             })
         }
-        .onChange(of: editMode) { newValue in
-            if newValue {
-                showToolboxWindow()
-            } else {
-                ToolboxWindowController.shared.hide()
-            }
-        }
-    }
-
-    private func showToolboxWindow() {
-        // エディタウィンドウの位置を取得
-        for window in NSApp.windows {
-            if window.level == .floating && window.isVisible {
-                ToolboxWindowController.shared.show(near: window.frame) { [self] in
-                    _ = toolboxState.annotations.popLast()
-                }
-                break
-            }
-        }
+        .animation(.easeInOut(duration: 0.25), value: editMode)
     }
 
     @ViewBuilder
@@ -269,6 +263,7 @@ struct EditorWindow: View {
             selectedTool: toolboxState.selectedTool,
             selectedColor: NSColor(toolboxState.selectedColor),
             lineWidth: toolboxState.lineWidth,
+            strokeEnabled: toolboxState.strokeEnabled,
             sourceImage: screenshot.originalImage,
             onTextTap: { position in
                 textPosition = position
@@ -446,7 +441,8 @@ struct EditorWindow: View {
                 startPoint: startPoint,
                 endPoint: endPoint,
                 color: arrow.color,
-                lineWidth: arrow.lineWidth * scale
+                lineWidth: arrow.lineWidth * scale,
+                strokeEnabled: arrow.strokeEnabled
             )
             scaledArrow.draw(in: .zero)
         } else if let rect = annotation as? RectAnnotation {
@@ -459,7 +455,8 @@ struct EditorWindow: View {
             let scaledAnnotation = RectAnnotation(
                 rect: scaledRect,
                 color: rect.color,
-                lineWidth: rect.lineWidth * scale
+                lineWidth: rect.lineWidth * scale,
+                strokeEnabled: rect.strokeEnabled
             )
             scaledAnnotation.draw(in: .zero)
         } else if let ellipse = annotation as? EllipseAnnotation {
@@ -472,7 +469,8 @@ struct EditorWindow: View {
             let scaledAnnotation = EllipseAnnotation(
                 rect: scaledRect,
                 color: ellipse.color,
-                lineWidth: ellipse.lineWidth * scale
+                lineWidth: ellipse.lineWidth * scale,
+                strokeEnabled: ellipse.strokeEnabled
             )
             scaledAnnotation.draw(in: .zero)
         } else if let text = annotation as? TextAnnotation {
@@ -521,7 +519,8 @@ struct EditorWindow: View {
                 points: scaledPoints,
                 color: freehand.color,
                 lineWidth: freehand.lineWidth * scale,
-                isHighlighter: freehand.isHighlighter
+                isHighlighter: freehand.isHighlighter,
+                strokeEnabled: freehand.strokeEnabled
             )
             scaledAnnotation.draw(in: .zero)
         }
@@ -568,8 +567,7 @@ struct EditorWindow: View {
         if editMode && !toolboxState.annotations.isEmpty {
             applyAnnotations()
         }
-        ToolboxWindowController.shared.close()
-        toolboxState.reset()
+        toolboxState.annotations.removeAll()
         for window in NSApp.windows {
             if window.level == .floating && window.isVisible {
                 window.close()
@@ -614,6 +612,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let selectedTool: EditTool
     let selectedColor: NSColor
     let lineWidth: CGFloat
+    let strokeEnabled: Bool
     let sourceImage: NSImage
     let onTextTap: (CGPoint) -> Void
 
@@ -630,6 +629,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
         nsView.selectedTool = selectedTool
         nsView.selectedColor = selectedColor
         nsView.lineWidth = lineWidth
+        nsView.strokeEnabled = strokeEnabled
         nsView.sourceImage = sourceImage
         nsView.needsDisplay = true
     }
@@ -673,6 +673,7 @@ class AnnotationCanvas: NSView {
     var selectedTool: EditTool = .arrow
     var selectedColor: NSColor = .red
     var lineWidth: CGFloat = 3
+    var strokeEnabled: Bool = true
     var sourceImage: NSImage?
     private var dragStart: CGPoint?
 
@@ -699,15 +700,15 @@ class AnnotationCanvas: NSView {
 
         switch selectedTool {
         case .pen:
-            currentAnnotation = FreehandAnnotation(points: [point], color: selectedColor, lineWidth: lineWidth, isHighlighter: false)
+            currentAnnotation = FreehandAnnotation(points: [point], color: selectedColor, lineWidth: lineWidth, isHighlighter: false, strokeEnabled: strokeEnabled)
         case .highlight:
-            currentAnnotation = FreehandAnnotation(points: [point], color: selectedColor, lineWidth: lineWidth, isHighlighter: true)
+            currentAnnotation = FreehandAnnotation(points: [point], color: selectedColor, lineWidth: lineWidth, isHighlighter: true, strokeEnabled: strokeEnabled)
         case .arrow:
-            currentAnnotation = ArrowAnnotation(startPoint: point, endPoint: point, color: selectedColor, lineWidth: lineWidth)
+            currentAnnotation = ArrowAnnotation(startPoint: point, endPoint: point, color: selectedColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
         case .rectangle:
-            currentAnnotation = RectAnnotation(rect: CGRect(origin: point, size: .zero), color: selectedColor, lineWidth: lineWidth)
+            currentAnnotation = RectAnnotation(rect: CGRect(origin: point, size: .zero), color: selectedColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
         case .ellipse:
-            currentAnnotation = EllipseAnnotation(rect: CGRect(origin: point, size: .zero), color: selectedColor, lineWidth: lineWidth)
+            currentAnnotation = EllipseAnnotation(rect: CGRect(origin: point, size: .zero), color: selectedColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
         case .text:
             break
         case .mosaic:
@@ -767,5 +768,108 @@ class AnnotationCanvas: NSView {
         currentAnnotation = nil
         dragStart = nil
         needsDisplay = true
+    }
+}
+
+// インラインツールバー（ウィンドウ下部に表示）
+struct InlineToolboxView: View {
+    @ObservedObject var state: ToolboxState
+    let onUndo: () -> Void
+
+    private let colors: [Color] = [.red, .blue, .green, .yellow, .black, .white]
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // ツール選択
+            HStack(spacing: 4) {
+                ForEach(EditTool.allCases, id: \.self) { tool in
+                    Button(action: { state.selectedTool = tool }) {
+                        Image(systemName: tool.icon)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(state.selectedTool == tool ? .white : .primary)
+                            .frame(width: 28, height: 28)
+                            .background(state.selectedTool == tool ? Color.blue : Color.gray.opacity(0.2))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+                    .buttonStyle(.plain)
+                    .help(tool.rawValue)
+                }
+            }
+
+            Divider()
+                .frame(height: 24)
+
+            // 色選択
+            HStack(spacing: 4) {
+                ForEach(colors, id: \.self) { color in
+                    Button(action: { state.selectedColor = color }) {
+                        Circle()
+                            .fill(color)
+                            .frame(width: 20, height: 20)
+                            .overlay(
+                                Circle()
+                                    .stroke(state.selectedColor == color ? Color.blue : Color.gray.opacity(0.3), lineWidth: state.selectedColor == color ? 2 : 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Divider()
+                .frame(height: 24)
+
+            // サイズスライダー
+            HStack(spacing: 4) {
+                Image(systemName: "line.diagonal")
+                    .font(.system(size: 8))
+                    .foregroundColor(.secondary)
+                Slider(value: $state.lineWidth, in: 1...10, step: 1)
+                    .frame(width: 60)
+                Image(systemName: "line.diagonal")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+            }
+
+            Divider()
+                .frame(height: 24)
+
+            // 縁取りトグル
+            Button(action: { state.strokeEnabled.toggle() }) {
+                Image(systemName: state.strokeEnabled ? "square.dashed" : "square")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(state.strokeEnabled ? .white : .primary)
+                    .frame(width: 28, height: 28)
+                    .background(state.strokeEnabled ? Color.blue : Color.gray.opacity(0.2))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+            .buttonStyle(.plain)
+            .help("縁取り")
+
+            // 取消ボタン
+            if !state.annotations.isEmpty {
+                Divider()
+                    .frame(height: 24)
+
+                Button(action: onUndo) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 12))
+                        .foregroundColor(.primary)
+                        .frame(width: 28, height: 28)
+                        .background(Color.gray.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .help("取消")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(NSColor.windowBackgroundColor))
+        .overlay(
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(Color.gray.opacity(0.3)),
+            alignment: .top
+        )
     }
 }
