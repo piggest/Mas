@@ -25,6 +25,10 @@ class ToolboxState: ObservableObject {
     }
     @Published var annotations: [any Annotation] = []
 
+    var hasAnnotations: Bool {
+        !annotations.isEmpty
+    }
+
     private init() {
         loadSettings()
     }
