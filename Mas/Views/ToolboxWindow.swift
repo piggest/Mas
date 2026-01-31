@@ -5,12 +5,52 @@ import AppKit
 class ToolboxState: ObservableObject {
     static let shared = ToolboxState()
 
-    @Published var selectedTool: EditTool = .pen
-    @Published var selectedColor: Color = .red
-    @Published var lineWidth: CGFloat = 3
+    private let defaults = UserDefaults.standard
+    private let toolKey = "selectedTool"
+    private let colorKey = "selectedColor"
+    private let lineWidthKey = "lineWidth"
+
+    @Published var selectedTool: EditTool = .arrow {
+        didSet { defaults.set(selectedTool.rawValue, forKey: toolKey) }
+    }
+    @Published var selectedColor: Color = .red {
+        didSet { saveColor(selectedColor) }
+    }
+    @Published var lineWidth: CGFloat = 5 {
+        didSet { defaults.set(lineWidth, forKey: lineWidthKey) }
+    }
     @Published var annotations: [any Annotation] = []
 
-    private init() {}
+    private init() {
+        loadSettings()
+    }
+
+    private func loadSettings() {
+        // ツール
+        if let toolName = defaults.string(forKey: toolKey),
+           let tool = EditTool(rawValue: toolName) {
+            selectedTool = tool
+        }
+
+        // 色
+        if let colorData = defaults.data(forKey: colorKey),
+           let nsColor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: colorData) {
+            selectedColor = Color(nsColor)
+        }
+
+        // 線の太さ
+        let savedWidth = defaults.double(forKey: lineWidthKey)
+        if savedWidth > 0 {
+            lineWidth = savedWidth
+        }
+    }
+
+    private func saveColor(_ color: Color) {
+        let nsColor = NSColor(color)
+        if let data = try? NSKeyedArchiver.archivedData(withRootObject: nsColor, requiringSecureCoding: false) {
+            defaults.set(data, forKey: colorKey)
+        }
+    }
 
     func reset() {
         selectedTool = .arrow
