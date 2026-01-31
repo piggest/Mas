@@ -134,7 +134,7 @@ enum EditTool: String, CaseIterable {
         case .rectangle: return "rectangle"
         case .ellipse: return "circle"
         case .text: return "textformat"
-        case .mosaic: return "square.grid.3x3"
+        case .mosaic: return "drop.fill"
         }
     }
 }
@@ -954,7 +954,7 @@ class AnnotationCanvas: NSView {
         case .text:
             break
         case .mosaic:
-            currentAnnotation = MosaicAnnotation(rect: CGRect(origin: point, size: .zero), pixelSize: Int(lineWidth * 3), sourceImage: sourceImage)
+            currentAnnotation = MosaicAnnotation(rect: CGRect(origin: point, size: .zero), pixelSize: max(Int(lineWidth * 1.5), 3), sourceImage: sourceImage)
         }
         delegate?.currentAnnotationUpdated(currentAnnotation)
         needsDisplay = true
