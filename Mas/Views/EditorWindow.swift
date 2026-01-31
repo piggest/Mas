@@ -778,6 +778,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
         let canvas = AnnotationCanvas()
         canvas.delegate = context.coordinator
         canvas.sourceImage = sourceImage
+        context.coordinator.canvas = canvas
         return canvas
     }
 
@@ -798,13 +799,23 @@ struct AnnotationCanvasView: NSViewRepresentable {
 
     class Coordinator: NSObject, AnnotationCanvasDelegate {
         var parent: AnnotationCanvasView
+        weak var canvas: AnnotationCanvas?
 
         init(_ parent: AnnotationCanvasView) {
             self.parent = parent
         }
 
         func annotationAdded(_ annotation: any Annotation) {
-            parent.annotations.append(annotation)
+            // モザイクは常に後ろ（配列の先頭）に追加
+            if annotation is MosaicAnnotation {
+                parent.annotations.insert(annotation, at: 0)
+            } else {
+                parent.annotations.append(annotation)
+            }
+            // 直接canvasの配列も更新（同期問題を回避）
+            canvas?.annotations = parent.annotations
+            canvas?.needsDisplay = true
+
             parent.currentAnnotation = nil
             parent.onAnnotationChanged()
         }
@@ -818,6 +829,10 @@ struct AnnotationCanvasView: NSViewRepresentable {
         }
 
         func annotationMoved() {
+            // canvasの配列を親に反映
+            if let canvasAnnotations = canvas?.annotations {
+                parent.annotations = canvasAnnotations
+            }
             parent.onAnnotationChanged()
         }
     }
@@ -849,48 +864,49 @@ class AnnotationCanvas: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
+        // 配列の順序通りに描画（インデックス0が最背面、最後が最前面）
         for (index, annotation) in annotations.enumerated() {
             annotation.draw(in: bounds)
-            // 選択されたアノテーションにハイライト
-            if selectedTool == .move && index == selectedAnnotationIndex {
-                drawSelectionHighlight(for: annotation)
+            if selectedTool == .move {
+                let isSelected = index == selectedAnnotationIndex
+                drawBoundingBox(for: annotation, isSelected: isSelected)
             }
         }
 
         currentAnnotation?.draw(in: bounds)
     }
 
-    private func drawSelectionHighlight(for annotation: any Annotation) {
+    private func drawBoundingBox(for annotation: any Annotation, isSelected: Bool) {
         let highlightPath = NSBezierPath()
-        highlightPath.lineWidth = 2
+        highlightPath.lineWidth = isSelected ? 2 : 1
 
         if let arrow = annotation as? ArrowAnnotation {
-            let minX = min(arrow.startPoint.x, arrow.endPoint.x) - 10
-            let minY = min(arrow.startPoint.y, arrow.endPoint.y) - 10
-            let maxX = max(arrow.startPoint.x, arrow.endPoint.x) + 10
-            let maxY = max(arrow.startPoint.y, arrow.endPoint.y) + 10
-            highlightPath.appendRect(CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY))
+            let rect = arrow.boundingRect()
+            highlightPath.appendRect(rect)
         } else if let rect = annotation as? RectAnnotation {
-            highlightPath.appendRect(rect.rect.insetBy(dx: -5, dy: -5))
+            highlightPath.appendRect(rect.rect.insetBy(dx: -3, dy: -3))
         } else if let ellipse = annotation as? EllipseAnnotation {
-            highlightPath.appendRect(ellipse.rect.insetBy(dx: -5, dy: -5))
+            highlightPath.appendRect(ellipse.rect.insetBy(dx: -3, dy: -3))
         } else if let text = annotation as? TextAnnotation {
             let size = text.textSize()
-            highlightPath.appendRect(CGRect(origin: CGPoint(x: text.position.x - 5, y: text.position.y - size.height - 5), size: CGSize(width: size.width + 10, height: size.height + 10)))
+            highlightPath.appendRect(CGRect(origin: CGPoint(x: text.position.x - 3, y: text.position.y - size.height - 3), size: CGSize(width: size.width + 6, height: size.height + 6)))
         } else if let mosaic = annotation as? MosaicAnnotation {
-            highlightPath.appendRect(mosaic.rect.insetBy(dx: -5, dy: -5))
+            highlightPath.appendRect(mosaic.rect.insetBy(dx: -3, dy: -3))
         } else if let freehand = annotation as? FreehandAnnotation {
-            if let minX = freehand.points.map({ $0.x }).min(),
-               let minY = freehand.points.map({ $0.y }).min(),
-               let maxX = freehand.points.map({ $0.x }).max(),
-               let maxY = freehand.points.map({ $0.y }).max() {
-                highlightPath.appendRect(CGRect(x: minX - 5, y: minY - 5, width: maxX - minX + 10, height: maxY - minY + 10))
-            }
+            let rect = freehand.boundingRect()
+            highlightPath.appendRect(rect)
+        } else if let highlight = annotation as? HighlightAnnotation {
+            highlightPath.appendRect(highlight.rect.insetBy(dx: -3, dy: -3))
         }
 
         let dashPattern: [CGFloat] = [4, 4]
         highlightPath.setLineDash(dashPattern, count: 2, phase: 0)
-        NSColor.systemBlue.setStroke()
+
+        if isSelected {
+            NSColor.systemBlue.setStroke()
+        } else {
+            NSColor.gray.withAlphaComponent(0.6).setStroke()
+        }
         highlightPath.stroke()
     }
 
@@ -901,33 +917,69 @@ class AnnotationCanvas: NSView {
 
         // 移動モードの場合
         if selectedTool == .move {
-            // クリックした位置にあるアノテーションを探す
-            let clickedIndices = annotations.enumerated().filter { $0.element.contains(point: point) }.map { $0.offset }
+            // 前の選択状態を記録
+            let previousSelectedIndex = selectedAnnotationIndex
+            let previousWasMosaic = previousSelectedIndex.map { annotations[$0] is MosaicAnnotation } ?? false
+
+            // クリックした位置にあるアノテーションを探す（配列のインデックス順）
+            let clickedIndices = annotations.enumerated()
+                .filter { $0.element.contains(point: point) }
+                .map { $0.offset }
 
             if clickedIndices.isEmpty {
-                // 何もない場所をクリック
-                selectedAnnotationIndex = nil
-            } else if let currentIndex = selectedAnnotationIndex, clickedIndices.contains(currentIndex) {
-                // 選択中のオブジェクトがクリックされた場合
-                // 現在選択中のオブジェクトを配列の先頭（一番後ろ）に移動
-                let movedAnnotation = annotations.remove(at: currentIndex)
-                annotations.insert(movedAnnotation, at: 0)
-
-                // 同じ位置にある他のオブジェクトを選択（一番上のもの）
-                let newClickedIndices = annotations.enumerated().filter { $0.element.contains(point: point) }.map { $0.offset }
-                if let lastIndex = newClickedIndices.last, lastIndex != 0 {
-                    selectedAnnotationIndex = lastIndex
-                } else if newClickedIndices.count > 1 {
-                    // 先頭に移動したオブジェクト以外で一番上のものを選択
-                    selectedAnnotationIndex = newClickedIndices.filter { $0 != 0 }.last
-                } else {
-                    // 他にオブジェクトがない場合は先頭のものを選択
-                    selectedAnnotationIndex = 0
+                // 何もない場所をクリック - 選択解除
+                // ぼかしが選択されていたら最背面に移動
+                if previousWasMosaic, let prevIndex = previousSelectedIndex {
+                    moveMosaicToBack(at: prevIndex)
                 }
-                // Zオーダー変更だけでは保存しない
+                selectedAnnotationIndex = nil
+            } else if let currentIndex = previousSelectedIndex, clickedIndices.contains(currentIndex) {
+                // 選択中のオブジェクトがクリックされた場合 - サイクル選択
+                // 現在選択中の要素を後ろに移動（ただしぼかしより後ろには行かない）
+                let movedAnnotation = annotations.remove(at: currentIndex)
+
+                if movedAnnotation is MosaicAnnotation {
+                    // ぼかしの場合は最背面（インデックス0）に移動
+                    annotations.insert(movedAnnotation, at: 0)
+                } else {
+                    // ぼかし以外の場合、ぼかしの直後に移動
+                    let mosaicCount = annotations.filter { $0 is MosaicAnnotation }.count
+                    annotations.insert(movedAnnotation, at: mosaicCount)
+                }
+
+                // インデックスを再計算してクリック位置のオブジェクトを探す
+                let newClickedIndices = annotations.enumerated()
+                    .filter { $0.element.contains(point: point) }
+                    .map { $0.offset }
+
+                // 一番上のオブジェクトを選択
+                if let topIndex = newClickedIndices.last {
+                    selectedAnnotationIndex = topIndex
+                    // ぼかしが選択された場合は最前面に移動
+                    if annotations[topIndex] is MosaicAnnotation {
+                        moveMosaicToFront(at: topIndex)
+                    }
+                } else {
+                    selectedAnnotationIndex = nil
+                }
+
+                // 配列が変更されたのでcanvasを更新
+                delegate?.annotationMoved()
             } else {
-                // 新しいオブジェクトを選択（一番上のもの）
-                selectedAnnotationIndex = clickedIndices.last
+                // 新しいオブジェクトを選択
+                // 前に選択していたぼかしは最背面に移動
+                if previousWasMosaic, let prevIndex = previousSelectedIndex {
+                    moveMosaicToBack(at: prevIndex)
+                }
+
+                // 一番上のオブジェクトを選択（インデックスが最大のもの）
+                if let topIndex = clickedIndices.last {
+                    selectedAnnotationIndex = topIndex
+                    // ぼかしが選択された場合は最前面に移動
+                    if annotations[topIndex] is MosaicAnnotation {
+                        moveMosaicToFront(at: topIndex)
+                    }
+                }
             }
             needsDisplay = true
             return
@@ -1035,6 +1087,23 @@ class AnnotationCanvas: NSView {
         currentAnnotation = nil
         dragStart = nil
         needsDisplay = true
+    }
+
+    // ぼかしを最背面（インデックス0）に移動
+    private func moveMosaicToBack(at index: Int) {
+        guard index < annotations.count, annotations[index] is MosaicAnnotation else { return }
+        let mosaic = annotations.remove(at: index)
+        annotations.insert(mosaic, at: 0)
+        delegate?.annotationMoved()
+    }
+
+    // ぼかしを最前面（配列の最後）に移動
+    private func moveMosaicToFront(at index: Int) {
+        guard index < annotations.count, annotations[index] is MosaicAnnotation else { return }
+        let mosaic = annotations.remove(at: index)
+        annotations.append(mosaic)
+        selectedAnnotationIndex = annotations.count - 1
+        delegate?.annotationMoved()
     }
 }
 
