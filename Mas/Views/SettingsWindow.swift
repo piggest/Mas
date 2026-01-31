@@ -186,7 +186,7 @@ struct AboutView: View {
 
             Spacer()
 
-            Text("© 2025")
+            Text("© 2026")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
