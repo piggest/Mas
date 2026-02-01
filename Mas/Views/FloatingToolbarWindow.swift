@@ -395,62 +395,71 @@ struct FloatingToolbarViewIndependent: View {
     let onUndo: () -> Void
     let onDelete: () -> Void
 
+    private let buttonSize: CGFloat = 28
+    private let iconSize: CGFloat = 12
+
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             toolsSection
-            Divider().frame(height: 24)
             optionsSection
             actionSection
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.windowBackgroundColor))
-                .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+            Capsule()
+                .fill(Color(NSColor.windowBackgroundColor).opacity(0.95))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+            Capsule()
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
         )
         .fixedSize()
     }
 
     @ViewBuilder
     private var toolsSection: some View {
-        toolButton(for: .move)
+        circleToolButton(for: .move)
 
-        Divider().frame(height: 24)
+        ToolGroupButtonCircle(state: state, group: .drawing, buttonSize: buttonSize, iconSize: iconSize)
+        ToolGroupButtonCircle(state: state, group: .shapes, buttonSize: buttonSize, iconSize: iconSize)
 
-        ToolGroupButtonIndependent(state: state, group: .drawing)
-        ToolGroupButtonIndependent(state: state, group: .shapes)
-
-        toolButton(for: .text)
-        toolButton(for: .mosaic)
+        circleToolButton(for: .text)
+        circleToolButton(for: .mosaic)
     }
 
     @ViewBuilder
     private var optionsSection: some View {
-        ColorPickerButtonIndependent(state: state)
+        // 区切り
+        Circle()
+            .fill(Color.gray.opacity(0.3))
+            .frame(width: 4, height: 4)
+            .padding(.horizontal, 4)
 
-        HStack(spacing: 4) {
-            Image(systemName: "line.diagonal")
-                .font(.system(size: 8))
-                .foregroundColor(.secondary)
+        ColorPickerButtonCircle(state: state, buttonSize: buttonSize)
+
+        // 線の太さ
+        HStack(spacing: 2) {
+            Circle()
+                .fill(Color.secondary)
+                .frame(width: 4, height: 4)
             Slider(value: $state.lineWidth, in: 1...10, step: 1)
-                .frame(width: 50)
-            Image(systemName: "line.diagonal")
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
+                .frame(width: 60)
+                .tint(.blue)
+            Circle()
+                .fill(Color.secondary)
+                .frame(width: 10, height: 10)
         }
 
+        // 縁取りボタン
         Button(action: { state.strokeEnabled.toggle() }) {
-            Image(systemName: state.strokeEnabled ? "square.dashed" : "square")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(state.strokeEnabled ? .white : .primary)
-                .frame(width: 28, height: 28)
-                .background(state.strokeEnabled ? Color.blue : Color.gray.opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+            Image(systemName: state.strokeEnabled ? "diamond.inset.filled" : "diamond")
+                .font(.system(size: iconSize, weight: .medium))
+                .foregroundColor(state.strokeEnabled ? .white : .secondary)
+                .frame(width: buttonSize, height: buttonSize)
+                .background(state.strokeEnabled ? Color.blue : Color.gray.opacity(0.15))
+                .clipShape(Circle())
         }
         .buttonStyle(.plain)
         .help("縁取り")
@@ -459,16 +468,20 @@ struct FloatingToolbarViewIndependent: View {
     @ViewBuilder
     private var actionSection: some View {
         if state.hasAnnotations || state.hasSelectedAnnotation {
-            Divider().frame(height: 24)
+            // 区切り
+            Circle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 4, height: 4)
+                .padding(.horizontal, 4)
 
             if state.hasSelectedAnnotation {
                 Button(action: onDelete) {
                     Image(systemName: "trash")
-                        .font(.system(size: 12))
-                        .foregroundColor(.red)
-                        .frame(width: 28, height: 28)
-                        .background(Color.red.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .font(.system(size: iconSize))
+                        .foregroundColor(.white)
+                        .frame(width: buttonSize, height: buttonSize)
+                        .background(Color.pink)
+                        .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .help("削除 (Delete)")
@@ -477,11 +490,11 @@ struct FloatingToolbarViewIndependent: View {
             if state.hasAnnotations {
                 Button(action: onUndo) {
                     Image(systemName: "arrow.uturn.backward")
-                        .font(.system(size: 12))
+                        .font(.system(size: iconSize))
                         .foregroundColor(.primary)
-                        .frame(width: 28, height: 28)
-                        .background(Color.gray.opacity(0.2))
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .frame(width: buttonSize, height: buttonSize)
+                        .background(Color.gray.opacity(0.15))
+                        .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .help("取消")
@@ -489,16 +502,145 @@ struct FloatingToolbarViewIndependent: View {
         }
     }
 
-    private func toolButton(for tool: EditTool) -> some View {
+    private func circleToolButton(for tool: EditTool) -> some View {
         Button(action: { state.selectedTool = tool }) {
             Image(systemName: tool.icon)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(state.selectedTool == tool ? .white : .primary)
-                .frame(width: 28, height: 28)
-                .background(state.selectedTool == tool ? Color.blue : Color.gray.opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .font(.system(size: iconSize, weight: .medium))
+                .foregroundColor(state.selectedTool == tool ? .white : .secondary)
+                .frame(width: buttonSize, height: buttonSize)
+                .background(state.selectedTool == tool ? Color.blue : Color.gray.opacity(0.15))
+                .clipShape(Circle())
         }
         .buttonStyle(.plain)
         .help(tool.rawValue)
+    }
+}
+
+// 丸いツールグループボタン
+struct ToolGroupButtonCircle: View {
+    @ObservedObject var state: FloatingToolbarState
+    let group: ToolGroup
+    let buttonSize: CGFloat
+    let iconSize: CGFloat
+    @State private var showPopover = false
+
+    private var currentTool: EditTool {
+        state.lastToolFor(group: group)
+    }
+
+    private var isGroupSelected: Bool {
+        group.tools.contains(state.selectedTool)
+    }
+
+    var body: some View {
+        Button(action: {
+            if isGroupSelected {
+                showPopover = true
+            } else {
+                state.selectTool(currentTool)
+            }
+        }) {
+            HStack(spacing: 2) {
+                Image(systemName: currentTool.icon)
+                    .font(.system(size: iconSize, weight: .medium))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .medium))
+            }
+            .foregroundColor(isGroupSelected ? .white : .secondary)
+            .frame(width: buttonSize + 10, height: buttonSize)
+            .background(isGroupSelected ? Color.blue : Color.gray.opacity(0.15))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(currentTool.rawValue)
+        .popover(isPresented: $showPopover, arrowEdge: .bottom) {
+            VStack(spacing: 6) {
+                ForEach(group.tools, id: \.self) { tool in
+                    Button(action: {
+                        state.selectTool(tool)
+                        showPopover = false
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: tool.icon)
+                                .font(.system(size: 12))
+                                .frame(width: 20)
+                            Text(tool.rawValue)
+                                .font(.system(size: 12))
+                            Spacer()
+                            if state.lastToolFor(group: group) == tool {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .frame(minWidth: 100)
+                        .background(state.lastToolFor(group: group) == tool ? Color.blue.opacity(0.1) : Color.clear)
+                        .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(8)
+        }
+        .onTapGesture(count: 1) {
+            if !isGroupSelected {
+                state.selectTool(currentTool)
+            }
+            showPopover = true
+        }
+    }
+}
+
+// 丸い色選択ボタン
+struct ColorPickerButtonCircle: View {
+    @ObservedObject var state: FloatingToolbarState
+    let buttonSize: CGFloat
+    @State private var showPopover = false
+
+    private let colors: [Color] = [.red, .orange, .yellow, .green, .blue, .purple, .pink, .black, .white, .gray]
+
+    var body: some View {
+        Button(action: { showPopover = true }) {
+            Circle()
+                .fill(state.selectedColor)
+                .frame(width: buttonSize - 8, height: buttonSize - 8)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white, lineWidth: 2)
+                )
+                .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(.plain)
+        .help("色選択")
+        .popover(isPresented: $showPopover, arrowEdge: .bottom) {
+            VStack(spacing: 10) {
+                ForEach(0..<2) { row in
+                    HStack(spacing: 8) {
+                        ForEach(0..<5) { col in
+                            let index = row * 5 + col
+                            if index < colors.count {
+                                Button(action: {
+                                    state.selectedColor = colors[index]
+                                    showPopover = false
+                                }) {
+                                    Circle()
+                                        .fill(colors[index])
+                                        .frame(width: 28, height: 28)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(state.selectedColor == colors[index] ? Color.blue : Color.gray.opacity(0.3), lineWidth: state.selectedColor == colors[index] ? 3 : 1)
+                                        )
+                                        .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(14)
+        }
     }
 }
