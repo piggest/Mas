@@ -76,4 +76,18 @@ class FreehandAnnotation: Annotation {
     func move(by delta: CGPoint) {
         points = points.map { CGPoint(x: $0.x + delta.x, y: $0.y + delta.y) }
     }
+
+    // 属性アクセス
+    var annotationColor: NSColor? {
+        get { color }
+        set { if let c = newValue { color = c } }
+    }
+    var annotationLineWidth: CGFloat? {
+        get { lineWidth }
+        set { if let w = newValue { lineWidth = w } }
+    }
+    var annotationStrokeEnabled: Bool? {
+        get { strokeEnabled }
+        set { if let s = newValue { strokeEnabled = s } }
+    }
 }

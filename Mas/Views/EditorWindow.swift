@@ -248,6 +248,57 @@ struct EditorWindow: View {
                 currentAnnotation = nil  // 進行中のアノテーションをクリア
             }
         }
+        // 選択中のアノテーションの属性変更を反映
+        .onChange(of: toolboxState.selectedColor) { newColor in
+            updateSelectedAnnotationColor(newColor)
+        }
+        .onChange(of: toolboxState.lineWidth) { newWidth in
+            updateSelectedAnnotationLineWidth(newWidth)
+        }
+        .onChange(of: toolboxState.strokeEnabled) { newValue in
+            updateSelectedAnnotationStroke(newValue)
+        }
+        // アノテーション選択時に属性をToolboxStateにロード
+        .onChange(of: toolboxState.selectedAnnotationIndex) { newIndex in
+            loadSelectedAnnotationAttributes(at: newIndex)
+        }
+    }
+
+    private func updateSelectedAnnotationColor(_ color: Color) {
+        guard toolboxState.selectedTool == .move,
+              let index = toolboxState.selectedAnnotationIndex,
+              index < toolboxState.annotations.count else { return }
+        toolboxState.annotations[index].annotationColor = NSColor(color)
+    }
+
+    private func updateSelectedAnnotationLineWidth(_ width: CGFloat) {
+        guard toolboxState.selectedTool == .move,
+              let index = toolboxState.selectedAnnotationIndex,
+              index < toolboxState.annotations.count else { return }
+        toolboxState.annotations[index].annotationLineWidth = width
+    }
+
+    private func updateSelectedAnnotationStroke(_ enabled: Bool) {
+        guard toolboxState.selectedTool == .move,
+              let index = toolboxState.selectedAnnotationIndex,
+              index < toolboxState.annotations.count else { return }
+        toolboxState.annotations[index].annotationStrokeEnabled = enabled
+    }
+
+    private func loadSelectedAnnotationAttributes(at index: Int?) {
+        guard toolboxState.selectedTool == .move,
+              let index = index,
+              index < toolboxState.annotations.count else { return }
+        let annotation = toolboxState.annotations[index]
+        if let color = annotation.annotationColor {
+            toolboxState.selectedColor = Color(color)
+        }
+        if let width = annotation.annotationLineWidth {
+            toolboxState.lineWidth = width
+        }
+        if let stroke = annotation.annotationStrokeEnabled {
+            toolboxState.strokeEnabled = stroke
+        }
     }
 
     private func showToolbar() {

@@ -43,4 +43,14 @@ class TextAnnotation: Annotation {
     func move(by delta: CGPoint) {
         position = CGPoint(x: position.x + delta.x, y: position.y + delta.y)
     }
+
+    // 属性アクセス（テキストは色のみ変更可能）
+    var annotationColor: NSColor? {
+        get { color }
+        set { if let c = newValue { color = c } }
+    }
+    var annotationLineWidth: CGFloat? {
+        get { font.pointSize }
+        set { if let size = newValue { font = NSFont.systemFont(ofSize: size * 5, weight: .medium) } }
+    }
 }
