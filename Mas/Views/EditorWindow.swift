@@ -166,6 +166,7 @@ struct EditorWindow: View {
     @State private var toolbarController: FloatingToolbarWindowController?
     @State private var isLoadingAnnotationAttributes = false
     @State private var imageForDrag: NSImage?  // アノテーション付きドラッグ用画像
+    @State private var editingTextIndex: Int?  // 編集中のテキストアノテーションのインデックス
 
     let onRecapture: ((CGRect, NSWindow?) -> Void)?
     let onPassThroughChanged: ((Bool) -> Void)?
@@ -410,6 +411,12 @@ struct EditorWindow: View {
             },
             onAnnotationChanged: {
                 applyAnnotationsToImage()
+            },
+            onTextEdit: { index, textAnnotation in
+                editingTextIndex = index
+                textInput = textAnnotation.text
+                textPosition = textAnnotation.position
+                showTextInput = true
             }
         )
         .frame(
@@ -480,19 +487,38 @@ struct EditorWindow: View {
     private func submitTextInput() {
         if !textInput.isEmpty {
             let safeColor = Self.createIndependentNSColor(from: toolboxState.selectedColor)
-            let textAnnotation = TextAnnotation(
-                position: textPosition,
-                text: textInput,
-                font: .systemFont(ofSize: toolboxState.lineWidth * 5, weight: .medium),
-                color: safeColor,
-                strokeEnabled: toolboxState.strokeEnabled
-            )
-            toolboxState.annotations.append(textAnnotation)
+
+            if let editIndex = editingTextIndex,
+               editIndex < toolboxState.annotations.count,
+               let existingText = toolboxState.annotations[editIndex] as? TextAnnotation {
+                // 既存のテキストを編集
+                existingText.text = textInput
+                existingText.color = safeColor
+                existingText.font = .systemFont(ofSize: toolboxState.lineWidth * 5, weight: .medium)
+                existingText.strokeEnabled = toolboxState.strokeEnabled
+            } else {
+                // 新規テキストを追加
+                let textAnnotation = TextAnnotation(
+                    position: textPosition,
+                    text: textInput,
+                    font: .systemFont(ofSize: toolboxState.lineWidth * 5, weight: .medium),
+                    color: safeColor,
+                    strokeEnabled: toolboxState.strokeEnabled
+                )
+                toolboxState.annotations.append(textAnnotation)
+            }
             // ドラッグ用画像を更新
             applyAnnotationsToImage()
+        } else if let editIndex = editingTextIndex {
+            // 空文字で確定した場合は削除
+            if editIndex < toolboxState.annotations.count {
+                toolboxState.annotations.remove(at: editIndex)
+                applyAnnotationsToImage()
+            }
         }
         textInput = ""
         showTextInput = false
+        editingTextIndex = nil
     }
 
     /// SwiftUI ColorからSwiftUIへの参照を持たない独立したNSColorを作成
@@ -517,6 +543,7 @@ struct EditorWindow: View {
     private func cancelTextInput() {
         textInput = ""
         showTextInput = false
+        editingTextIndex = nil
     }
 
     @ViewBuilder
@@ -994,6 +1021,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let toolboxState: ToolboxState
     let onTextTap: (CGPoint) -> Void
     let onAnnotationChanged: () -> Void
+    let onTextEdit: ((Int, TextAnnotation) -> Void)?
 
     func makeNSView(context: Context) -> AnnotationCanvas {
         let canvas = AnnotationCanvas()
@@ -1104,6 +1132,10 @@ struct AnnotationCanvasView: NSViewRepresentable {
             canvas?.needsDisplay = true
             parent.onAnnotationChanged()
         }
+
+        func editTextAnnotation(at index: Int, annotation: TextAnnotation) {
+            parent.onTextEdit?(index, annotation)
+        }
     }
 }
 
@@ -1114,6 +1146,7 @@ protocol AnnotationCanvasDelegate: AnyObject {
     func annotationMoved()
     func selectionChanged(_ index: Int?)
     func deleteSelectedAnnotation()
+    func editTextAnnotation(at index: Int, annotation: TextAnnotation)
 }
 
 class AnnotationCanvas: NSView {
@@ -1268,6 +1301,18 @@ class AnnotationCanvas: NSView {
         let point = convert(event.locationInWindow, from: nil)
         dragStart = point
         lastDragPoint = point
+
+        // 移動モードでダブルクリック - テキスト編集
+        if selectedTool == .move && event.clickCount == 2 {
+            // ダブルクリックした位置にテキストアノテーションがあるか確認
+            for (index, annotation) in annotations.enumerated().reversed() {
+                if let textAnnotation = annotation as? TextAnnotation,
+                   textAnnotation.contains(point: point) {
+                    delegate?.editTextAnnotation(at: index, annotation: textAnnotation)
+                    return
+                }
+            }
+        }
 
         // 移動モードの場合
         if selectedTool == .move {
