@@ -26,12 +26,17 @@ class RectAnnotation: Annotation {
             path.fill()
         }
 
-        // 縁取り（白い境界線）
+        // 縁取り（黒い外縁 + 白い境界線）
         if strokeEnabled {
             let outerPath = NSBezierPath(rect: rect)
-            outerPath.lineWidth = lineWidth + 2
-            NSColor.white.setStroke()
+            outerPath.lineWidth = lineWidth + 4
+            NSColor.black.withAlphaComponent(0.3).setStroke()
             outerPath.stroke()
+
+            let whitePath = NSBezierPath(rect: rect)
+            whitePath.lineWidth = lineWidth + 2
+            NSColor.white.setStroke()
+            whitePath.stroke()
         }
 
         color.setStroke()

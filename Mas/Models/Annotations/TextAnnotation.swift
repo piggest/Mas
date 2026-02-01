@@ -31,17 +31,26 @@ class TextAnnotation: Annotation {
         let drawPosition = CGPoint(x: position.x, y: position.y - font.ascender)
 
         if strokeEnabled {
-            // 2パス描画：まず白いアウトラインを描画、次に元の色で上に重ねる
-            // パス1: 白いストローク（太め）
+            // 3パス描画：黒い外縁 → 白い縁取り → 元の色
+            // パス1: 黒いアウトライン（最も太い）
+            let outerStrokeAttributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .strokeColor: NSColor.black.withAlphaComponent(0.5),
+                .strokeWidth: 10.0
+            ]
+            let outerStrokeString = NSAttributedString(string: text, attributes: outerStrokeAttributes)
+            outerStrokeString.draw(at: drawPosition)
+
+            // パス2: 白いストローク（中間）
             let strokeAttributes: [NSAttributedString.Key: Any] = [
                 .font: font,
                 .strokeColor: NSColor.white,
-                .strokeWidth: 4.0  // 正の値でストロークのみ
+                .strokeWidth: 6.0
             ]
             let strokeString = NSAttributedString(string: text, attributes: strokeAttributes)
             strokeString.draw(at: drawPosition)
 
-            // パス2: 元の色で塗りつぶし
+            // パス3: 元の色で塗りつぶし
             let fillAttributes: [NSAttributedString.Key: Any] = [
                 .font: font,
                 .foregroundColor: color

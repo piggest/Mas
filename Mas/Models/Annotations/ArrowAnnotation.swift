@@ -80,15 +80,20 @@ class ArrowAnnotation: Annotation {
         path.line(to: tailRight)
         path.close()
 
-        // 縁取り（白い境界線）
+        // 塗りつぶし
+        color.setFill()
+        path.fill()
+
+        // 縁取り（黒い外縁 + 白い境界線）
         if strokeEnabled {
+            NSColor.black.withAlphaComponent(0.3).setStroke()
+            path.lineWidth = lineWidth * 0.8
+            path.stroke()
+
             NSColor.white.setStroke()
             path.lineWidth = lineWidth * 0.4
             path.stroke()
         }
-
-        color.setFill()
-        path.fill()
     }
 
     func contains(point: CGPoint) -> Bool {
