@@ -107,12 +107,40 @@ class FloatingToolbarWindowController {
         toolbarState.syncFrom(state)
     }
 
+    private var isSyncPaused = false
+
+    func pauseSync() {
+        isSyncPaused = true
+    }
+
+    func resumeSync() {
+        isSyncPaused = false
+    }
+
     private func startSyncTimer() {
-        // 定期的にツールバーの状態を元のToolboxStateに反映
+        // 定期的にツールバー → ToolboxState の一方向同期
         syncTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             guard let self = self, let state = self.originalState else { return }
+            // 同期が一時停止中は何もしない
+            if self.isSyncPaused { return }
+            // hasAnnotations, hasSelectedAnnotationはToolboxStateから読み取り
+            if self.toolbarState.hasAnnotations != state.hasAnnotations {
+                self.toolbarState.hasAnnotations = state.hasAnnotations
+            }
+            if self.toolbarState.hasSelectedAnnotation != state.hasSelectedAnnotation {
+                self.toolbarState.hasSelectedAnnotation = state.hasSelectedAnnotation
+            }
+            // ツールバー → ToolboxState
             self.toolbarState.syncTo(state)
         }
+    }
+
+    // 選択変更時にToolboxStateの属性をツールバーに反映（明示的に呼び出す）
+    func syncAttributesFromState() {
+        guard let state = originalState else { return }
+        toolbarState.selectedColor = state.selectedColor
+        toolbarState.lineWidth = state.lineWidth
+        toolbarState.strokeEnabled = state.strokeEnabled
     }
 
     private func stopSyncTimer() {
