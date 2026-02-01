@@ -1,25 +1,68 @@
 import SwiftUI
 import AppKit
 
+// フローティングツールバーの状態を保持するクラス（ToolboxStateとは独立）
+class FloatingToolbarState: ObservableObject {
+    @Published var selectedTool: EditTool = .arrow
+    @Published var selectedColor: Color = .red
+    @Published var lineWidth: CGFloat = 5
+    @Published var strokeEnabled: Bool = true
+    @Published var hasAnnotations: Bool = false
+    @Published var hasSelectedAnnotation: Bool = false
+
+    // 元のToolboxStateから値をコピー
+    func syncFrom(_ state: ToolboxState) {
+        selectedTool = state.selectedTool
+        selectedColor = state.selectedColor
+        lineWidth = state.lineWidth
+        strokeEnabled = state.strokeEnabled
+        hasAnnotations = state.hasAnnotations
+        hasSelectedAnnotation = state.hasSelectedAnnotation
+    }
+
+    // 元のToolboxStateに値を反映
+    func syncTo(_ state: ToolboxState) {
+        state.selectedTool = selectedTool
+        state.selectedColor = selectedColor
+        state.lineWidth = lineWidth
+        state.strokeEnabled = strokeEnabled
+    }
+}
+
 // フローティングツールバーウィンドウを管理するクラス
 class FloatingToolbarWindowController {
     private var window: NSWindow?
     private var parentWindow: NSWindow?
     private var frameObserver: NSObjectProtocol?
     private var hostingView: NSView?
+    private var cachedToolbarSize: CGSize?
+
+    // ツールバー独自の状態（EditorWindowのToolboxStateとは独立）
+    private let toolbarState = FloatingToolbarState()
+    private weak var originalState: ToolboxState?
+    private var syncTimer: Timer?
 
     private var onDelete: (() -> Void)?
+    private var onUndo: (() -> Void)?
 
     func show(attachedTo parent: NSWindow, state: ToolboxState, onUndo: @escaping () -> Void, onDelete: @escaping () -> Void = {}) {
         parentWindow = parent
+        originalState = state
         self.onDelete = onDelete
+        self.onUndo = onUndo
+
+        // 元の状態から初期値をコピー
+        toolbarState.syncFrom(state)
 
         if window == nil {
-            createWindow(state: state, onUndo: onUndo, onDelete: onDelete)
+            createWindow()
         }
 
         updatePosition()
         window?.orderFront(nil)
+
+        // 状態同期タイマーを開始（ツールバー→元の状態）
+        startSyncTimer()
 
         // 親ウィンドウの移動・リサイズを監視
         frameObserver = NotificationCenter.default.addObserver(
@@ -41,6 +84,7 @@ class FloatingToolbarWindowController {
 
     func hide() {
         window?.orderOut(nil)
+        stopSyncTimer()
         if let observer = frameObserver {
             NotificationCenter.default.removeObserver(observer)
             frameObserver = nil
@@ -49,20 +93,48 @@ class FloatingToolbarWindowController {
 
     func close() {
         hide()
-        // window?.close()は呼ばない（アプリ終了を防ぐ）
+        // window?.close()を呼ばず、参照をnilにするだけでARCに解放を任せる
+        // contentView = nilも呼ばない
         window = nil
         hostingView = nil
         parentWindow = nil
+        cachedToolbarSize = nil
+        originalState = nil
     }
 
-    private func createWindow(state: ToolboxState, onUndo: @escaping () -> Void, onDelete: @escaping () -> Void) {
-        let toolbarView = FloatingToolbarView(state: state, onUndo: onUndo, onDelete: onDelete)
+    // 元のToolboxStateの変更をツールバーに反映
+    func updateFromState(_ state: ToolboxState) {
+        toolbarState.syncFrom(state)
+    }
+
+    private func startSyncTimer() {
+        // 定期的にツールバーの状態を元のToolboxStateに反映
+        syncTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            guard let self = self, let state = self.originalState else { return }
+            self.toolbarState.syncTo(state)
+        }
+    }
+
+    private func stopSyncTimer() {
+        syncTimer?.invalidate()
+        syncTimer = nil
+        // 注意: 最後の同期はSwiftUIの更新サイクル中に呼ばれる可能性があるため削除
+        // タイマーは0.05秒ごとに動いているので、最後の同期は不要
+    }
+
+    private func createWindow() {
+        let toolbarView = FloatingToolbarViewIndependent(
+            state: toolbarState,
+            onUndo: { [weak self] in self?.onUndo?() },
+            onDelete: { [weak self] in self?.onDelete?() }
+        )
         let hosting = NSHostingView(rootView: toolbarView)
 
-        // ツールバーの本来のサイズを取得
+        // ツールバーの本来のサイズを取得してキャッシュ
         let fittingSize = hosting.fittingSize
-        let toolbarWidth = fittingSize.width
-        let toolbarHeight = fittingSize.height
+        let toolbarWidth = max(fittingSize.width, 400)
+        let toolbarHeight = max(fittingSize.height, 50)
+        cachedToolbarSize = CGSize(width: toolbarWidth, height: toolbarHeight)
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: toolbarWidth, height: toolbarHeight),
@@ -86,14 +158,14 @@ class FloatingToolbarWindowController {
     }
 
     private func updatePosition() {
-        guard let parent = parentWindow, let toolbar = window, let hosting = hostingView as? NSHostingView<FloatingToolbarView> else { return }
+        guard let parent = parentWindow, let toolbar = window else { return }
 
         let parentFrame = parent.frame
 
-        // ツールバーの本来のサイズを取得
-        let fittingSize = hosting.fittingSize
-        let toolbarWidth = fittingSize.width
-        let toolbarHeight = fittingSize.height
+        // キャッシュされたサイズを使用（初回のみ計算）
+        let toolbarSize = cachedToolbarSize ?? CGSize(width: 400, height: 50)
+        let toolbarWidth = toolbarSize.width
+        let toolbarHeight = toolbarSize.height
 
         // 親ウィンドウの下部中央に配置（はみ出しOK）
         let toolbarX = parentFrame.origin.x + (parentFrame.width - toolbarWidth) / 2
@@ -101,7 +173,7 @@ class FloatingToolbarWindowController {
 
         toolbar.setFrame(
             NSRect(x: toolbarX, y: toolbarY, width: toolbarWidth, height: toolbarHeight),
-            display: true
+            display: false
         )
     }
 }
@@ -125,14 +197,13 @@ enum ToolGroup {
     }
 }
 
-// コンボボックス風のツール選択ボタン
-struct ToolGroupButton: View {
-    @ObservedObject var state: ToolboxState
+// 独立した状態を使うツールグループボタン
+struct ToolGroupButtonIndependent: View {
+    @ObservedObject var state: FloatingToolbarState
     let group: ToolGroup
     @State private var showPopover = false
 
     private var currentTool: EditTool {
-        // グループ内で選択されているツールがあればそれを、なければ最初のツールを表示
         group.tools.first(where: { $0 == state.selectedTool }) ?? group.tools[0]
     }
 
@@ -143,10 +214,8 @@ struct ToolGroupButton: View {
     var body: some View {
         Button(action: {
             if isGroupSelected {
-                // 既にグループ内のツールが選択されていたらポップオーバーを開く
                 showPopover = true
             } else {
-                // そうでなければ現在のツールを選択
                 state.selectedTool = currentTool
             }
         }) {
@@ -193,7 +262,6 @@ struct ToolGroupButton: View {
             .padding(8)
         }
         .onTapGesture(count: 1) {
-            // シングルクリックでツール選択 + ポップオーバー
             if !isGroupSelected {
                 state.selectedTool = currentTool
             }
@@ -202,9 +270,9 @@ struct ToolGroupButton: View {
     }
 }
 
-// 色選択のコンボボックス風ボタン
-struct ColorPickerButton: View {
-    @ObservedObject var state: ToolboxState
+// 独立した状態を使う色選択ボタン
+struct ColorPickerButtonIndependent: View {
+    @ObservedObject var state: FloatingToolbarState
     @State private var showPopover = false
 
     private let colors: [Color] = [.red, .blue, .green, .yellow, .orange, .purple, .pink, .black, .white, .gray]
@@ -231,7 +299,6 @@ struct ColorPickerButton: View {
         .help("色選択")
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
             VStack(spacing: 8) {
-                // 2行5列のグリッド
                 ForEach(0..<2) { row in
                     HStack(spacing: 6) {
                         ForEach(0..<5) { col in
@@ -260,9 +327,9 @@ struct ColorPickerButton: View {
     }
 }
 
-// フローティングツールバーのビュー
-struct FloatingToolbarView: View {
-    @ObservedObject var state: ToolboxState
+// 独立した状態を使うフローティングツールバービュー（ToolboxStateを参照しない）
+struct FloatingToolbarViewIndependent: View {
+    @ObservedObject var state: FloatingToolbarState
     let onUndo: () -> Void
     let onDelete: () -> Void
 
@@ -289,30 +356,21 @@ struct FloatingToolbarView: View {
 
     @ViewBuilder
     private var toolsSection: some View {
-        // 移動ツール
         toolButton(for: .move)
 
         Divider().frame(height: 24)
 
-        // 描画ツールグループ（ペン、マーカー）
-        ToolGroupButton(state: state, group: .drawing)
+        ToolGroupButtonIndependent(state: state, group: .drawing)
+        ToolGroupButtonIndependent(state: state, group: .shapes)
 
-        // 形状ツールグループ（矢印、四角、丸）
-        ToolGroupButton(state: state, group: .shapes)
-
-        // テキストツール
         toolButton(for: .text)
-
-        // モザイクツール
         toolButton(for: .mosaic)
     }
 
     @ViewBuilder
     private var optionsSection: some View {
-        // 色選択
-        ColorPickerButton(state: state)
+        ColorPickerButtonIndependent(state: state)
 
-        // サイズスライダー
         HStack(spacing: 4) {
             Image(systemName: "line.diagonal")
                 .font(.system(size: 8))
@@ -324,7 +382,6 @@ struct FloatingToolbarView: View {
                 .foregroundColor(.secondary)
         }
 
-        // 縁取りトグル
         Button(action: { state.strokeEnabled.toggle() }) {
             Image(systemName: state.strokeEnabled ? "square.dashed" : "square")
                 .font(.system(size: 12, weight: .medium))
@@ -342,7 +399,6 @@ struct FloatingToolbarView: View {
         if state.hasAnnotations || state.hasSelectedAnnotation {
             Divider().frame(height: 24)
 
-            // 削除ボタン（選択中のアノテーションがある場合のみ）
             if state.hasSelectedAnnotation {
                 Button(action: onDelete) {
                     Image(systemName: "trash")
@@ -356,7 +412,6 @@ struct FloatingToolbarView: View {
                 .help("削除 (Delete)")
             }
 
-            // 取消ボタン
             if state.hasAnnotations {
                 Button(action: onUndo) {
                     Image(systemName: "arrow.uturn.backward")
