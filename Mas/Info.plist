@@ -13,9 +13,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.example.Mas</string>
     <key>CFBundleVersion</key>
-    <string>1.2.7</string>
+    <string>1.2.18</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.2.7</string>
+    <string>1.2.18</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
 </dict>

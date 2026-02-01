@@ -86,7 +86,15 @@ class FloatingToolbarWindowController {
         }
 
         updatePosition()
+
+        // 出現アニメーション
+        window?.alphaValue = 0
         window?.orderFront(nil)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            window?.animator().alphaValue = 1
+        }
 
         // 状態同期タイマーを開始（ツールバー→元の状態）
         startSyncTimer()
@@ -110,7 +118,15 @@ class FloatingToolbarWindowController {
     }
 
     func hide() {
-        window?.orderOut(nil)
+        // 消えるアニメーション
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window?.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            self?.window?.orderOut(nil)
+            self?.window?.alphaValue = 1  // リセット
+        })
         stopSyncTimer()
         if let observer = frameObserver {
             NotificationCenter.default.removeObserver(observer)
@@ -228,8 +244,8 @@ class FloatingToolbarWindowController {
         let toolbarWidth = toolbarSize.width
         let toolbarHeight = toolbarSize.height
 
-        // 親ウィンドウの下部中央に配置（はみ出しOK）
-        let toolbarX = parentFrame.origin.x + (parentFrame.width - toolbarWidth) / 2
+        // 親ウィンドウの下部左寄せに配置（はみ出しOK）
+        let toolbarX = parentFrame.origin.x
         let toolbarY = parentFrame.origin.y - toolbarHeight + 4
 
         toolbar.setFrame(
@@ -398,6 +414,9 @@ struct FloatingToolbarViewIndependent: View {
     private let buttonSize: CGFloat = 28
     private let iconSize: CGFloat = 12
 
+    @State private var appeared = false
+    @State private var backgroundAppeared = false
+
     var body: some View {
         HStack(spacing: 6) {
             toolsSection
@@ -410,23 +429,51 @@ struct FloatingToolbarViewIndependent: View {
             Capsule()
                 .fill(Color(NSColor.windowBackgroundColor).opacity(0.95))
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                .opacity(backgroundAppeared ? 1 : 0)
         )
         .overlay(
             Capsule()
                 .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                .opacity(backgroundAppeared ? 1 : 0)
         )
         .fixedSize()
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.2)) {
+                appeared = true
+            }
+            // ボタンと同時に背景をフェードイン
+            withAnimation(.easeIn(duration: 0.2)) {
+                backgroundAppeared = true
+            }
+        }
+    }
+
+    private func animatedOffset(index: Int) -> CGFloat {
+        return appeared ? 0 : -CGFloat(index + 1) * 40
+    }
+
+    private func animatedOpacity(index: Int) -> Double {
+        1
+    }
+
+    private func animationDelay(index: Int) -> Double {
+        0
     }
 
     @ViewBuilder
     private var toolsSection: some View {
-        circleToolButton(for: .move)
+        circleToolButton(for: .move, index: 0)
 
         ToolGroupButtonCircle(state: state, group: .drawing, buttonSize: buttonSize, iconSize: iconSize)
-        ToolGroupButtonCircle(state: state, group: .shapes, buttonSize: buttonSize, iconSize: iconSize)
+            .offset(x: animatedOffset(index: 1))
+            .animation(.easeOut(duration: 0.2), value: appeared)
 
-        circleToolButton(for: .text)
-        circleToolButton(for: .mosaic)
+        ToolGroupButtonCircle(state: state, group: .shapes, buttonSize: buttonSize, iconSize: iconSize)
+            .offset(x: animatedOffset(index: 2))
+            .animation(.easeOut(duration: 0.2), value: appeared)
+
+        circleToolButton(for: .text, index: 3)
+        circleToolButton(for: .mosaic, index: 4)
     }
 
     @ViewBuilder
@@ -438,6 +485,8 @@ struct FloatingToolbarViewIndependent: View {
             .padding(.horizontal, 4)
 
         ColorPickerButtonCircle(state: state, buttonSize: buttonSize)
+            .offset(x: animatedOffset(index: 6))
+            .animation(.easeOut(duration: 0.2), value: appeared)
 
         // 線の太さ
         HStack(spacing: 2) {
@@ -451,6 +500,8 @@ struct FloatingToolbarViewIndependent: View {
                 .fill(Color.secondary)
                 .frame(width: 10, height: 10)
         }
+        .offset(x: animatedOffset(index: 7))
+        .animation(.easeOut(duration: 0.2), value: appeared)
 
         // 縁取りボタン
         Button(action: { state.strokeEnabled.toggle() }) {
@@ -458,11 +509,13 @@ struct FloatingToolbarViewIndependent: View {
                 .font(.system(size: iconSize, weight: .medium))
                 .foregroundColor(state.strokeEnabled ? .white : .secondary)
                 .frame(width: buttonSize, height: buttonSize)
-                .background(state.strokeEnabled ? Color.blue : Color.gray.opacity(0.15))
+                .background(state.strokeEnabled ? Color.blue : Color.white.opacity(0.9))
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)
         .help("縁取り")
+        .offset(x: animatedOffset(index: 8))
+        .animation(.easeOut(duration: 0.2), value: appeared)
     }
 
     @ViewBuilder
@@ -493,7 +546,7 @@ struct FloatingToolbarViewIndependent: View {
                         .font(.system(size: iconSize))
                         .foregroundColor(.primary)
                         .frame(width: buttonSize, height: buttonSize)
-                        .background(Color.gray.opacity(0.15))
+                        .background(Color.white.opacity(0.9))
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -502,17 +555,19 @@ struct FloatingToolbarViewIndependent: View {
         }
     }
 
-    private func circleToolButton(for tool: EditTool) -> some View {
+    private func circleToolButton(for tool: EditTool, index: Int) -> some View {
         Button(action: { state.selectedTool = tool }) {
             Image(systemName: tool.icon)
                 .font(.system(size: iconSize, weight: .medium))
                 .foregroundColor(state.selectedTool == tool ? .white : .secondary)
                 .frame(width: buttonSize, height: buttonSize)
-                .background(state.selectedTool == tool ? Color.blue : Color.gray.opacity(0.15))
+                .background(state.selectedTool == tool ? Color.blue : Color.white.opacity(0.9))
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)
         .help(tool.rawValue)
+        .offset(x: animatedOffset(index: index))
+        .animation(.easeOut(duration: 0.2), value: appeared)
     }
 }
 
@@ -548,7 +603,7 @@ struct ToolGroupButtonCircle: View {
             }
             .foregroundColor(isGroupSelected ? .white : .secondary)
             .frame(width: buttonSize + 10, height: buttonSize)
-            .background(isGroupSelected ? Color.blue : Color.gray.opacity(0.15))
+            .background(isGroupSelected ? Color.blue : Color.white.opacity(0.9))
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
