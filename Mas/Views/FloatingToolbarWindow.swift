@@ -161,8 +161,8 @@ class FloatingToolbarWindowController {
     }
 
     private func startSyncTimer() {
-        // 定期的にツールバー → ToolboxState の一方向同期
-        syncTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        // 定期的にツールバー → ToolboxState の一方向同期（即座に反映するため短い間隔）
+        syncTimer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { [weak self] _ in
             guard let self = self, let state = self.originalState else { return }
             // 同期が一時停止中は何もしない
             if self.isSyncPaused { return }
@@ -173,8 +173,23 @@ class FloatingToolbarWindowController {
             if self.toolbarState.hasSelectedAnnotation != state.hasSelectedAnnotation {
                 self.toolbarState.hasSelectedAnnotation = state.hasSelectedAnnotation
             }
-            // ツールバー → ToolboxState
-            self.toolbarState.syncTo(state)
+
+            // lineWidthが変わったら直接アノテーションを更新（ドラッグ中の即時反映）
+            if self.toolbarState.lineWidth != state.lineWidth {
+                state.lineWidth = self.toolbarState.lineWidth
+                // 選択中のアノテーションの線幅を更新
+                if state.selectedTool == .move,
+                   let index = state.selectedAnnotationIndex,
+                   index < state.annotations.count {
+                    state.annotations[index].annotationLineWidth = self.toolbarState.lineWidth
+                    state.objectWillChange.send()
+                }
+            }
+
+            // ツールバー → ToolboxState（lineWidth以外）
+            state.selectedTool = self.toolbarState.selectedTool
+            state.selectedColor = self.toolbarState.selectedColor
+            state.strokeEnabled = self.toolbarState.strokeEnabled
         }
     }
 
@@ -203,7 +218,10 @@ class FloatingToolbarWindowController {
         let toolbarView = FloatingToolbarViewIndependent(
             state: toolbarState,
             onUndo: { [weak self] in self?.onUndo?() },
-            onDelete: { [weak self] in self?.onDelete?() }
+            onDelete: { [weak self] in self?.onDelete?() },
+            onLineWidthChanged: { [weak self] newValue in
+                self?.originalState?.lineWidth = newValue
+            }
         )
         let hosting = NSHostingView(rootView: toolbarView)
 
@@ -432,6 +450,7 @@ struct FloatingToolbarViewIndependent: View {
     @ObservedObject var state: FloatingToolbarState
     let onUndo: () -> Void
     let onDelete: () -> Void
+    var onLineWidthChanged: ((CGFloat) -> Void)?
 
     private let buttonSize: CGFloat = 28
     private let iconSize: CGFloat = 12
@@ -518,6 +537,9 @@ struct FloatingToolbarViewIndependent: View {
             Slider(value: $state.lineWidth, in: 1...10, step: 1)
                 .frame(width: 60)
                 .tint(.blue)
+                .onChange(of: state.lineWidth) { newValue in
+                    onLineWidthChanged?(newValue)
+                }
             Circle()
                 .fill(Color.secondary)
                 .frame(width: 10, height: 10)

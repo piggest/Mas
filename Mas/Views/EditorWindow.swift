@@ -274,6 +274,8 @@ struct EditorWindow: View {
               index < toolboxState.annotations.count else { return }
         // SwiftUI Colorから独立したNSColorを作成（クラッシュ防止）
         toolboxState.annotations[index].annotationColor = Self.createIndependentNSColor(from: color)
+        // 配列の変更を通知して再描画をトリガー
+        toolboxState.objectWillChange.send()
     }
 
     private func updateSelectedAnnotationLineWidth(_ width: CGFloat) {
@@ -282,6 +284,8 @@ struct EditorWindow: View {
               let index = toolboxState.selectedAnnotationIndex,
               index < toolboxState.annotations.count else { return }
         toolboxState.annotations[index].annotationLineWidth = width
+        // 配列の変更を通知して再描画をトリガー
+        toolboxState.objectWillChange.send()
     }
 
     private func updateSelectedAnnotationStroke(_ enabled: Bool) {
@@ -290,6 +294,8 @@ struct EditorWindow: View {
               let index = toolboxState.selectedAnnotationIndex,
               index < toolboxState.annotations.count else { return }
         toolboxState.annotations[index].annotationStrokeEnabled = enabled
+        // 配列の変更を通知して再描画をトリガー
+        toolboxState.objectWillChange.send()
     }
 
     private func loadSelectedAnnotationAttributes(at index: Int?) {
