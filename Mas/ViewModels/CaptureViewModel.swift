@@ -12,7 +12,7 @@ class CaptureViewModel: ObservableObject {
     private let fileStorageService = FileStorageService()
     private let permissionService = PermissionService()
     private let captureFlash = CaptureFlashView()
-    private var editorWindowController: NSWindowController?
+    private var editorWindowControllers: [NSWindowController] = []
 
     // 前回のキャプチャ範囲を保存するキー
     private let lastCaptureRectKey = "lastCaptureRect"
@@ -212,12 +212,11 @@ class CaptureViewModel: ObservableObject {
     }
 
     // 再キャプチャ機能（現在のウィンドウ位置で）
-    func recaptureRegion(for screenshot: Screenshot, at region: CGRect) async {
+    func recaptureRegion(for screenshot: Screenshot, at region: CGRect, window: NSWindow?) async {
         print("=== Recapture started ===")
         print("Region: \(region)")
 
         // ウィンドウを一時的に隠す
-        let window = editorWindowController?.window
         print("Window: \(String(describing: window))")
         window?.orderOut(nil)
 
@@ -267,7 +266,9 @@ class CaptureViewModel: ObservableObject {
             print("Image updated")
 
             // リサイズ状態をリセット（オフセットをクリア）
-            WindowResizeState.shared.reset()
+            if let resizableWindow = window as? ResizableWindow {
+                resizableWindow.resizeState.reset()
+            }
 
             // 新しい画像を保存
             processScreenshot(screenshot)
@@ -341,35 +342,34 @@ class CaptureViewModel: ObservableObject {
         showEditorWindow(for: screenshot, at: frameRect, showImageInitially: false)
     }
 
-    private var passThroughContainerView: PassThroughContainerView?
-
     private func showEditorWindow(for screenshot: Screenshot, at region: CGRect? = nil, showImageInitially: Bool = true) {
-        let editorView = EditorWindow(screenshot: screenshot, onRecapture: { [weak self] rect in
+        // ResizableWindowを先に作成（独自のresizeStateを持つ）
+        let window = ResizableWindow(contentRect: .zero, styleMask: [.borderless, .resizable], backing: .buffered, defer: false)
+        // 各ウィンドウ独自のToolboxStateを作成
+        let toolboxState = ToolboxState()
+
+        // PassThroughContainerViewを先に作成
+        let containerView = PassThroughContainerView()
+
+        let editorView = EditorWindow(screenshot: screenshot, resizeState: window.resizeState, toolboxState: toolboxState, parentWindow: window, onRecapture: { [weak self] rect, sourceWindow in
             guard let self = self else { return }
             Task {
-                await self.recaptureRegion(for: screenshot, at: rect)
+                await self.recaptureRegion(for: screenshot, at: rect, window: sourceWindow)
             }
-        }, onPassThroughChanged: { [weak self] enabled in
-            self?.passThroughContainerView?.passThroughEnabled = enabled
-            if let window = self?.editorWindowController?.window as? ResizableWindow {
-                window.passThroughEnabled = enabled
-                window.isMovableByWindowBackground = !enabled
+        }, onPassThroughChanged: { [weak window, weak containerView] enabled in
+            containerView?.passThroughEnabled = enabled
+            if let resizableWindow = window as? ResizableWindow {
+                resizableWindow.passThroughEnabled = enabled
+                resizableWindow.isMovableByWindowBackground = !enabled
             }
         }, showImageInitially: showImageInitially)
         let hostingController = NSHostingController(rootView: editorView)
 
         // PassThroughContainerViewでラップ
-        let containerView = PassThroughContainerView()
         containerView.autoresizingMask = [.width, .height]
         hostingController.view.frame = containerView.bounds
         hostingController.view.autoresizingMask = [.width, .height]
         containerView.addSubview(hostingController.view)
-        passThroughContainerView = containerView
-
-        // リサイズ状態をリセット
-        WindowResizeState.shared.reset()
-
-        let window = ResizableWindow(contentRect: .zero, styleMask: [.borderless, .resizable], backing: .buffered, defer: false)
         window.contentView = containerView
         window.styleMask = [.borderless, .resizable]
         window.isMovableByWindowBackground = true
@@ -404,8 +404,12 @@ class CaptureViewModel: ObservableObject {
             window.center()
         }
 
-        editorWindowController = NSWindowController(window: window)
-        editorWindowController?.showWindow(nil)
+        let windowController = NSWindowController(window: window)
+        editorWindowControllers.append(windowController)
+        windowController.showWindow(nil)
+
+        // 閉じられたウィンドウをクリーンアップ
+        editorWindowControllers.removeAll { $0.window == nil || !$0.window!.isVisible }
 
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)

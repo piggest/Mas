@@ -1,10 +1,8 @@
 import AppKit
 import Combine
 
-// リサイズ状態を共有するためのクラス
+// リサイズ状態を管理するクラス（各ウィンドウごとにインスタンスを持つ）
 class WindowResizeState: ObservableObject {
-    static let shared = WindowResizeState()
-
     // ウィンドウoriginの変化量（スクリーン座標系）
     @Published var originDelta: CGPoint = .zero
 
@@ -17,6 +15,8 @@ class WindowResizeState: ObservableObject {
 
     // リサイズ開始時のウィンドウorigin
     var initialWindowOrigin: CGPoint = .zero
+
+    init() {}
 
     func reset() {
         originDelta = .zero
@@ -33,6 +33,7 @@ class WindowResizeState: ObservableObject {
 
 class ResizableWindow: NSWindow {
     private let resizeMargin: CGFloat = 8
+    let resizeState = WindowResizeState()
     var passThroughEnabled: Bool = false {
         didSet {
             if passThroughEnabled {
@@ -45,7 +46,6 @@ class ResizableWindow: NSWindow {
     }
     private var passThroughLocalMonitor: Any?
     private var passThroughGlobalMonitor: Any?
-    private var resizeMonitor: Any?
     private var isResizing: Bool = false
     private var resizeDirection: ResizeDirection?
     private var initialFrame: NSRect = .zero
@@ -53,28 +53,30 @@ class ResizableWindow: NSWindow {
 
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
-        setupResizeMonitor()
+        // イベントモニターではなくsendEventで処理
     }
 
-    private func setupResizeMonitor() {
-        resizeMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .mouseMoved]) { [weak self] event in
-            guard let self = self else { return event }
-            guard event.window == self else { return event }
-
-            switch event.type {
-            case .leftMouseDown:
-                return self.handleMouseDown(event)
-            case .leftMouseDragged:
-                return self.handleMouseDragged(event)
-            case .leftMouseUp:
-                return self.handleMouseUp(event)
-            case .mouseMoved:
-                self.handleMouseMoved(event)
-                return event
-            default:
-                return event
+    // sendEventをオーバーライドしてウィンドウ固有のイベント処理
+    override func sendEvent(_ event: NSEvent) {
+        switch event.type {
+        case .leftMouseDown:
+            if handleMouseDown(event) == nil {
+                return // イベントを消費
             }
+        case .leftMouseDragged:
+            if handleMouseDragged(event) == nil {
+                return // イベントを消費
+            }
+        case .leftMouseUp:
+            if handleMouseUp(event) == nil {
+                return // イベントを消費
+            }
+        case .mouseMoved:
+            handleMouseMoved(event)
+        default:
+            break
         }
+        super.sendEvent(event)
     }
 
     private func handleMouseMoved(_ event: NSEvent) {
@@ -113,9 +115,9 @@ class ResizableWindow: NSWindow {
             initialFrame = windowFrame
             initialMouseLocation = mouseLocation
 
-            WindowResizeState.shared.setOriginalOrigin(windowFrame.origin)
-            WindowResizeState.shared.originDeltaAtResizeStart = WindowResizeState.shared.originDelta
-            WindowResizeState.shared.initialWindowOrigin = windowFrame.origin
+            resizeState.setOriginalOrigin(windowFrame.origin)
+            resizeState.originDeltaAtResizeStart = resizeState.originDelta
+            resizeState.initialWindowOrigin = windowFrame.origin
 
             return nil
         }
@@ -162,16 +164,20 @@ class ResizableWindow: NSWindow {
 
         setFrame(newFrame, display: true)
 
+        // contentViewのレイアウトを強制更新
+        contentView?.needsLayout = true
+        contentView?.layoutSubtreeIfNeeded()
+
         // オフセット計算
-        let currentXDelta = WindowResizeState.shared.initialWindowOrigin.x - newFrame.origin.x
+        let currentXDelta = resizeState.initialWindowOrigin.x - newFrame.origin.x
         let initialTop = initialFrame.origin.y + initialFrame.height
         let newTop = newFrame.origin.y + newFrame.height
         let currentYDelta = newTop - initialTop
 
-        let totalXDelta = round(WindowResizeState.shared.originDeltaAtResizeStart.x + currentXDelta)
-        let totalYDelta = round(WindowResizeState.shared.originDeltaAtResizeStart.y + currentYDelta)
+        let totalXDelta = round(resizeState.originDeltaAtResizeStart.x + currentXDelta)
+        let totalYDelta = round(resizeState.originDeltaAtResizeStart.y + currentYDelta)
 
-        WindowResizeState.shared.originDelta = CGPoint(x: totalXDelta, y: totalYDelta)
+        resizeState.originDelta = CGPoint(x: totalXDelta, y: totalYDelta)
 
         return nil
     }
@@ -272,9 +278,6 @@ class ResizableWindow: NSWindow {
 
     deinit {
         stopPassThroughTracking()
-        if let monitor = resizeMonitor {
-            NSEvent.removeMonitor(monitor)
-        }
     }
 
     convenience init(contentViewController: NSViewController) {
@@ -303,6 +306,24 @@ class ResizableWindow: NSWindow {
 class PassThroughContainerView: NSView {
     var passThroughEnabled: Bool = false
     private let resizeMargin: CGFloat = 8
+
+    override func resizeSubviews(withOldSize oldSize: NSSize) {
+        super.resizeSubviews(withOldSize: oldSize)
+        // サブビューのフレームを明示的に更新
+        for subview in subviews {
+            subview.frame = bounds
+            subview.needsLayout = true
+            subview.layoutSubtreeIfNeeded()
+        }
+    }
+
+    override func layout() {
+        super.layout()
+        // サブビューのフレームを明示的に更新
+        for subview in subviews {
+            subview.frame = bounds
+        }
+    }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         // 現在のフレームサイズを取得（boundsではなくframeを使用）
