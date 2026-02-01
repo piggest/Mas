@@ -293,11 +293,16 @@ struct EditorWindow: View {
     }
 
     private func loadSelectedAnnotationAttributes(at index: Int?) {
-        guard toolboxState.selectedTool == .move,
-              let index = index,
-              index < toolboxState.annotations.count else { return }
+        // 選択が発生した時点でmoveモードのはず（キャンバスがチェック済み）
+        guard let index = index,
+              index < toolboxState.annotations.count else {
+            return
+        }
 
         isLoadingAnnotationAttributes = true
+        // 同期タイマーを一時停止（上書きを防ぐ）
+        toolbarController?.pauseSync()
+
         let annotation = toolboxState.annotations[index]
         if let color = annotation.annotationColor {
             toolboxState.selectedColor = Color(color)
@@ -308,9 +313,11 @@ struct EditorWindow: View {
         if let stroke = annotation.annotationStrokeEnabled {
             toolboxState.strokeEnabled = stroke
         }
-        DispatchQueue.main.async {
-            isLoadingAnnotationAttributes = false
-        }
+
+        // ツールバーに属性を反映して同期を再開
+        toolbarController?.syncAttributesFromState()
+        toolbarController?.resumeSync()
+        isLoadingAnnotationAttributes = false
     }
 
     private func showToolbar() {
@@ -420,6 +427,9 @@ struct EditorWindow: View {
             },
             onDoubleClickEmpty: {
                 showImage = false
+            },
+            onSelectionChanged: { [self] index in
+                loadSelectedAnnotationAttributes(at: index)
             }
         )
         .frame(
@@ -1034,6 +1044,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let onAnnotationChanged: () -> Void
     let onTextEdit: ((Int, TextAnnotation) -> Void)?
     let onDoubleClickEmpty: (() -> Void)?
+    let onSelectionChanged: ((Int?) -> Void)?
 
     func makeNSView(context: Context) -> AnnotationCanvas {
         let canvas = AnnotationCanvas()
@@ -1119,6 +1130,8 @@ struct AnnotationCanvasView: NSViewRepresentable {
 
         func selectionChanged(_ index: Int?) {
             parent.toolboxState.selectedAnnotationIndex = index
+            // 選択時にアノテーションの属性をツールボックスに読み込み
+            parent.onSelectionChanged?(index)
         }
 
         func deleteSelectedAnnotation() {
