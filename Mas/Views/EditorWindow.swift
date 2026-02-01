@@ -303,6 +303,12 @@ struct EditorWindow: View {
     private func showToolbar() {
         // 親ウィンドウにツールバーを表示
         guard let window = parentWindow else { return }
+
+        // toolbarControllerがnilの場合は新規作成
+        if toolbarController == nil {
+            toolbarController = FloatingToolbarWindowController()
+        }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.toolbarController?.show(
                 attachedTo: window,
