@@ -10,6 +10,10 @@ class FloatingToolbarState: ObservableObject {
     @Published var hasAnnotations: Bool = false
     @Published var hasSelectedAnnotation: Bool = false
 
+    // 各ツールグループ内で最後に選択されたツールを記憶
+    var lastDrawingTool: EditTool = .pen
+    var lastShapeTool: EditTool = .arrow
+
     // 元のToolboxStateから値をコピー
     func syncFrom(_ state: ToolboxState) {
         selectedTool = state.selectedTool
@@ -26,6 +30,29 @@ class FloatingToolbarState: ObservableObject {
         state.selectedColor = selectedColor
         state.lineWidth = lineWidth
         state.strokeEnabled = strokeEnabled
+    }
+
+    // ツール選択時に最後の選択を記憶
+    func selectTool(_ tool: EditTool) {
+        selectedTool = tool
+        if let group = ToolGroup.groupFor(tool) {
+            switch group {
+            case .drawing:
+                lastDrawingTool = tool
+            case .shapes:
+                lastShapeTool = tool
+            }
+        }
+    }
+
+    // グループ内で最後に選択されたツールを取得
+    func lastToolFor(group: ToolGroup) -> EditTool {
+        switch group {
+        case .drawing:
+            return lastDrawingTool
+        case .shapes:
+            return lastShapeTool
+        }
     }
 }
 
@@ -238,7 +265,8 @@ struct ToolGroupButtonIndependent: View {
     @State private var showPopover = false
 
     private var currentTool: EditTool {
-        group.tools.first(where: { $0 == state.selectedTool }) ?? group.tools[0]
+        // グループ内で最後に選択されたツールを使用
+        state.lastToolFor(group: group)
     }
 
     private var isGroupSelected: Bool {
@@ -250,7 +278,7 @@ struct ToolGroupButtonIndependent: View {
             if isGroupSelected {
                 showPopover = true
             } else {
-                state.selectedTool = currentTool
+                state.selectTool(currentTool)
             }
         }) {
             HStack(spacing: 2) {
@@ -270,7 +298,7 @@ struct ToolGroupButtonIndependent: View {
             VStack(spacing: 4) {
                 ForEach(group.tools, id: \.self) { tool in
                     Button(action: {
-                        state.selectedTool = tool
+                        state.selectTool(tool)
                         showPopover = false
                     }) {
                         HStack {
@@ -279,7 +307,7 @@ struct ToolGroupButtonIndependent: View {
                             Text(tool.rawValue)
                                 .font(.system(size: 12))
                             Spacer()
-                            if state.selectedTool == tool {
+                            if state.lastToolFor(group: group) == tool {
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 10))
                             }
@@ -287,7 +315,7 @@ struct ToolGroupButtonIndependent: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 6)
                         .frame(minWidth: 100)
-                        .background(state.selectedTool == tool ? Color.blue.opacity(0.2) : Color.clear)
+                        .background(state.lastToolFor(group: group) == tool ? Color.blue.opacity(0.2) : Color.clear)
                         .cornerRadius(4)
                     }
                     .buttonStyle(.plain)
@@ -297,7 +325,7 @@ struct ToolGroupButtonIndependent: View {
         }
         .onTapGesture(count: 1) {
             if !isGroupSelected {
-                state.selectedTool = currentTool
+                state.selectTool(currentTool)
             }
             showPopover = true
         }
