@@ -1196,6 +1196,13 @@ protocol AnnotationCanvasDelegate: AnyObject {
     func doubleClickedOnEmpty()
 }
 
+// リサイズハンドルの位置
+enum ResizeHandle {
+    case none
+    case topLeft, topRight, bottomLeft, bottomRight
+    case startPoint, endPoint  // 矢印用
+}
+
 class AnnotationCanvas: NSView {
     weak var delegate: AnnotationCanvasDelegate?
     var annotations: [any Annotation] = []
@@ -1213,6 +1220,8 @@ class AnnotationCanvas: NSView {
     private var didMoveAnnotation: Bool = false
     private var windowFrame: CGRect = .zero
     private var refreshTimer: Timer?
+    private var activeResizeHandle: ResizeHandle = .none
+    private var isResizing: Bool = false
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -1310,25 +1319,31 @@ class AnnotationCanvas: NSView {
         let highlightPath = NSBezierPath()
         highlightPath.lineWidth = isSelected ? 2 : 1
 
+        var boundingRect: CGRect = .zero
+
         if let arrow = annotation as? ArrowAnnotation {
-            let rect = arrow.boundingRect()
-            highlightPath.appendRect(rect)
+            boundingRect = arrow.boundingRect()
+            highlightPath.appendRect(boundingRect)
         } else if let rect = annotation as? RectAnnotation {
-            highlightPath.appendRect(rect.rect.insetBy(dx: -3, dy: -3))
+            boundingRect = rect.rect.insetBy(dx: -3, dy: -3)
+            highlightPath.appendRect(boundingRect)
         } else if let ellipse = annotation as? EllipseAnnotation {
-            highlightPath.appendRect(ellipse.rect.insetBy(dx: -3, dy: -3))
+            boundingRect = ellipse.rect.insetBy(dx: -3, dy: -3)
+            highlightPath.appendRect(boundingRect)
         } else if let text = annotation as? TextAnnotation {
             let size = text.textSize()
-            // 描画位置と同じ調整（position.y - font.ascender が描画の左下）
             let drawY = text.position.y - text.font.ascender
-            highlightPath.appendRect(CGRect(origin: CGPoint(x: text.position.x - 3, y: drawY - 3), size: CGSize(width: size.width + 6, height: size.height + 6)))
+            boundingRect = CGRect(origin: CGPoint(x: text.position.x - 3, y: drawY - 3), size: CGSize(width: size.width + 6, height: size.height + 6))
+            highlightPath.appendRect(boundingRect)
         } else if let mosaic = annotation as? MosaicAnnotation {
-            highlightPath.appendRect(mosaic.rect.insetBy(dx: -3, dy: -3))
+            boundingRect = mosaic.rect.insetBy(dx: -3, dy: -3)
+            highlightPath.appendRect(boundingRect)
         } else if let freehand = annotation as? FreehandAnnotation {
-            let rect = freehand.boundingRect()
-            highlightPath.appendRect(rect)
+            boundingRect = freehand.boundingRect()
+            highlightPath.appendRect(boundingRect)
         } else if let highlight = annotation as? HighlightAnnotation {
-            highlightPath.appendRect(highlight.rect.insetBy(dx: -3, dy: -3))
+            boundingRect = highlight.rect.insetBy(dx: -3, dy: -3)
+            highlightPath.appendRect(boundingRect)
         }
 
         let dashPattern: [CGFloat] = [4, 4]
@@ -1340,6 +1355,78 @@ class AnnotationCanvas: NSView {
             NSColor.gray.withAlphaComponent(0.6).setStroke()
         }
         highlightPath.stroke()
+
+        // 選択中のアノテーションにリサイズハンドルを描画
+        if isSelected {
+            if let arrow = annotation as? ArrowAnnotation {
+                // 矢印は始点と終点にハンドル
+                drawResizeHandle(at: arrow.startPoint)
+                drawResizeHandle(at: arrow.endPoint)
+            } else if annotation is RectAnnotation || annotation is EllipseAnnotation || annotation is MosaicAnnotation {
+                // 四角形系は四隅にハンドル
+                drawResizeHandle(at: CGPoint(x: boundingRect.minX, y: boundingRect.minY))
+                drawResizeHandle(at: CGPoint(x: boundingRect.maxX, y: boundingRect.minY))
+                drawResizeHandle(at: CGPoint(x: boundingRect.minX, y: boundingRect.maxY))
+                drawResizeHandle(at: CGPoint(x: boundingRect.maxX, y: boundingRect.maxY))
+            }
+        }
+    }
+
+    private func drawResizeHandle(at point: CGPoint) {
+        let handleSize: CGFloat = 8
+        let handleRect = CGRect(x: point.x - handleSize / 2, y: point.y - handleSize / 2, width: handleSize, height: handleSize)
+        NSColor.white.setFill()
+        NSBezierPath(ovalIn: handleRect).fill()
+        NSColor.systemBlue.setStroke()
+        let path = NSBezierPath(ovalIn: handleRect)
+        path.lineWidth = 1.5
+        path.stroke()
+    }
+
+    /// リサイズハンドルのヒットテスト
+    private func hitTestResizeHandle(at point: CGPoint) -> ResizeHandle {
+        guard let index = selectedAnnotationIndex, index < annotations.count else {
+            return .none
+        }
+
+        let handleSize: CGFloat = 12  // ヒットエリアは少し大きめに
+        let annotation = annotations[index]
+
+        if let arrow = annotation as? ArrowAnnotation {
+            // 矢印は始点と終点をチェック
+            if CGRect(x: arrow.startPoint.x - handleSize / 2, y: arrow.startPoint.y - handleSize / 2, width: handleSize, height: handleSize).contains(point) {
+                return .startPoint
+            }
+            if CGRect(x: arrow.endPoint.x - handleSize / 2, y: arrow.endPoint.y - handleSize / 2, width: handleSize, height: handleSize).contains(point) {
+                return .endPoint
+            }
+        } else if let rect = annotation as? RectAnnotation {
+            return hitTestCorners(rect: rect.rect.insetBy(dx: -3, dy: -3), point: point, handleSize: handleSize)
+        } else if let ellipse = annotation as? EllipseAnnotation {
+            return hitTestCorners(rect: ellipse.rect.insetBy(dx: -3, dy: -3), point: point, handleSize: handleSize)
+        } else if let mosaic = annotation as? MosaicAnnotation {
+            return hitTestCorners(rect: mosaic.rect.insetBy(dx: -3, dy: -3), point: point, handleSize: handleSize)
+        }
+
+        return .none
+    }
+
+    /// 四隅のハンドルをヒットテスト
+    private func hitTestCorners(rect: CGRect, point: CGPoint, handleSize: CGFloat) -> ResizeHandle {
+        let corners: [(CGPoint, ResizeHandle)] = [
+            (CGPoint(x: rect.minX, y: rect.minY), .bottomLeft),
+            (CGPoint(x: rect.maxX, y: rect.minY), .bottomRight),
+            (CGPoint(x: rect.minX, y: rect.maxY), .topLeft),
+            (CGPoint(x: rect.maxX, y: rect.maxY), .topRight)
+        ]
+
+        for (cornerPoint, handle) in corners {
+            let hitRect = CGRect(x: cornerPoint.x - handleSize / 2, y: cornerPoint.y - handleSize / 2, width: handleSize, height: handleSize)
+            if hitRect.contains(point) {
+                return handle
+            }
+        }
+        return .none
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -1371,6 +1458,14 @@ class AnnotationCanvas: NSView {
 
         // 移動モードの場合
         if selectedTool == .move {
+            // まずリサイズハンドルのヒットテストを行う
+            let handle = hitTestResizeHandle(at: point)
+            if handle != .none {
+                activeResizeHandle = handle
+                isResizing = true
+                return
+            }
+
             // 前の選択状態を記録（インデックスが有効な場合のみ）
             let previousSelectedIndex = selectedAnnotationIndex
             let previousWasMosaic: Bool = {
@@ -1484,6 +1579,13 @@ class AnnotationCanvas: NSView {
 
         let point = convert(event.locationInWindow, from: nil)
 
+        // リサイズ中の場合
+        if isResizing, let index = selectedAnnotationIndex, index < annotations.count {
+            resizeAnnotation(at: index, to: point)
+            needsDisplay = true
+            return
+        }
+
         // 移動モードで選択中のアノテーションがある場合
         if selectedTool == .move, let index = selectedAnnotationIndex, let lastPoint = lastDragPoint {
             let delta = CGPoint(x: point.x - lastPoint.x, y: point.y - lastPoint.y)
@@ -1536,6 +1638,15 @@ class AnnotationCanvas: NSView {
     override func mouseUp(with event: NSEvent) {
         guard isEditing else { return }
 
+        // リサイズ終了
+        if isResizing {
+            isResizing = false
+            activeResizeHandle = .none
+            delegate?.annotationMoved()
+            needsDisplay = true
+            return
+        }
+
         // 移動モードでアノテーションを移動した場合（選択は保持）
         if selectedTool == .move && selectedAnnotationIndex != nil {
             // 実際に移動した場合のみ保存
@@ -1569,6 +1680,80 @@ class AnnotationCanvas: NSView {
         } else {
             super.keyDown(with: event)
         }
+    }
+
+    /// アノテーションのリサイズ処理
+    private func resizeAnnotation(at index: Int, to point: CGPoint) {
+        let annotation = annotations[index]
+
+        if let arrow = annotation as? ArrowAnnotation {
+            switch activeResizeHandle {
+            case .startPoint:
+                arrow.startPoint = point
+            case .endPoint:
+                arrow.endPoint = point
+            default:
+                break
+            }
+        } else if let rect = annotation as? RectAnnotation {
+            rect.rect = resizedRect(original: rect.rect, handle: activeResizeHandle, to: point)
+        } else if let ellipse = annotation as? EllipseAnnotation {
+            ellipse.rect = resizedRect(original: ellipse.rect, handle: activeResizeHandle, to: point)
+        } else if let mosaic = annotation as? MosaicAnnotation {
+            mosaic.rect = resizedRect(original: mosaic.rect, handle: activeResizeHandle, to: point)
+            mosaic.clearCache()
+        }
+    }
+
+    /// リサイズ後の矩形を計算
+    private func resizedRect(original: CGRect, handle: ResizeHandle, to point: CGPoint) -> CGRect {
+        var newRect = original
+
+        switch handle {
+        case .topLeft:
+            newRect = CGRect(
+                x: point.x,
+                y: original.minY,
+                width: original.maxX - point.x,
+                height: point.y - original.minY
+            )
+        case .topRight:
+            newRect = CGRect(
+                x: original.minX,
+                y: original.minY,
+                width: point.x - original.minX,
+                height: point.y - original.minY
+            )
+        case .bottomLeft:
+            newRect = CGRect(
+                x: point.x,
+                y: point.y,
+                width: original.maxX - point.x,
+                height: original.maxY - point.y
+            )
+        case .bottomRight:
+            newRect = CGRect(
+                x: original.minX,
+                y: point.y,
+                width: point.x - original.minX,
+                height: original.maxY - point.y
+            )
+        default:
+            break
+        }
+
+        // 最小サイズを保証（幅・高さが負にならないように正規化）
+        let minSize: CGFloat = 10
+        if newRect.width < minSize || newRect.height < minSize {
+            return CGRect(
+                x: min(newRect.minX, newRect.maxX),
+                y: min(newRect.minY, newRect.maxY),
+                width: max(abs(newRect.width), minSize),
+                height: max(abs(newRect.height), minSize)
+            )
+        }
+
+        return newRect
     }
 
     // ぼかしを最背面（インデックス0）に移動
