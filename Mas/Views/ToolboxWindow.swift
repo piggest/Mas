@@ -1,10 +1,8 @@
 import SwiftUI
 import AppKit
 
-// ツールボックスの状態を共有するためのObservableObject
+// ツールボックスの状態を管理するクラス（各ウィンドウごとにインスタンスを持つ）
 class ToolboxState: ObservableObject {
-    static let shared = ToolboxState()
-
     private let defaults = UserDefaults.standard
     private let toolKey = "selectedTool"
     private let colorKey = "selectedColor"
@@ -34,7 +32,7 @@ class ToolboxState: ObservableObject {
         selectedAnnotationIndex != nil
     }
 
-    private init() {
+    init() {
         loadSettings()
     }
 
@@ -197,65 +195,3 @@ struct ToolboxContentView: View {
     }
 }
 
-// ツールボックスウィンドウを管理するクラス
-class ToolboxWindowController {
-    static let shared = ToolboxWindowController()
-
-    private var window: NSWindow?
-    private var onUndo: (() -> Void)?
-
-    private init() {}
-
-    func show(near editorFrame: CGRect, onUndo: @escaping () -> Void) {
-        self.onUndo = onUndo
-
-        if window == nil {
-            createWindow()
-        }
-
-        // エディタウィンドウの左側に配置
-        let toolboxX = editorFrame.origin.x - 200
-        let toolboxY = editorFrame.origin.y + editorFrame.height - 300
-
-        window?.setFrameOrigin(NSPoint(x: max(10, toolboxX), y: max(10, toolboxY)))
-        window?.makeKeyAndOrderFront(nil)
-    }
-
-    func hide() {
-        window?.orderOut(nil)
-    }
-
-    func close() {
-        window?.close()
-        window = nil
-    }
-
-    private func createWindow() {
-        let contentView = ToolboxContentView(state: ToolboxState.shared) { [weak self] in
-            self?.onUndo?()
-        }
-
-        let hostingController = NSHostingController(rootView: contentView)
-
-        let window = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 180, height: 280),
-            styleMask: [.titled, .closable, .utilityWindow, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-
-        window.title = "ツール"
-        window.contentViewController = hostingController
-        window.isFloatingPanel = true
-        window.level = .floating
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.isMovableByWindowBackground = true
-        window.hidesOnDeactivate = false
-
-        self.window = window
-    }
-
-    func updateAnnotations(_ annotations: [any Annotation]) {
-        ToolboxState.shared.annotations = annotations
-    }
-}

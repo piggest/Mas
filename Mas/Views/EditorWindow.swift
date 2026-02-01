@@ -152,8 +152,8 @@ enum EditTool: String, CaseIterable {
 struct EditorWindow: View {
     @StateObject private var viewModel: EditorViewModel
     @ObservedObject var screenshot: Screenshot
-    @ObservedObject private var toolboxState = ToolboxState.shared
-    @ObservedObject private var resizeState = WindowResizeState.shared
+    @ObservedObject var toolboxState: ToolboxState
+    @ObservedObject var resizeState: WindowResizeState
     @State private var copiedToClipboard = false
     @State private var showImage: Bool
     @State private var passThroughEnabled = false
@@ -164,32 +164,34 @@ struct EditorWindow: View {
     @State private var textPosition: CGPoint = .zero
     @State private var toolbarController: FloatingToolbarWindowController?
 
-    let onRecapture: ((CGRect) -> Void)?
+    let onRecapture: ((CGRect, NSWindow?) -> Void)?
     let onPassThroughChanged: ((Bool) -> Void)?
+    weak var parentWindow: NSWindow?
 
-    init(screenshot: Screenshot, onRecapture: ((CGRect) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil, showImageInitially: Bool = true) {
+    init(screenshot: Screenshot, resizeState: WindowResizeState, toolboxState: ToolboxState, parentWindow: NSWindow? = nil, onRecapture: ((CGRect, NSWindow?) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil, showImageInitially: Bool = true) {
         _viewModel = StateObject(wrappedValue: EditorViewModel(screenshot: screenshot))
         self.screenshot = screenshot
+        self.resizeState = resizeState
+        self.toolboxState = toolboxState
+        self.parentWindow = parentWindow
         self.onRecapture = onRecapture
         self.onPassThroughChanged = onPassThroughChanged
         _showImage = State(initialValue: showImageInitially)
     }
 
     private func getCurrentWindowRect() -> CGRect {
-        for window in NSApp.windows {
-            if window.level == .floating && window.isVisible {
-                let frame = window.frame
-                let screenHeight = NSScreen.main?.frame.height ?? 0
-                let rect = CGRect(
-                    x: frame.origin.x,
-                    y: screenHeight - frame.origin.y - frame.height,
-                    width: frame.width,
-                    height: frame.height
-                )
-                return rect
-            }
+        guard let window = parentWindow else {
+            return screenshot.captureRegion ?? .zero
         }
-        return screenshot.captureRegion ?? .zero
+        let frame = window.frame
+        let screenHeight = NSScreen.main?.frame.height ?? 0
+        let rect = CGRect(
+            x: frame.origin.x,
+            y: screenHeight - frame.origin.y - frame.height,
+            width: frame.width,
+            height: frame.height
+        )
+        return rect
     }
 
     var body: some View {
@@ -249,23 +251,19 @@ struct EditorWindow: View {
     }
 
     private func showToolbar() {
-        // 親ウィンドウを見つけてツールバーを表示
+        // 親ウィンドウにツールバーを表示
+        guard let window = parentWindow else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            for window in NSApp.windows {
-                if window.level == .floating && window.isVisible && window.contentView != nil {
-                    self.toolbarController?.show(
-                        attachedTo: window,
-                        state: self.toolboxState,
-                        onUndo: {
-                            _ = self.toolboxState.annotations.popLast()
-                        },
-                        onDelete: {
-                            self.deleteSelectedAnnotation()
-                        }
-                    )
-                    break
+            self.toolbarController?.show(
+                attachedTo: window,
+                state: self.toolboxState,
+                onUndo: {
+                    _ = self.toolboxState.annotations.popLast()
+                },
+                onDelete: {
+                    self.deleteSelectedAnnotation()
                 }
-            }
+            )
         }
     }
 
@@ -334,6 +332,7 @@ struct EditorWindow: View {
             sourceImage: screenshot.originalImage,
             isEditing: editMode,
             showImage: showImage,
+            toolboxState: toolboxState,
             onTextTap: { position in
                 textPosition = position
                 showTextInput = true
@@ -412,7 +411,7 @@ struct EditorWindow: View {
     private var recaptureButton: some View {
         Button(action: {
             let rect = getCurrentWindowRect()
-            onRecapture?(rect)
+            onRecapture?(rect, parentWindow)
             showImage = true
             if passThroughEnabled {
                 passThroughEnabled = false
@@ -790,12 +789,7 @@ struct EditorWindow: View {
         }
         toolboxState.annotations.removeAll()
         toolbarController?.close()
-        for window in NSApp.windows {
-            if window.level == .floating && window.isVisible {
-                window.close()
-                return
-            }
-        }
+        parentWindow?.close()
     }
 }
 
@@ -838,6 +832,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let sourceImage: NSImage
     let isEditing: Bool
     let showImage: Bool
+    let toolboxState: ToolboxState
     let onTextTap: (CGPoint) -> Void
     let onAnnotationChanged: () -> Void
 
@@ -862,10 +857,10 @@ struct AnnotationCanvasView: NSViewRepresentable {
         // 編集モード終了時に選択をクリア
         if !isEditing {
             nsView.clearSelection()
-            ToolboxState.shared.selectedAnnotationIndex = nil
+            toolboxState.selectedAnnotationIndex = nil
         } else {
             // ToolboxStateの選択状態をCanvasに同期
-            nsView.setSelectedIndex(ToolboxState.shared.selectedAnnotationIndex)
+            nsView.setSelectedIndex(toolboxState.selectedAnnotationIndex)
         }
         // ウィンドウフレームを更新
         nsView.updateWindowFrame()
@@ -918,11 +913,11 @@ struct AnnotationCanvasView: NSViewRepresentable {
         }
 
         func selectionChanged(_ index: Int?) {
-            ToolboxState.shared.selectedAnnotationIndex = index
+            parent.toolboxState.selectedAnnotationIndex = index
         }
 
         func deleteSelectedAnnotation() {
-            guard let index = ToolboxState.shared.selectedAnnotationIndex,
+            guard let index = parent.toolboxState.selectedAnnotationIndex,
                   index < parent.annotations.count else { return }
             parent.annotations.remove(at: index)
             canvas?.annotations = parent.annotations
@@ -940,7 +935,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
             }
 
             canvas?.setSelectedIndex(newIndex)
-            ToolboxState.shared.selectedAnnotationIndex = newIndex
+            parent.toolboxState.selectedAnnotationIndex = newIndex
             canvas?.needsDisplay = true
             parent.onAnnotationChanged()
         }
