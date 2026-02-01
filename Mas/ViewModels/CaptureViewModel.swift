@@ -151,9 +151,6 @@ class CaptureViewModel: ObservableObject {
             // 先に画面全体をキャプチャしておく
             let fullScreenImage = try await captureService.captureFullScreen()
 
-            // 少し待ってからオーバーレイを表示
-            try await Task.sleep(nanoseconds: 100_000_000)
-
             let overlay = RegionSelectionOverlay { [weak self] rect in
                 guard let self = self else { return }
                 Task {
