@@ -448,13 +448,17 @@ struct EditorWindow: View {
         // NSView座標（左下原点）からSwiftUI座標（左上原点）に変換
         let canvasHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
         let swiftUIY = canvasHeight - textPosition.y
+        // パディング分を補正（左パディング6pt）
+        let paddingLeft: CGFloat = 6
+        // テキストフィールド内のテキスト位置補正
+        let textFieldInset: CGFloat = 2
 
         return HStack(spacing: 4) {
             TextField("テキストを入力", text: $textInput)
                 .textFieldStyle(.plain)
                 .font(.system(size: fontSize, weight: .medium))
                 .foregroundColor(toolboxState.selectedColor)
-                .frame(minWidth: 100)
+                .frame(minWidth: 100, alignment: .leading)
                 .fixedSize()
                 .focused($isTextFieldFocused)
                 .onSubmit {
@@ -478,7 +482,11 @@ struct EditorWindow: View {
         .background(Color.white.opacity(0.9))
         .cornerRadius(6)
         .shadow(radius: 2)
-        .position(x: textPosition.x + offsetX + 60, y: swiftUIY + offsetY)
+        .fixedSize()
+        .offset(
+            x: textPosition.x + offsetX - paddingLeft - textFieldInset,
+            y: swiftUIY + offsetY - fontSize * 0.3
+        )
         .onExitCommand {
             cancelTextInput()
         }
