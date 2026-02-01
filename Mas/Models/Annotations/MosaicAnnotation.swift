@@ -238,4 +238,23 @@ class MosaicAnnotation: Annotation {
 
         return NSImage(cgImage: cgImage, size: image.size)
     }
+
+    // 属性アクセス（ツールボックスから編集可能に）
+    var annotationColor: NSColor? {
+        get { nil }
+        set { }
+    }
+    var annotationLineWidth: CGFloat? {
+        get { CGFloat(pixelSize - 1) / 1.2 }  // 逆算
+        set {
+            if let w = newValue {
+                pixelSize = max(Int(w * 1.2 + 1), 2)
+                clearCache()
+            }
+        }
+    }
+    var annotationStrokeEnabled: Bool? {
+        get { nil }
+        set { }
+    }
 }

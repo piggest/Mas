@@ -1450,7 +1450,8 @@ class AnnotationCanvas: NSView {
         case .text:
             break
         case .mosaic:
-            currentAnnotation = MosaicAnnotation(rect: CGRect(origin: point, size: .zero), pixelSize: max(Int(lineWidth * 0.5), 2), sourceImage: sourceImage)
+            // 太さ1→2, 太さ5→8, 太さ10→14 くらいの緩やかな変化
+            currentAnnotation = MosaicAnnotation(rect: CGRect(origin: point, size: .zero), pixelSize: max(Int(lineWidth * 1.2 + 1), 2), sourceImage: sourceImage)
         }
         delegate?.currentAnnotationUpdated(currentAnnotation)
         needsDisplay = true
