@@ -244,9 +244,31 @@ class FloatingToolbarWindowController {
         let toolbarWidth = toolbarSize.width
         let toolbarHeight = toolbarSize.height
 
-        // 親ウィンドウの下部左寄せに配置（はみ出しOK）
-        let toolbarX = parentFrame.origin.x
-        let toolbarY = parentFrame.origin.y - toolbarHeight + 4
+        // 親ウィンドウの下部左寄せに配置
+        var toolbarX = parentFrame.origin.x
+        var toolbarY = parentFrame.origin.y - toolbarHeight + 4
+
+        // 画面内に収まるように調整
+        if let screen = parent.screen ?? NSScreen.main {
+            let screenFrame = screen.visibleFrame
+
+            // 左端チェック
+            if toolbarX < screenFrame.minX {
+                toolbarX = screenFrame.minX
+            }
+            // 右端チェック
+            if toolbarX + toolbarWidth > screenFrame.maxX {
+                toolbarX = screenFrame.maxX - toolbarWidth
+            }
+            // 下端チェック（画面下にはみ出す場合は親ウィンドウの上に配置）
+            if toolbarY < screenFrame.minY {
+                toolbarY = parentFrame.maxY - 4
+            }
+            // 上端チェック
+            if toolbarY + toolbarHeight > screenFrame.maxY {
+                toolbarY = screenFrame.maxY - toolbarHeight
+            }
+        }
 
         toolbar.setFrame(
             NSRect(x: toolbarX, y: toolbarY, width: toolbarWidth, height: toolbarHeight),
