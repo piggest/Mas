@@ -430,6 +430,9 @@ struct EditorWindow: View {
             },
             onSelectionChanged: { [self] index in
                 loadSelectedAnnotationAttributes(at: index)
+            },
+            onToolChanged: { [self] tool in
+                toolbarController?.setTool(tool)
             }
         )
         .frame(
@@ -527,6 +530,10 @@ struct EditorWindow: View {
                     strokeEnabled: toolboxState.strokeEnabled
                 )
                 toolboxState.annotations.append(textAnnotation)
+                // テキスト追加後、選択モードに切り替え＆追加したオブジェクトを選択
+                let newIndex = toolboxState.annotations.count - 1
+                toolbarController?.setTool(.move)
+                toolboxState.selectedAnnotationIndex = newIndex
             }
             // ドラッグ用画像を更新
             applyAnnotationsToImage()
@@ -1045,6 +1052,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let onTextEdit: ((Int, TextAnnotation) -> Void)?
     let onDoubleClickEmpty: (() -> Void)?
     let onSelectionChanged: ((Int?) -> Void)?
+    let onToolChanged: ((EditTool) -> Void)?
 
     func makeNSView(context: Context) -> AnnotationCanvas {
         let canvas = AnnotationCanvas()
@@ -1099,10 +1107,13 @@ struct AnnotationCanvasView: NSViewRepresentable {
 
         func annotationAdded(_ annotation: any Annotation) {
             // モザイクは常に後ろ（配列の先頭）に追加
+            let newIndex: Int
             if annotation is MosaicAnnotation {
                 parent.annotations.insert(annotation, at: 0)
+                newIndex = 0
             } else {
                 parent.annotations.append(annotation)
+                newIndex = parent.annotations.count - 1
             }
             // 直接canvasの配列も更新（同期問題を回避）
             canvas?.annotations = parent.annotations
@@ -1110,6 +1121,12 @@ struct AnnotationCanvasView: NSViewRepresentable {
 
             parent.currentAnnotation = nil
             parent.onAnnotationChanged()
+
+            // アノテーション追加後、選択モードに切り替え＆追加したオブジェクトを選択
+            parent.onToolChanged?(.move)
+            parent.toolboxState.selectedAnnotationIndex = newIndex
+            canvas?.setSelectedIndex(newIndex)
+            canvas?.needsDisplay = true
         }
 
         func currentAnnotationUpdated(_ annotation: (any Annotation)?) {

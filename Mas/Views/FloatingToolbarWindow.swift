@@ -143,6 +143,12 @@ class FloatingToolbarWindowController {
         toolbarState.strokeEnabled = state.strokeEnabled
     }
 
+    // ツールを変更
+    func setTool(_ tool: EditTool) {
+        toolbarState.selectedTool = tool
+        originalState?.selectedTool = tool
+    }
+
     private func stopSyncTimer() {
         syncTimer?.invalidate()
         syncTimer = nil
