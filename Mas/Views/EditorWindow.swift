@@ -252,6 +252,18 @@ struct EditorWindow: View {
                 }
             }
         }
+        .onChange(of: toolboxState.selectedColor) { newColor in
+            updateSelectedAnnotationColor(newColor)
+        }
+        .onChange(of: toolboxState.lineWidth) { newWidth in
+            updateSelectedAnnotationLineWidth(newWidth)
+        }
+        .onChange(of: toolboxState.strokeEnabled) { newEnabled in
+            updateSelectedAnnotationStroke(newEnabled)
+        }
+        .onChange(of: toolboxState.selectedAnnotationIndex) { newIndex in
+            loadSelectedAnnotationAttributes(at: newIndex)
+        }
     }
 
     private func updateSelectedAnnotationColor(_ color: Color) {
@@ -1227,7 +1239,9 @@ class AnnotationCanvas: NSView {
             highlightPath.appendRect(ellipse.rect.insetBy(dx: -3, dy: -3))
         } else if let text = annotation as? TextAnnotation {
             let size = text.textSize()
-            highlightPath.appendRect(CGRect(origin: CGPoint(x: text.position.x - 3, y: text.position.y - size.height - 3), size: CGSize(width: size.width + 6, height: size.height + 6)))
+            // 描画位置と同じ調整（position.y - font.ascender が描画の左下）
+            let drawY = text.position.y - text.font.ascender
+            highlightPath.appendRect(CGRect(origin: CGPoint(x: text.position.x - 3, y: drawY - 3), size: CGSize(width: size.width + 6, height: size.height + 6)))
         } else if let mosaic = annotation as? MosaicAnnotation {
             highlightPath.appendRect(mosaic.rect.insetBy(dx: -3, dy: -3))
         } else if let freehand = annotation as? FreehandAnnotation {
