@@ -6,6 +6,27 @@ protocol Annotation: Identifiable {
     func draw(in rect: NSRect)
     func contains(point: CGPoint) -> Bool
     func move(by delta: CGPoint)
+
+    // 属性変更用（オプショナル）
+    var annotationColor: NSColor? { get set }
+    var annotationLineWidth: CGFloat? { get set }
+    var annotationStrokeEnabled: Bool? { get set }
+}
+
+// デフォルト実装（属性を持たないアノテーション用）
+extension Annotation {
+    var annotationColor: NSColor? {
+        get { nil }
+        set { }
+    }
+    var annotationLineWidth: CGFloat? {
+        get { nil }
+        set { }
+    }
+    var annotationStrokeEnabled: Bool? {
+        get { nil }
+        set { }
+    }
 }
 
 enum AnnotationType: String, CaseIterable, Identifiable {

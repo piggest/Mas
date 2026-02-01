@@ -109,4 +109,18 @@ class ArrowAnnotation: Annotation {
         startPoint = CGPoint(x: startPoint.x + delta.x, y: startPoint.y + delta.y)
         endPoint = CGPoint(x: endPoint.x + delta.x, y: endPoint.y + delta.y)
     }
+
+    // 属性アクセス
+    var annotationColor: NSColor? {
+        get { color }
+        set { if let c = newValue { color = c } }
+    }
+    var annotationLineWidth: CGFloat? {
+        get { lineWidth }
+        set { if let w = newValue { lineWidth = w } }
+    }
+    var annotationStrokeEnabled: Bool? {
+        get { strokeEnabled }
+        set { if let s = newValue { strokeEnabled = s } }
+    }
 }

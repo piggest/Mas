@@ -46,4 +46,18 @@ class EllipseAnnotation: Annotation {
     func move(by delta: CGPoint) {
         rect = CGRect(x: rect.origin.x + delta.x, y: rect.origin.y + delta.y, width: rect.width, height: rect.height)
     }
+
+    // 属性アクセス
+    var annotationColor: NSColor? {
+        get { color }
+        set { if let c = newValue { color = c } }
+    }
+    var annotationLineWidth: CGFloat? {
+        get { lineWidth }
+        set { if let w = newValue { lineWidth = w } }
+    }
+    var annotationStrokeEnabled: Bool? {
+        get { strokeEnabled }
+        set { if let s = newValue { strokeEnabled = s } }
+    }
 }

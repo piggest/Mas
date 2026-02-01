@@ -24,4 +24,10 @@ class HighlightAnnotation: Annotation {
     func move(by delta: CGPoint) {
         rect = CGRect(x: rect.origin.x + delta.x, y: rect.origin.y + delta.y, width: rect.width, height: rect.height)
     }
+
+    // 属性アクセス（ハイライトは色のみ変更可能）
+    var annotationColor: NSColor? {
+        get { color }
+        set { if let c = newValue { color = c } }
+    }
 }
