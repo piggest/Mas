@@ -1384,12 +1384,17 @@ class AnnotationCanvas: NSView {
                 .map { $0.offset }
 
             if clickedIndices.isEmpty {
-                // 何もない場所をクリック - 選択解除
+                // 何もない場所をクリック - 選択解除してウィンドウドラッグ開始
                 // ぼかしが選択されていたら最背面に移動
                 if previousWasMosaic, let prevIndex = previousSelectedIndex {
                     moveMosaicToBack(at: prevIndex)
                 }
                 selectedAnnotationIndex = nil
+                delegate?.selectionChanged(nil)
+                needsDisplay = true
+                // ウィンドウドラッグを開始
+                window?.performDrag(with: event)
+                return
             } else if let currentIndex = previousSelectedIndex, clickedIndices.contains(currentIndex) {
                 // 選択中のオブジェクトがクリックされた場合 - サイクル選択
                 // 現在選択中の要素を後ろに移動（ただしぼかしより後ろには行かない）
