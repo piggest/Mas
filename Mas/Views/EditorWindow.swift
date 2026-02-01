@@ -1122,11 +1122,13 @@ struct AnnotationCanvasView: NSViewRepresentable {
             parent.currentAnnotation = nil
             parent.onAnnotationChanged()
 
-            // アノテーション追加後、選択モードに切り替え＆追加したオブジェクトを選択
-            parent.onToolChanged?(.move)
-            parent.toolboxState.selectedAnnotationIndex = newIndex
-            canvas?.setSelectedIndex(newIndex)
-            canvas?.needsDisplay = true
+            // ペン・マーカー以外の場合のみ選択モードに切り替え
+            if !(annotation is FreehandAnnotation) {
+                parent.onToolChanged?(.move)
+                parent.toolboxState.selectedAnnotationIndex = newIndex
+                canvas?.setSelectedIndex(newIndex)
+                canvas?.needsDisplay = true
+            }
         }
 
         func currentAnnotationUpdated(_ annotation: (any Annotation)?) {
