@@ -14,12 +14,22 @@ struct MenuBarView: View {
         .frame(width: 250)
     }
 
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+    }
+
     @ViewBuilder
     private var headerSection: some View {
-        Text("Mas")
-            .font(.headline)
-            .padding(.horizontal)
-            .padding(.top, 8)
+        HStack {
+            Text("Mas")
+                .font(.headline)
+            Spacer()
+            Text("v\(appVersion)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
         Divider()
     }
 

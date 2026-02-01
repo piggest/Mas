@@ -162,7 +162,10 @@ struct EditorWindow: View {
     @State private var textInput: String = ""
     @State private var showTextInput = false
     @State private var textPosition: CGPoint = .zero
+    @FocusState private var isTextFieldFocused: Bool
     @State private var toolbarController: FloatingToolbarWindowController?
+    @State private var isLoadingAnnotationAttributes = false
+    @State private var imageForDrag: NSImage?  // アノテーション付きドラッグ用画像
 
     let onRecapture: ((CGRect, NSWindow?) -> Void)?
     let onPassThroughChanged: ((Bool) -> Void)?
@@ -202,6 +205,11 @@ struct EditorWindow: View {
                 editModeToggle(geometry: geometry)
                 topRightButtons(geometry: geometry)
                 dragArea(geometry: geometry)
+
+                // インラインテキスト入力（有効化）
+                if showTextInput {
+                    inlineTextInput
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -219,21 +227,6 @@ struct EditorWindow: View {
             Divider()
             Button("クリップボードにコピー") { copyToClipboard() }
         }
-        .sheet(isPresented: $showTextInput) {
-            TextInputSheet(text: $textInput, onSubmit: {
-                if !textInput.isEmpty {
-                    let textAnnotation = TextAnnotation(
-                        position: textPosition,
-                        text: textInput,
-                        font: .systemFont(ofSize: toolboxState.lineWidth * 5, weight: .medium),
-                        color: NSColor(toolboxState.selectedColor)
-                    )
-                    toolboxState.annotations.append(textAnnotation)
-                    textInput = ""
-                }
-                showTextInput = false
-            })
-        }
         .onAppear {
             toolbarController = FloatingToolbarWindowController()
         }
@@ -244,42 +237,43 @@ struct EditorWindow: View {
             if newValue {
                 showToolbar()
             } else {
-                toolbarController?.hide()
-                currentAnnotation = nil  // 進行中のアノテーションをクリア
+                // テキスト入力をキャンセル
+                if showTextInput {
+                    showTextInput = false
+                    textInput = ""
+                    isTextFieldFocused = false
+                }
+                currentAnnotation = nil
+                // ツールバーを閉じる（SwiftUI更新サイクル外で実行）
+                let controller = toolbarController
+                toolbarController = nil
+                DispatchQueue.main.async {
+                    controller?.close()
+                }
             }
-        }
-        // 選択中のアノテーションの属性変更を反映
-        .onChange(of: toolboxState.selectedColor) { newColor in
-            updateSelectedAnnotationColor(newColor)
-        }
-        .onChange(of: toolboxState.lineWidth) { newWidth in
-            updateSelectedAnnotationLineWidth(newWidth)
-        }
-        .onChange(of: toolboxState.strokeEnabled) { newValue in
-            updateSelectedAnnotationStroke(newValue)
-        }
-        // アノテーション選択時に属性をToolboxStateにロード
-        .onChange(of: toolboxState.selectedAnnotationIndex) { newIndex in
-            loadSelectedAnnotationAttributes(at: newIndex)
         }
     }
 
     private func updateSelectedAnnotationColor(_ color: Color) {
-        guard toolboxState.selectedTool == .move,
+        guard !isLoadingAnnotationAttributes,
+              toolboxState.selectedTool == .move,
               let index = toolboxState.selectedAnnotationIndex,
               index < toolboxState.annotations.count else { return }
-        toolboxState.annotations[index].annotationColor = NSColor(color)
+        // SwiftUI Colorから独立したNSColorを作成（クラッシュ防止）
+        toolboxState.annotations[index].annotationColor = Self.createIndependentNSColor(from: color)
     }
 
     private func updateSelectedAnnotationLineWidth(_ width: CGFloat) {
-        guard toolboxState.selectedTool == .move,
+        guard !isLoadingAnnotationAttributes,
+              toolboxState.selectedTool == .move,
               let index = toolboxState.selectedAnnotationIndex,
               index < toolboxState.annotations.count else { return }
         toolboxState.annotations[index].annotationLineWidth = width
     }
 
     private func updateSelectedAnnotationStroke(_ enabled: Bool) {
-        guard toolboxState.selectedTool == .move,
+        guard !isLoadingAnnotationAttributes,
+              toolboxState.selectedTool == .move,
               let index = toolboxState.selectedAnnotationIndex,
               index < toolboxState.annotations.count else { return }
         toolboxState.annotations[index].annotationStrokeEnabled = enabled
@@ -289,6 +283,8 @@ struct EditorWindow: View {
         guard toolboxState.selectedTool == .move,
               let index = index,
               index < toolboxState.annotations.count else { return }
+
+        isLoadingAnnotationAttributes = true
         let annotation = toolboxState.annotations[index]
         if let color = annotation.annotationColor {
             toolboxState.selectedColor = Color(color)
@@ -298,6 +294,9 @@ struct EditorWindow: View {
         }
         if let stroke = annotation.annotationStrokeEnabled {
             toolboxState.strokeEnabled = stroke
+        }
+        DispatchQueue.main.async {
+            isLoadingAnnotationAttributes = false
         }
     }
 
@@ -352,6 +351,7 @@ struct EditorWindow: View {
                     Color.clear
                         .frame(width: imageWidth, height: imageHeight)
                 }
+                // 編集モード中、またはアノテーションがある場合にcanvasを表示
                 if editMode || !toolboxState.annotations.isEmpty {
                     annotationCanvas
                 }
@@ -373,11 +373,13 @@ struct EditorWindow: View {
     }
 
     private var annotationCanvas: some View {
-        AnnotationCanvasView(
+        // SwiftUI Colorから独立したNSColorを作成（クラッシュ防止）
+        let safeColor = Self.createIndependentNSColor(from: toolboxState.selectedColor)
+        return AnnotationCanvasView(
             annotations: $toolboxState.annotations,
             currentAnnotation: $currentAnnotation,
             selectedTool: toolboxState.selectedTool,
-            selectedColor: NSColor(toolboxState.selectedColor),
+            selectedColor: safeColor,
             lineWidth: toolboxState.lineWidth,
             strokeEnabled: toolboxState.strokeEnabled,
             sourceImage: screenshot.originalImage,
@@ -411,14 +413,114 @@ struct EditorWindow: View {
         .position(x: 20, y: 20)
     }
 
+    private var inlineTextInput: some View {
+        let offsetX = resizeState.originDelta.x
+        let offsetY = resizeState.originDelta.y
+        let fontSize = toolboxState.lineWidth * 5
+        // NSView座標（左下原点）からSwiftUI座標（左上原点）に変換
+        let canvasHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
+        let swiftUIY = canvasHeight - textPosition.y
+
+        return HStack(spacing: 4) {
+            TextField("テキストを入力", text: $textInput)
+                .textFieldStyle(.plain)
+                .font(.system(size: fontSize, weight: .medium))
+                .foregroundColor(toolboxState.selectedColor)
+                .frame(minWidth: 100)
+                .fixedSize()
+                .focused($isTextFieldFocused)
+                .onSubmit {
+                    submitTextInput()
+                }
+
+            Button(action: { submitTextInput() }) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+            }
+            .buttonStyle(.plain)
+
+            Button(action: { cancelTextInput() }) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(Color.white.opacity(0.9))
+        .cornerRadius(6)
+        .shadow(radius: 2)
+        .position(x: textPosition.x + offsetX + 60, y: swiftUIY + offsetY)
+        .onExitCommand {
+            cancelTextInput()
+        }
+        .onAppear {
+            isTextFieldFocused = true
+        }
+    }
+
+    private func submitTextInput() {
+        if !textInput.isEmpty {
+            let safeColor = Self.createIndependentNSColor(from: toolboxState.selectedColor)
+            let textAnnotation = TextAnnotation(
+                position: textPosition,
+                text: textInput,
+                font: .systemFont(ofSize: toolboxState.lineWidth * 5, weight: .medium),
+                color: safeColor,
+                strokeEnabled: toolboxState.strokeEnabled
+            )
+            toolboxState.annotations.append(textAnnotation)
+            // ドラッグ用画像を更新
+            applyAnnotationsToImage()
+        }
+        textInput = ""
+        showTextInput = false
+    }
+
+    /// SwiftUI ColorからSwiftUIへの参照を持たない独立したNSColorを作成
+    private static func createIndependentNSColor(from color: Color) -> NSColor {
+        // NSColor経由でRGB成分を抽出し、新しいNSColorを作成
+        let nsColor = NSColor(color)
+
+        // CIColorに変換してRGB成分を取得（SwiftUIとの依存関係を完全に断ち切る）
+        guard let ciColor = CIColor(color: nsColor) else {
+            return .systemRed
+        }
+
+        // 新しいNSColorを作成（完全に独立）
+        return NSColor(
+            calibratedRed: ciColor.red,
+            green: ciColor.green,
+            blue: ciColor.blue,
+            alpha: ciColor.alpha
+        )
+    }
+
+    private func cancelTextInput() {
+        textInput = ""
+        showTextInput = false
+    }
+
     @ViewBuilder
     private func editModeToggle(geometry: GeometryProxy) -> some View {
         Button(action: {
-            editMode.toggle()
-            // 編集モード終了時もアノテーションは保持（自動保存のみ）
-            if !editMode && !toolboxState.annotations.isEmpty && showImage {
-                applyAnnotationsToImage()
+            if editMode && !toolboxState.annotations.isEmpty && showImage {
+                // 編集モード終了時にアノテーションを画像に適用
+                let annotationsCopy = toolboxState.annotations
+                let originalImage = screenshot.originalImage
+                let captureRegion = screenshot.captureRegion
+                let savedURL = screenshot.savedURL
+
+                DispatchQueue.main.async {
+                    self.applyAnnotationsToImageSafe(
+                        annotations: annotationsCopy,
+                        originalImage: originalImage,
+                        captureRegion: captureRegion,
+                        savedURL: savedURL
+                    )
+                }
             }
+            editMode.toggle()
         }) {
             Image(systemName: editMode ? "pencil.circle.fill" : "pencil.circle")
                 .font(.system(size: 14, weight: .bold))
@@ -480,7 +582,7 @@ struct EditorWindow: View {
     }
 
     private func dragArea(geometry: GeometryProxy) -> some View {
-        DraggableImageView(image: screenshot.originalImage, showImage: showImage)
+        DraggableImageView(image: imageForDrag ?? screenshot.originalImage, showImage: showImage)
             .frame(width: 32, height: 32)
             .position(x: geometry.size.width - 24, y: geometry.size.height - 24)
     }
@@ -489,35 +591,72 @@ struct EditorWindow: View {
     private func applyAnnotationsToImage() {
         guard !toolboxState.annotations.isEmpty else { return }
 
-        // 現在のアノテーション情報をキャプチャ
-        let annotations = toolboxState.annotations
-        let originalImage = screenshot.originalImage
-        let captureRegion = screenshot.captureRegion
+        // 同期的に画像をレンダリング（アノテーションの参照が有効な間に処理）
+        let renderedImage = Self.renderImageInBackground(
+            originalImage: screenshot.originalImage,
+            annotations: toolboxState.annotations,
+            captureRegion: screenshot.captureRegion
+        )
+
+        guard let image = renderedImage else { return }
+
+        // ドラッグ用画像を更新
+        imageForDrag = image
+
         let savedURL = screenshot.savedURL
 
-        // バックグラウンドで処理（UIをブロックしない）
+        // バックグラウンドで保存処理
         DispatchQueue.global(qos: .userInitiated).async {
-            let renderedImage = Self.renderImageInBackground(
-                originalImage: originalImage,
-                annotations: annotations,
-                captureRegion: captureRegion
-            )
-
-            guard let image = renderedImage else { return }
-
             let autoSaveEnabled = UserDefaults.standard.object(forKey: "autoSaveEnabled") as? Bool ?? true
             if autoSaveEnabled {
                 Self.saveImageToFile(image, url: savedURL)
             }
+        }
 
-            let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
-            if autoCopyToClipboard {
-                DispatchQueue.main.async {
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.writeObjects([image])
-                }
+        let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
+        if autoCopyToClipboard {
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.writeObjects([image])
+        }
+    }
+
+    // SwiftUI状態に依存しない安全なレンダリング処理
+    private func applyAnnotationsToImageSafe(annotations: [any Annotation], originalImage: NSImage, captureRegion: CGRect?, savedURL: URL?) {
+        guard !annotations.isEmpty else { return }
+
+        let renderedImage = Self.renderImageInBackground(
+            originalImage: originalImage,
+            annotations: annotations,
+            captureRegion: captureRegion
+        )
+
+        guard let image = renderedImage else { return }
+
+        // screenshot.originalImageを更新（ドラッグ時に使用される）
+        if let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            screenshot.updateImage(cgImage)
+        }
+
+        // アノテーションをクリア（画像に適用済み）
+        toolboxState.annotations.removeAll()
+
+        // ドラッグ用一時画像をクリア（originalImageが更新されたため不要）
+        imageForDrag = nil
+
+        // バックグラウンドで保存処理
+        DispatchQueue.global(qos: .userInitiated).async {
+            let autoSaveEnabled = UserDefaults.standard.object(forKey: "autoSaveEnabled") as? Bool ?? true
+            if autoSaveEnabled {
+                Self.saveImageToFile(image, url: savedURL)
             }
+        }
+
+        let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
+        if autoCopyToClipboard {
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.writeObjects([image])
         }
     }
 
@@ -526,28 +665,6 @@ struct EditorWindow: View {
         let imageSize = originalImage.size
         let canvasSize = captureRegion?.size ?? imageSize
         let scale = imageSize.width / canvasSize.width
-
-        // CGContextを使ってバックグラウンドで描画
-        guard let cgImage = originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
-
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        guard let context = CGContext(
-            data: nil,
-            width: Int(imageSize.width),
-            height: Int(imageSize.height),
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
-
-        // 元画像を描画
-        context.draw(cgImage, in: CGRect(origin: .zero, size: imageSize))
-
-        // NSGraphicsContextを作成してアノテーションを描画
-        let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = nsContext
 
         // モザイク効果を適用
         var baseImage = originalImage
@@ -567,10 +684,12 @@ struct EditorWindow: View {
             }
         }
 
-        // モザイク適用済み画像を再描画
-        if let mosaicCgImage = baseImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-            context.draw(mosaicCgImage, in: CGRect(origin: .zero, size: imageSize))
-        }
+        // NSImageのlockFocusを使用して描画（より確実）
+        let resultImage = NSImage(size: imageSize)
+        resultImage.lockFocus()
+
+        // モザイク適用済み画像を描画
+        baseImage.draw(in: NSRect(origin: .zero, size: imageSize))
 
         // その他のアノテーションを描画
         for annotation in annotations {
@@ -579,10 +698,8 @@ struct EditorWindow: View {
             }
         }
 
-        NSGraphicsContext.restoreGraphicsState()
-
-        guard let resultCgImage = context.makeImage() else { return nil }
-        return NSImage(cgImage: resultCgImage, size: imageSize)
+        resultImage.unlockFocus()
+        return resultImage
     }
 
     // ファイルに保存（バックグラウンド用）
@@ -698,7 +815,7 @@ struct EditorWindow: View {
             let scaledArrow = ArrowAnnotation(
                 startPoint: startPoint,
                 endPoint: endPoint,
-                color: arrow.color,
+                color: arrow.color.copy() as! NSColor,
                 lineWidth: arrow.lineWidth * scale,
                 strokeEnabled: arrow.strokeEnabled
             )
@@ -712,7 +829,7 @@ struct EditorWindow: View {
             )
             let scaledAnnotation = RectAnnotation(
                 rect: scaledRect,
-                color: rect.color,
+                color: rect.color.copy() as! NSColor,
                 lineWidth: rect.lineWidth * scale,
                 strokeEnabled: rect.strokeEnabled
             )
@@ -726,23 +843,23 @@ struct EditorWindow: View {
             )
             let scaledAnnotation = EllipseAnnotation(
                 rect: scaledRect,
-                color: ellipse.color,
+                color: ellipse.color.copy() as! NSColor,
                 lineWidth: ellipse.lineWidth * scale,
                 strokeEnabled: ellipse.strokeEnabled
             )
             scaledAnnotation.draw(in: .zero)
         } else if let text = annotation as? TextAnnotation {
             let scaledFont = NSFont.systemFont(ofSize: text.font.pointSize * scale, weight: .medium)
-            // 単純にスケーリング（調整はTextAnnotation.draw()内で行う）
             let scaledPosition = CGPoint(
                 x: text.position.x * scale,
                 y: text.position.y * scale
             )
             let scaledAnnotation = TextAnnotation(
                 position: scaledPosition,
-                text: text.text,
+                text: String(text.text),
                 font: scaledFont,
-                color: text.color
+                color: text.color.copy() as! NSColor,
+                strokeEnabled: text.strokeEnabled
             )
             scaledAnnotation.draw(in: .zero)
         } else if let highlight = annotation as? HighlightAnnotation {
@@ -754,7 +871,7 @@ struct EditorWindow: View {
             )
             let scaledAnnotation = HighlightAnnotation(
                 rect: scaledRect,
-                color: highlight.color
+                color: highlight.color.copy() as! NSColor
             )
             scaledAnnotation.draw(in: .zero)
         } else if let mosaic = annotation as? MosaicAnnotation {
@@ -775,7 +892,7 @@ struct EditorWindow: View {
             }
             let scaledAnnotation = FreehandAnnotation(
                 points: scaledPoints,
-                color: freehand.color,
+                color: freehand.color.copy() as! NSColor,
                 lineWidth: freehand.lineWidth * scale,
                 isHighlighter: freehand.isHighlighter,
                 strokeEnabled: freehand.strokeEnabled
@@ -844,33 +961,6 @@ struct EditorWindow: View {
     }
 }
 
-// テキスト入力シート
-struct TextInputSheet: View {
-    @Binding var text: String
-    let onSubmit: () -> Void
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("テキストを入力")
-                .font(.headline)
-            TextField("テキスト", text: $text)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 200)
-            HStack {
-                Button("キャンセル") {
-                    text = ""
-                    onSubmit()
-                }
-                Button("追加") {
-                    onSubmit()
-                }
-                .keyboardShortcut(.return)
-            }
-        }
-        .padding()
-        .frame(width: 280, height: 120)
-    }
-}
 
 // 注釈描画キャンバス
 struct AnnotationCanvasView: NSViewRepresentable {
@@ -908,7 +998,13 @@ struct AnnotationCanvasView: NSViewRepresentable {
         // 編集モード終了時に選択をクリア
         if !isEditing {
             nsView.clearSelection()
-            toolboxState.selectedAnnotationIndex = nil
+            // 状態変更を次のRunLoopサイクルに遅延（クラッシュ防止）
+            if toolboxState.selectedAnnotationIndex != nil {
+                let state = toolboxState
+                DispatchQueue.main.async {
+                    state.selectedAnnotationIndex = nil
+                }
+            }
         } else {
             // ToolboxStateの選択状態をCanvasに同期
             nsView.setSelectedIndex(toolboxState.selectedAnnotationIndex)
@@ -1232,19 +1328,22 @@ class AnnotationCanvas: NSView {
             return
         }
 
+        // 色を完全にコピーして使用（SwiftUI状態への参照を断ち切る）
+        let safeColor = (selectedColor.copy() as? NSColor) ?? .systemRed
+
         switch selectedTool {
         case .move:
             break
         case .pen:
-            currentAnnotation = FreehandAnnotation(points: [point], color: selectedColor, lineWidth: lineWidth, isHighlighter: false, strokeEnabled: strokeEnabled)
+            currentAnnotation = FreehandAnnotation(points: [point], color: safeColor, lineWidth: lineWidth, isHighlighter: false, strokeEnabled: strokeEnabled)
         case .highlight:
-            currentAnnotation = FreehandAnnotation(points: [point], color: selectedColor, lineWidth: lineWidth, isHighlighter: true, strokeEnabled: strokeEnabled)
+            currentAnnotation = FreehandAnnotation(points: [point], color: safeColor, lineWidth: lineWidth, isHighlighter: true, strokeEnabled: strokeEnabled)
         case .arrow:
-            currentAnnotation = ArrowAnnotation(startPoint: point, endPoint: point, color: selectedColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
+            currentAnnotation = ArrowAnnotation(startPoint: point, endPoint: point, color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
         case .rectangle:
-            currentAnnotation = RectAnnotation(rect: CGRect(origin: point, size: .zero), color: selectedColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
+            currentAnnotation = RectAnnotation(rect: CGRect(origin: point, size: .zero), color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
         case .ellipse:
-            currentAnnotation = EllipseAnnotation(rect: CGRect(origin: point, size: .zero), color: selectedColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
+            currentAnnotation = EllipseAnnotation(rect: CGRect(origin: point, size: .zero), color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
         case .text:
             break
         case .mosaic:
