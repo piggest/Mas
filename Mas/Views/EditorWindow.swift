@@ -417,6 +417,9 @@ struct EditorWindow: View {
                 textInput = textAnnotation.text
                 textPosition = textAnnotation.position
                 showTextInput = true
+            },
+            onDoubleClickEmpty: {
+                showImage = false
             }
         )
         .frame(
@@ -1022,6 +1025,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let onTextTap: (CGPoint) -> Void
     let onAnnotationChanged: () -> Void
     let onTextEdit: ((Int, TextAnnotation) -> Void)?
+    let onDoubleClickEmpty: (() -> Void)?
 
     func makeNSView(context: Context) -> AnnotationCanvas {
         let canvas = AnnotationCanvas()
@@ -1136,6 +1140,10 @@ struct AnnotationCanvasView: NSViewRepresentable {
         func editTextAnnotation(at index: Int, annotation: TextAnnotation) {
             parent.onTextEdit?(index, annotation)
         }
+
+        func doubleClickedOnEmpty() {
+            parent.onDoubleClickEmpty?()
+        }
     }
 }
 
@@ -1147,6 +1155,7 @@ protocol AnnotationCanvasDelegate: AnyObject {
     func selectionChanged(_ index: Int?)
     func deleteSelectedAnnotation()
     func editTextAnnotation(at index: Int, annotation: TextAnnotation)
+    func doubleClickedOnEmpty()
 }
 
 class AnnotationCanvas: NSView {
@@ -1302,15 +1311,23 @@ class AnnotationCanvas: NSView {
         dragStart = point
         lastDragPoint = point
 
-        // 移動モードでダブルクリック - テキスト編集
-        if selectedTool == .move && event.clickCount == 2 {
-            // ダブルクリックした位置にテキストアノテーションがあるか確認
-            for (index, annotation) in annotations.enumerated().reversed() {
-                if let textAnnotation = annotation as? TextAnnotation,
-                   textAnnotation.contains(point: point) {
-                    delegate?.editTextAnnotation(at: index, annotation: textAnnotation)
-                    return
+        // ダブルクリック処理
+        if event.clickCount == 2 {
+            // 移動モードでテキストアノテーション上ならテキスト編集
+            if selectedTool == .move {
+                for (index, annotation) in annotations.enumerated().reversed() {
+                    if let textAnnotation = annotation as? TextAnnotation,
+                       textAnnotation.contains(point: point) {
+                        delegate?.editTextAnnotation(at: index, annotation: textAnnotation)
+                        return
+                    }
                 }
+            }
+            // 空白部分のダブルクリック - 画像を非表示
+            let hitAnnotation = annotations.contains { $0.contains(point: point) }
+            if !hitAnnotation {
+                delegate?.doubleClickedOnEmpty()
+                return
             }
         }
 
