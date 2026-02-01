@@ -34,18 +34,29 @@ class FreehandAnnotation: Annotation {
             path.line(to: points[i])
         }
 
-        // 縁取り（白い境界線）- マーカー以外
+        // 縁取り（黒い外縁 + 白い境界線）- マーカー以外
         if strokeEnabled && !isHighlighter {
-            let outerPath = NSBezierPath()
-            outerPath.lineWidth = path.lineWidth + 2
-            outerPath.lineCapStyle = .round
-            outerPath.lineJoinStyle = .round
-            outerPath.move(to: points[0])
+            let blackPath = NSBezierPath()
+            blackPath.lineWidth = path.lineWidth + 4
+            blackPath.lineCapStyle = .round
+            blackPath.lineJoinStyle = .round
+            blackPath.move(to: points[0])
             for i in 1..<points.count {
-                outerPath.line(to: points[i])
+                blackPath.line(to: points[i])
+            }
+            NSColor.black.withAlphaComponent(0.3).setStroke()
+            blackPath.stroke()
+
+            let whitePath = NSBezierPath()
+            whitePath.lineWidth = path.lineWidth + 2
+            whitePath.lineCapStyle = .round
+            whitePath.lineJoinStyle = .round
+            whitePath.move(to: points[0])
+            for i in 1..<points.count {
+                whitePath.line(to: points[i])
             }
             NSColor.white.setStroke()
-            outerPath.stroke()
+            whitePath.stroke()
         }
 
         if isHighlighter {
