@@ -61,7 +61,9 @@ class TextAnnotation: Annotation {
 
     func contains(point: CGPoint) -> Bool {
         let size = textSize()
-        let rect = CGRect(origin: position, size: size)
+        // 描画位置と同じ調整（position.y - font.ascender が描画の左下）
+        let drawOrigin = CGPoint(x: position.x, y: position.y - font.ascender)
+        let rect = CGRect(origin: drawOrigin, size: size)
         return rect.contains(point)
     }
 
