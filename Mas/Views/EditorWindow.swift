@@ -131,6 +131,7 @@ extension DragSourceView: NSDraggingSource {
             let closeOnDragSuccess = UserDefaults.standard.object(forKey: "closeOnDragSuccess") as? Bool ?? true
             if closeOnDragSuccess {
                 window?.close()
+                NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
                 return
             }
         }

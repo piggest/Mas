@@ -62,6 +62,16 @@ class CaptureViewModel: ObservableObject {
             name: .showCaptureFrame,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleEditorWindowClosed),
+            name: .editorWindowClosed,
+            object: nil
+        )
+    }
+
+    @objc private func handleEditorWindowClosed() {
+        cleanupClosedWindows()
     }
 
     @objc private func handleCaptureFullScreen() {
