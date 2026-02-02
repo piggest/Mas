@@ -87,6 +87,11 @@ class FloatingToolbarWindowController {
 
         updatePosition()
 
+        // 親ウィンドウの子ウィンドウとして追加（常に親より前面に表示）
+        if let toolbarWindow = window {
+            parent.addChildWindow(toolbarWindow, ordered: .above)
+        }
+
         // 出現アニメーション
         window?.alphaValue = 0
         window?.orderFront(nil)
@@ -118,6 +123,11 @@ class FloatingToolbarWindowController {
     }
 
     func hide() {
+        // 親ウィンドウから子ウィンドウを削除
+        if let toolbarWindow = window, let parent = parentWindow {
+            parent.removeChildWindow(toolbarWindow)
+        }
+
         // 消えるアニメーション
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.15
