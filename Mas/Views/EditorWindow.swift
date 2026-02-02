@@ -1059,6 +1059,7 @@ struct EditorWindow: View {
         toolboxState.annotations.removeAll()
         toolbarController?.close()
         parentWindow?.close()
+        NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
     }
 }
 
