@@ -50,7 +50,7 @@ struct MenuBarView: View {
                     .font(.caption)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
         .padding(.horizontal)
         .padding(.vertical, 4)
         Divider()
@@ -70,7 +70,7 @@ struct MenuBarView: View {
                         .font(.caption)
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NoHighlightButtonStyle())
             .padding(.horizontal)
             .padding(.vertical, 4)
         }
@@ -100,7 +100,7 @@ struct MenuBarView: View {
                                 Spacer()
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(NoHighlightButtonStyle())
                         .padding(.horizontal)
                         .padding(.vertical, 2)
                     }
@@ -142,13 +142,13 @@ struct MenuBarView: View {
                                     Spacer()
                                 }
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(NoHighlightButtonStyle())
 
                             Button(action: { closeWindow(windowInfo) }) {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundColor(.secondary)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(NoHighlightButtonStyle())
                         }
                         .padding(.horizontal)
                         .padding(.vertical, 2)
@@ -165,7 +165,7 @@ struct MenuBarView: View {
                     Spacer()
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NoHighlightButtonStyle())
             .padding(.horizontal)
             .padding(.vertical, 4)
         }
@@ -186,7 +186,7 @@ struct MenuBarView: View {
                     .font(.caption)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
         .padding(.horizontal)
         .padding(.vertical, 4)
 
@@ -203,7 +203,7 @@ struct MenuBarView: View {
                     .font(.caption)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
         .padding(.horizontal)
         .padding(.vertical, 4)
 

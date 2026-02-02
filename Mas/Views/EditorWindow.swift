@@ -1,5 +1,12 @@
 import SwiftUI
 
+// タップ時に色が変わらないButtonStyle
+struct NoHighlightButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+    }
+}
+
 // ドラッグ可能な領域（ウィンドウ移動をブロック）
 struct DraggableImageView: NSViewRepresentable {
     let image: NSImage
@@ -462,7 +469,7 @@ struct EditorWindow: View {
                 .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
                 .clipShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
         .position(x: 20, y: 20)
     }
 
@@ -494,13 +501,13 @@ struct EditorWindow: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.green)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NoHighlightButtonStyle())
 
             Button(action: { cancelTextInput() }) {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundColor(.red)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NoHighlightButtonStyle())
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
@@ -614,7 +621,7 @@ struct EditorWindow: View {
                 .background(editMode ? Color.white.opacity(0.9) : (showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8)))
                 .clipShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
         .position(x: 24, y: geometry.size.height - 24)
     }
 
@@ -643,7 +650,7 @@ struct EditorWindow: View {
                 .background(Color.white.opacity(0.8))
                 .clipShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
     }
 
     private var recaptureButton: some View {
@@ -663,7 +670,7 @@ struct EditorWindow: View {
                 .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
                 .clipShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
     }
 
     private func dragArea(geometry: GeometryProxy) -> some View {

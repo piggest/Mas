@@ -358,7 +358,7 @@ struct ToolGroupButtonIndependent: View {
             .background(isGroupSelected ? Color.blue : Color.gray.opacity(0.2))
             .clipShape(RoundedRectangle(cornerRadius: 4))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
         .help(currentTool.rawValue)
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
             VStack(spacing: 4) {
@@ -384,7 +384,7 @@ struct ToolGroupButtonIndependent: View {
                         .background(state.lastToolFor(group: group) == tool ? Color.blue.opacity(0.2) : Color.clear)
                         .cornerRadius(4)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(NoHighlightButtonStyle())
                 }
             }
             .padding(8)
@@ -423,7 +423,7 @@ struct ColorPickerButtonIndependent: View {
             .background(Color.gray.opacity(0.2))
             .clipShape(RoundedRectangle(cornerRadius: 4))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
         .help("色選択")
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
             VStack(spacing: 8) {
@@ -444,7 +444,7 @@ struct ColorPickerButtonIndependent: View {
                                                 .stroke(state.selectedColor == colors[index] ? Color.blue : Color.gray.opacity(0.3), lineWidth: state.selectedColor == colors[index] ? 2 : 1)
                                         )
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(NoHighlightButtonStyle())
                             }
                         }
                     }
@@ -566,7 +566,7 @@ struct FloatingToolbarViewIndependent: View {
                 .background(state.strokeEnabled ? Color.blue : Color.white.opacity(0.9))
                 .clipShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
         .help("縁取り")
         .offset(x: animatedOffset(index: 8))
         .animation(.easeOut(duration: 0.2), value: appeared)
@@ -590,7 +590,7 @@ struct FloatingToolbarViewIndependent: View {
                         .background(Color.pink)
                         .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(NoHighlightButtonStyle())
                 .help("削除 (Delete)")
             }
 
@@ -603,7 +603,7 @@ struct FloatingToolbarViewIndependent: View {
                         .background(Color.white.opacity(0.9))
                         .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(NoHighlightButtonStyle())
                 .help("取消")
             }
         }
@@ -618,7 +618,7 @@ struct FloatingToolbarViewIndependent: View {
                 .background(state.selectedTool == tool ? Color.blue : Color.white.opacity(0.9))
                 .clipShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
         .help(tool.rawValue)
         .offset(x: animatedOffset(index: index))
         .animation(.easeOut(duration: 0.2), value: appeared)
@@ -660,7 +660,7 @@ struct ToolGroupButtonCircle: View {
             .background(isGroupSelected ? Color.blue : Color.white.opacity(0.9))
             .clipShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
         .help(currentTool.rawValue)
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
             VStack(spacing: 6) {
@@ -688,7 +688,7 @@ struct ToolGroupButtonCircle: View {
                         .background(state.lastToolFor(group: group) == tool ? Color.blue.opacity(0.1) : Color.clear)
                         .cornerRadius(6)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(NoHighlightButtonStyle())
                 }
             }
             .padding(8)
@@ -721,7 +721,7 @@ struct ColorPickerButtonCircle: View {
                 )
                 .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoHighlightButtonStyle())
         .help("色選択")
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
             VStack(spacing: 10) {
@@ -743,7 +743,7 @@ struct ColorPickerButtonCircle: View {
                                         )
                                         .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(NoHighlightButtonStyle())
                             }
                         }
                     }
