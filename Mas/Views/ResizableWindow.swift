@@ -127,10 +127,36 @@ class ResizableWindow: NSWindow {
             return nil
         }
 
+        // ボタンエリアの場合はドラッグトラッキングしない
+        if isInAnyButtonArea(localPoint) {
+            return event
+        }
+
         // リサイズではない場合、ウィンドウドラッグの可能性があるので追跡開始
         startDragTracking()
 
         return event
+    }
+
+    /// ボタンエリアかどうかを判定
+    private func isInAnyButtonArea(_ point: NSPoint) -> Bool {
+        let windowWidth = frame.width
+        let windowHeight = frame.height
+        let buttonMargin: CGFloat = 40
+
+        // 左上（閉じるボタン）
+        let closeButtonArea = CGRect(x: 0, y: windowHeight - buttonMargin, width: buttonMargin, height: buttonMargin)
+        // 左下（編集モードボタン）
+        let editButtonArea = CGRect(x: 0, y: 0, width: buttonMargin, height: buttonMargin)
+        // 右上（再キャプチャボタン等）
+        let topRightArea = CGRect(x: windowWidth - 80, y: windowHeight - buttonMargin, width: 80, height: buttonMargin)
+        // 右下（ドラッグエリア）
+        let dragArea = CGRect(x: windowWidth - buttonMargin, y: 0, width: buttonMargin, height: buttonMargin)
+
+        return closeButtonArea.contains(point) ||
+               editButtonArea.contains(point) ||
+               topRightArea.contains(point) ||
+               dragArea.contains(point)
     }
 
     private func handleMouseDragged(_ event: NSEvent) -> NSEvent? {
