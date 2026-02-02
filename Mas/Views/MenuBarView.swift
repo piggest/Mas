@@ -9,9 +9,13 @@ struct MenuBarView: View {
             captureFrameButton
             captureModeButtons
             windowListSection
+            openWindowsSection
             bottomSection
         }
         .frame(width: 250)
+        .onAppear {
+            viewModel.cleanupClosedWindows()
+        }
     }
 
     private var appVersion: String {
@@ -107,6 +111,67 @@ struct MenuBarView: View {
     }
 
     @ViewBuilder
+    private var openWindowsSection: some View {
+        if !viewModel.editorWindows.isEmpty {
+            Divider()
+            HStack {
+                Text("開いているウィンドウ")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("\(viewModel.editorWindows.count)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.2))
+                    .clipShape(Capsule())
+            }
+            .padding(.horizontal)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(viewModel.editorWindows) { windowInfo in
+                        HStack {
+                            Button(action: { focusWindow(windowInfo) }) {
+                                HStack {
+                                    Image(systemName: windowInfo.screenshot.mode.icon)
+                                        .frame(width: 16)
+                                    Text(windowInfo.displayName)
+                                        .lineLimit(1)
+                                    Spacer()
+                                }
+                            }
+                            .buttonStyle(.plain)
+
+                            Button(action: { closeWindow(windowInfo) }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+            .frame(maxHeight: 120)
+
+            Button(action: closeAllWindows) {
+                HStack {
+                    Image(systemName: "xmark.rectangle")
+                        .frame(width: 20)
+                    Text("すべて閉じる")
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal)
+            .padding(.vertical, 4)
+        }
+    }
+
+    @ViewBuilder
     private var bottomSection: some View {
         Divider()
 
@@ -198,5 +263,20 @@ struct MenuBarView: View {
             try? await Task.sleep(nanoseconds: 150_000_000)
             await viewModel.showCaptureFrame()
         }
+    }
+
+    private func focusWindow(_ windowInfo: CaptureViewModel.EditorWindowInfo) {
+        dismissMenu()
+        windowInfo.windowController.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func closeWindow(_ windowInfo: CaptureViewModel.EditorWindowInfo) {
+        viewModel.closeEditorWindow(windowInfo)
+    }
+
+    private func closeAllWindows() {
+        dismissMenu()
+        viewModel.closeAllEditorWindows()
     }
 }

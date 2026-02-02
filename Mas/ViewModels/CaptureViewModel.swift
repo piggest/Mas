@@ -12,7 +12,23 @@ class CaptureViewModel: ObservableObject {
     private let fileStorageService = FileStorageService()
     private let permissionService = PermissionService()
     private let captureFlash = CaptureFlashView()
-    private var editorWindowControllers: [NSWindowController] = []
+
+    // エディターウィンドウ情報（メニュー表示用）
+    struct EditorWindowInfo: Identifiable {
+        let id: UUID
+        let windowController: NSWindowController
+        let screenshot: Screenshot
+        let createdAt: Date
+
+        var displayName: String {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm:ss"
+            let timeStr = formatter.string(from: createdAt)
+            return "\(screenshot.mode.rawValue) - \(timeStr)"
+        }
+    }
+
+    @Published private(set) var editorWindows: [EditorWindowInfo] = []
 
     // 前回のキャプチャ範囲を保存するキー
     private let lastCaptureRectKey = "lastCaptureRect"
@@ -402,11 +418,17 @@ class CaptureViewModel: ObservableObject {
         }
 
         let windowController = NSWindowController(window: window)
-        editorWindowControllers.append(windowController)
+        let windowInfo = EditorWindowInfo(
+            id: UUID(),
+            windowController: windowController,
+            screenshot: screenshot,
+            createdAt: Date()
+        )
+        editorWindows.append(windowInfo)
         windowController.showWindow(nil)
 
         // 閉じられたウィンドウをクリーンアップ
-        editorWindowControllers.removeAll { $0.window == nil || !$0.window!.isVisible }
+        cleanupClosedWindows()
 
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -445,5 +467,35 @@ class CaptureViewModel: ObservableObject {
                 print("Failed to auto-save screenshot: \(error)")
             }
         }
+    }
+
+    // MARK: - エディターウィンドウ管理
+
+    /// 閉じられたウィンドウをクリーンアップ
+    func cleanupClosedWindows() {
+        editorWindows.removeAll { info in
+            info.windowController.window == nil || !info.windowController.window!.isVisible
+        }
+    }
+
+    /// 特定のエディターウィンドウを閉じる
+    func closeEditorWindow(_ windowInfo: EditorWindowInfo) {
+        windowInfo.windowController.window?.close()
+        editorWindows.removeAll { $0.id == windowInfo.id }
+    }
+
+    /// すべてのエディターウィンドウを閉じる
+    func closeAllEditorWindows() {
+        for windowInfo in editorWindows {
+            windowInfo.windowController.window?.close()
+        }
+        editorWindows.removeAll()
+    }
+
+    /// 開いているエディターウィンドウの数
+    var openEditorWindowCount: Int {
+        return editorWindows.filter { info in
+            info.windowController.window != nil && info.windowController.window!.isVisible
+        }.count
     }
 }
