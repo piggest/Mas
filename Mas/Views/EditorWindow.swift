@@ -126,6 +126,14 @@ extension DragSourceView: NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        // ドラッグ成功時（コピー操作が行われた場合）
+        if !operation.isEmpty {
+            let closeOnDragSuccess = UserDefaults.standard.object(forKey: "closeOnDragSuccess") as? Bool ?? true
+            if closeOnDragSuccess {
+                window?.close()
+                return
+            }
+        }
         // ドラッグ終了時にウィンドウを再表示
         window?.makeKeyAndOrderFront(nil)
     }

@@ -30,6 +30,7 @@ struct GeneralSettingsView: View {
     @AppStorage("autoSaveEnabled") private var autoSaveEnabled = true
     @AppStorage("autoSaveFolder") private var autoSaveFolder = ""
     @AppStorage("autoCopyToClipboard") private var autoCopyToClipboard = true
+    @AppStorage("closeOnDragSuccess") private var closeOnDragSuccess = true
     @State private var displayPath = ""
 
     var body: some View {
@@ -72,6 +73,7 @@ struct GeneralSettingsView: View {
             Section("オプション") {
                 Toggle("マウスカーソルを含める", isOn: $showCursor)
                 Toggle("キャプチャ時にサウンドを再生", isOn: $playSound)
+                Toggle("ドラッグ成功時にウィンドウを閉じる", isOn: $closeOnDragSuccess)
             }
         }
         .padding()
