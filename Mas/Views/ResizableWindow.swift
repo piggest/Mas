@@ -6,6 +6,9 @@ class WindowResizeState: ObservableObject {
     // ウィンドウoriginの変化量（スクリーン座標系）
     @Published var originDelta: CGPoint = .zero
 
+    // ドラッグ中かどうか（編集モード以外でのウィンドウ移動用）
+    @Published var isDragging: Bool = false
+
     // ウィンドウが最初に作成された時のorigin（リセットされるまで保持）
     var originalWindowOrigin: CGPoint = .zero
     var isOriginalOriginSet: Bool = false
@@ -46,7 +49,9 @@ class ResizableWindow: NSWindow {
     }
     private var passThroughLocalMonitor: Any?
     private var passThroughGlobalMonitor: Any?
+    private var dragMonitor: Any?
     private var isResizing: Bool = false
+    private var isWindowDragging: Bool = false
     private var resizeDirection: ResizeDirection?
     private var initialFrame: NSRect = .zero
     private var initialMouseLocation: NSPoint = .zero
@@ -121,6 +126,10 @@ class ResizableWindow: NSWindow {
 
             return nil
         }
+
+        // リサイズではない場合、ウィンドウドラッグの可能性があるので追跡開始
+        startDragTracking()
+
         return event
     }
 
@@ -208,6 +217,34 @@ class ResizableWindow: NSWindow {
         if onRight { return .right }
 
         return nil
+    }
+
+    private func startDragTracking() {
+        guard !isWindowDragging else { return }
+        isWindowDragging = true
+        resizeState.isDragging = true
+
+        // グローバルモニターでマウスアップを検出
+        dragMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] _ in
+            self?.stopDragTracking()
+        }
+
+        // ローカルモニターも追加（ウィンドウ内でマウスアップした場合）
+        NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] event in
+            self?.stopDragTracking()
+            return event
+        }
+    }
+
+    private func stopDragTracking() {
+        guard isWindowDragging else { return }
+        isWindowDragging = false
+        resizeState.isDragging = false
+
+        if let monitor = dragMonitor {
+            NSEvent.removeMonitor(monitor)
+            dragMonitor = nil
+        }
     }
 
     private func startPassThroughTracking() {

@@ -211,6 +211,12 @@ struct EditorWindow: View {
                 if showTextInput {
                     inlineTextInput
                 }
+
+                // 編集モード以外でドラッグ中のオーバーレイ
+                if !editMode && resizeState.isDragging {
+                    Color.black.opacity(0.3)
+                        .allowsHitTesting(false)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
