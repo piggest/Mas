@@ -145,9 +145,18 @@ class FloatingToolbarWindowController {
     }
 
     func close() {
-        hide()
-        // window?.close()を呼ばず、参照をnilにするだけでARCに解放を任せる
-        // contentView = nilも呼ばない
+        stopSyncTimer()
+        if let observer = frameObserver {
+            NotificationCenter.default.removeObserver(observer)
+            frameObserver = nil
+        }
+        // 親ウィンドウから子ウィンドウを削除
+        if let toolbarWindow = window, let parent = parentWindow {
+            parent.removeChildWindow(toolbarWindow)
+        }
+        // ウィンドウを非表示にしてignoresMouseEventsをtrueに設定
+        window?.ignoresMouseEvents = true
+        window?.orderOut(nil)
         window = nil
         hostingView = nil
         parentWindow = nil

@@ -351,6 +351,14 @@ class ResizableWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
+    override func close() {
+        // 子ウィンドウはNSWindowが自動的に処理するため、明示的なclose()は不要
+        // （明示的に呼ぶと予期しない動作やハングの原因になる）
+        super.close()
+        // ウィンドウリストの更新を通知
+        NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
+    }
+
     // パススルー時でもボタンエリアはマウスイベントを受け取る
     func isInButtonArea(_ point: NSPoint) -> Bool {
         let buttonX = frame.width - 80
