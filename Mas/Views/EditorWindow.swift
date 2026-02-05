@@ -287,6 +287,12 @@ struct EditorWindow: View {
         .onChange(of: toolboxState.selectedAnnotationIndex) { newIndex in
             loadSelectedAnnotationAttributes(at: newIndex)
         }
+        .onChange(of: toolboxState.selectedTool) { newTool in
+            // テキスト入力中に別のツールに切り替えたら入力をキャンセル
+            if showTextInput && newTool != .text {
+                cancelTextInput()
+            }
+        }
     }
 
     private func updateSelectedAnnotationColor(_ color: Color) {
