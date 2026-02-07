@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SettingsWindow: View {
+    @AppStorage("developerMode") private var developerMode = false
+
     var body: some View {
         TabView {
             GeneralSettingsView()
@@ -12,6 +14,13 @@ struct SettingsWindow: View {
                 .tabItem {
                     Label("ショートカット", systemImage: "keyboard")
                 }
+
+            if developerMode {
+                DeveloperSettingsView()
+                    .tabItem {
+                        Label("開発", systemImage: "wrench.and.screwdriver")
+                    }
+            }
 
             AboutView()
                 .tabItem {
@@ -32,6 +41,7 @@ struct GeneralSettingsView: View {
     @AppStorage("autoCopyToClipboard") private var autoCopyToClipboard = true
     @AppStorage("closeOnDragSuccess") private var closeOnDragSuccess = true
     @AppStorage("pinBehavior") private var pinBehavior = "alwaysOn"
+    @AppStorage("developerMode") private var developerMode = false
     @State private var displayPath = ""
 
     var body: some View {
@@ -103,6 +113,9 @@ struct GeneralSettingsView: View {
                 }
                 settingRow("キャプチャ時にサウンド再生") {
                     Toggle("", isOn: $playSound).labelsHidden()
+                }
+                settingRow("開発者モード") {
+                    Toggle("", isOn: $developerMode).labelsHidden()
                 }
             }
 
@@ -228,5 +241,57 @@ struct AboutView: View {
                 .foregroundColor(.secondary)
         }
         .padding()
+    }
+}
+
+struct DeveloperSettingsView: View {
+    private var dataFolderURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport.appendingPathComponent("Mas")
+    }
+
+    private var displayPath: String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let path = dataFolderURL.path
+        if path.hasPrefix(home) {
+            return path.replacingOccurrences(of: home, with: "~")
+        }
+        return path
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader("データ")
+            VStack(alignment: .leading, spacing: 8) {
+                settingRow("データフォルダ") {
+                    HStack {
+                        Text(displayPath)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Button("Finderで開く") {
+                            NSWorkspace.shared.open(dataFolderURL)
+                        }
+                        .controlSize(.small)
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding()
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 13, weight: .bold))
+    }
+
+    private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(label)
+                .frame(width: 180, alignment: .leading)
+            content()
+        }
     }
 }

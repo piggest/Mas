@@ -21,6 +21,7 @@ class CaptureViewModel: ObservableObject {
         let id: UUID
         let windowController: NSWindowController
         let screenshot: Screenshot
+        let toolboxState: ToolboxState
         let createdAt: Date
 
         var displayName: String {
@@ -448,6 +449,7 @@ class CaptureViewModel: ObservableObject {
             id: UUID(),
             windowController: windowController,
             screenshot: screenshot,
+            toolboxState: toolboxState,
             createdAt: Date()
         )
         editorWindows.append(windowInfo)
@@ -706,7 +708,36 @@ class CaptureViewModel: ObservableObject {
             window.setFrame(NSRect(x: x, y: y, width: 400, height: 480), display: true)
         }
         window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.backgroundColor = NSColor(red: 0.45, green: 0.32, blue: 0.18, alpha: 1.0)
+
+        // カスタムタイトル（アイコン＋白文字）
+        let titleBar = window.standardWindowButton(.closeButton)?.superview
+        let titleBarHeight = titleBar?.frame.height ?? 28
+        let titleContainer = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: titleBarHeight))
+        let titleLabel = NSTextField(labelWithString: "")
+        let titleAttachment = NSTextAttachment()
+        titleAttachment.image = NSImage(systemSymbolName: "square.grid.2x2", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 12, weight: .semibold))
+        let attrStr = NSMutableAttributedString(attachment: titleAttachment)
+        attrStr.append(NSAttributedString(string: " ライブラリ"))
+        attrStr.addAttributes([
+            .foregroundColor: NSColor.white,
+            .font: NSFont.systemFont(ofSize: 13, weight: .semibold)
+        ], range: NSRange(location: 0, length: attrStr.length))
+        titleLabel.attributedStringValue = attrStr
+        titleLabel.alignment = .center
+        titleLabel.sizeToFit()
+        titleLabel.frame.origin = NSPoint(
+            x: 0,
+            y: (titleBarHeight - titleLabel.frame.height) / 2
+        )
+        titleContainer.addSubview(titleLabel)
+        titleContainer.frame.size.width = titleLabel.frame.width
+        let titleAccessory = NSTitlebarAccessoryViewController()
+        titleAccessory.view = titleContainer
+        titleAccessory.layoutAttribute = .leading
+        window.addTitlebarAccessoryViewController(titleAccessory)
 
         // タイトルバーにピンボタンを追加
         let pinButton = NSButton(frame: NSRect(x: 0, y: 0, width: 30, height: 30))

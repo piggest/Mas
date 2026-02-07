@@ -931,6 +931,9 @@ struct EditorWindow: View {
     private func applyAnnotations() {
         guard !toolboxState.annotations.isEmpty else { return }
 
+        // アノテーションデータを保存（クリア前に）
+        onAnnotationsSaved?(toolboxState.annotations)
+
         let newImage = renderImageWithAnnotations()
 
         if let cgImage = newImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
