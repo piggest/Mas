@@ -484,13 +484,18 @@ class CaptureViewModel: ObservableObject {
                 print("Screenshot saved to: \(url.path)")
 
                 // 履歴に追加
+                let region = screenshot.captureRegion
                 let entry = ScreenshotHistoryEntry(
                     id: UUID(),
                     timestamp: Date(),
                     mode: screenshot.mode.rawValue,
                     filePath: url.path,
                     width: Int(screenshot.originalImage.size.width),
-                    height: Int(screenshot.originalImage.size.height)
+                    height: Int(screenshot.originalImage.size.height),
+                    windowX: region.map { Double($0.origin.x) },
+                    windowY: region.map { Double($0.origin.y) },
+                    windowW: region.map { Double($0.width) },
+                    windowH: region.map { Double($0.height) }
                 )
                 historyService.addEntry(entry)
                 historyEntries = historyService.load()
@@ -546,15 +551,20 @@ class CaptureViewModel: ObservableObject {
         let pointHeight = nsImage.size.height / scale
         nsImage.size = NSSize(width: pointWidth, height: pointHeight)
 
-        let screenshot = Screenshot(image: nsImage, mode: entry.mode == "全画面" ? .fullScreen : .region)
+        // 保存されたウィンドウ位置を復元、なければ画面中央
+        let region: CGRect
+        if let wx = entry.windowX, let wy = entry.windowY, let ww = entry.windowW, let wh = entry.windowH {
+            region = CGRect(x: wx, y: wy, width: ww, height: wh)
+        } else {
+            let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
+            let x = (screenFrame.width - pointWidth) / 2
+            let y = (screenFrame.height - pointHeight) / 2
+            region = CGRect(x: x, y: y, width: pointWidth, height: pointHeight)
+        }
+
+        let screenshot = Screenshot(image: nsImage, mode: entry.mode == "全画面" ? .fullScreen : .region, region: region)
         screenshot.savedURL = url
         currentScreenshot = screenshot
-
-        // 画面中央に配置
-        let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
-        let x = (screenFrame.width - pointWidth) / 2
-        let y = (screenFrame.height - pointHeight) / 2
-        let region = CGRect(x: x, y: y, width: pointWidth, height: pointHeight)
 
         showEditorWindow(for: screenshot, at: region)
     }

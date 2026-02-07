@@ -7,6 +7,10 @@ struct ScreenshotHistoryEntry: Codable, Identifiable {
     let filePath: String    // 保存先ファイルパス
     let width: Int
     let height: Int
+    let windowX: Double?    // キャプチャ時のウィンドウ位置X（スクリーン座標・左上原点）
+    let windowY: Double?    // キャプチャ時のウィンドウ位置Y
+    let windowW: Double?    // キャプチャ時のウィンドウ幅
+    let windowH: Double?    // キャプチャ時のウィンドウ高さ
 
     var fileExists: Bool {
         FileManager.default.fileExists(atPath: filePath)
