@@ -4,6 +4,7 @@ import Vision
 struct RecognizedTextBlock {
     let text: String
     let rect: CGRect  // canvas座標系（左下原点）
+    let charRects: [CGRect]  // 文字ごとのrect（canvas座標系、左下原点）
 }
 
 class TextRecognitionService {
@@ -31,7 +32,34 @@ class TextRecognitionService {
                         height: box.height * imageSize.height
                     )
 
-                    return RecognizedTextBlock(text: candidate.string, rect: rect)
+                    // 文字単位のbounding box取得
+                    let str = candidate.string
+                    var charRects: [CGRect] = []
+                    for i in str.indices {
+                        let range = i..<str.index(after: i)
+                        if let charObs = try? candidate.boundingBox(for: range) {
+                            let cb = charObs.boundingBox
+                            charRects.append(CGRect(
+                                x: cb.origin.x * imageSize.width,
+                                y: cb.origin.y * imageSize.height,
+                                width: cb.width * imageSize.width,
+                                height: cb.height * imageSize.height
+                            ))
+                        } else {
+                            // Fallback: ブロック全体を均等分割
+                            let charCount = CGFloat(str.count)
+                            let idx = CGFloat(str.distance(from: str.startIndex, to: i))
+                            let charWidth = rect.width / charCount
+                            charRects.append(CGRect(
+                                x: rect.origin.x + charWidth * idx,
+                                y: rect.origin.y,
+                                width: charWidth,
+                                height: rect.height
+                            ))
+                        }
+                    }
+
+                    return RecognizedTextBlock(text: candidate.string, rect: rect, charRects: charRects)
                 }
 
                 continuation.resume(returning: blocks)
