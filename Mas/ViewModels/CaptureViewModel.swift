@@ -139,6 +139,12 @@ class CaptureViewModel: ObservableObject {
         isCapturing = true
         errorMessage = nil
 
+        // キャプチャ中はライブラリウィンドウを一時非表示
+        let libraryWasVisible = historyWindowController?.window?.isVisible == true
+        if libraryWasVisible {
+            historyWindowController?.window?.orderOut(nil)
+        }
+
         do {
             let cgImage = try await captureService.captureFullScreen()
 
@@ -160,6 +166,11 @@ class CaptureViewModel: ObservableObject {
             print("Capture error: \(error)")
         }
 
+        // ライブラリウィンドウを復元
+        if libraryWasVisible {
+            historyWindowController?.window?.orderBack(nil)
+        }
+
         isCapturing = false
     }
 
@@ -170,17 +181,31 @@ class CaptureViewModel: ObservableObject {
         isCapturing = true
         errorMessage = nil
 
+        // キャプチャ中はライブラリウィンドウを一時非表示
+        let libraryWasVisible = historyWindowController?.window?.isVisible == true
+        if libraryWasVisible {
+            historyWindowController?.window?.orderOut(nil)
+        }
+
         do {
             // 先に画面全体をキャプチャしておく
             let fullScreenImage = try await captureService.captureFullScreen()
 
             let overlay = RegionSelectionOverlay(onComplete: { [weak self] rect in
                 guard let self = self else { return }
+                // キャプチャ完了後にライブラリウィンドウを復元
+                if libraryWasVisible {
+                    self.historyWindowController?.window?.orderBack(nil)
+                }
                 Task {
                     await self.cropRegion(rect, from: fullScreenImage)
                 }
             }, onCancel: { [weak self] in
                 self?.isCapturing = false
+                // キャンセル時もライブラリウィンドウを復元
+                if libraryWasVisible {
+                    self?.historyWindowController?.window?.orderBack(nil)
+                }
             })
             overlay.show()
         } catch {
