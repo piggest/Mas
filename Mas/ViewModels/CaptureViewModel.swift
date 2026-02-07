@@ -422,7 +422,25 @@ class CaptureViewModel: ObservableObject {
         window.backgroundColor = NSColor.white.withAlphaComponent(0.001)
         window.isOpaque = false
         window.hasShadow = true
-        window.level = .floating
+        // ピン設定に応じてウィンドウレベルを設定
+        let pinBehavior = UserDefaults.standard.string(forKey: "pinBehavior") ?? "alwaysOn"
+        switch pinBehavior {
+        case "alwaysOn":
+            window.level = .floating
+        case "latestOnly":
+            // 既存ウィンドウのピンを外す
+            for info in editorWindows {
+                if info.windowController.window?.level == .floating {
+                    info.windowController.window?.level = .normal
+                    NotificationCenter.default.post(name: .windowPinChanged, object: info.windowController.window)
+                }
+            }
+            window.level = .floating
+        case "off":
+            window.level = .normal
+        default:
+            window.level = .floating
+        }
         window.ignoresMouseEvents = false
 
         let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)

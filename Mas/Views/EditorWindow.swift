@@ -262,6 +262,7 @@ struct EditorWindow: View {
         }
         .onAppear {
             toolbarController = FloatingToolbarWindowController()
+            alwaysOnTop = parentWindow?.level == .floating
         }
         .onDisappear {
             toolbarController?.close()

@@ -18,7 +18,7 @@ struct SettingsWindow: View {
                     Label("情報", systemImage: "info.circle")
                 }
         }
-        .frame(width: 450, height: 300)
+        .frame(width: 450, height: 320)
     }
 }
 
@@ -31,6 +31,7 @@ struct GeneralSettingsView: View {
     @AppStorage("autoSaveFolder") private var autoSaveFolder = ""
     @AppStorage("autoCopyToClipboard") private var autoCopyToClipboard = true
     @AppStorage("closeOnDragSuccess") private var closeOnDragSuccess = true
+    @AppStorage("pinBehavior") private var pinBehavior = "alwaysOn"
     @State private var displayPath = ""
 
     var body: some View {
@@ -67,6 +68,14 @@ struct GeneralSettingsView: View {
                         Text("\(Int(jpegQuality * 100))%")
                             .frame(width: 40)
                     }
+                }
+            }
+
+            Section("ウィンドウ") {
+                Picker("ピン（最前面表示）", selection: $pinBehavior) {
+                    Text("常にON").tag("alwaysOn")
+                    Text("最新のみON").tag("latestOnly")
+                    Text("デフォルトOFF").tag("off")
                 }
             }
 
