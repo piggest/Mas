@@ -534,51 +534,54 @@ struct FloatingToolbarViewIndependent: View {
 
         circleToolButton(for: .text, index: 3)
         circleToolButton(for: .mosaic, index: 4)
+        circleToolButton(for: .trim, index: 5)
     }
 
     @ViewBuilder
     private var optionsSection: some View {
-        // 区切り
-        Circle()
-            .fill(Color.gray.opacity(0.3))
-            .frame(width: 4, height: 4)
-            .padding(.horizontal, 4)
+        if state.selectedTool != .trim {
+            // 区切り
+            Circle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 4, height: 4)
+                .padding(.horizontal, 4)
 
-        ColorPickerButtonCircle(state: state, buttonSize: buttonSize)
-            .offset(x: animatedOffset(index: 6))
+            ColorPickerButtonCircle(state: state, buttonSize: buttonSize)
+                .offset(x: animatedOffset(index: 6))
+                .animation(.easeOut(duration: 0.2), value: appeared)
+
+            // 線の太さ
+            HStack(spacing: 2) {
+                Circle()
+                    .fill(Color.secondary)
+                    .frame(width: 4, height: 4)
+                Slider(value: $state.lineWidth, in: 1...10, step: 1)
+                    .frame(width: 60)
+                    .tint(.blue)
+                    .onChange(of: state.lineWidth) { newValue in
+                        onLineWidthChanged?(newValue)
+                    }
+                Circle()
+                    .fill(Color.secondary)
+                    .frame(width: 10, height: 10)
+            }
+            .offset(x: animatedOffset(index: 7))
             .animation(.easeOut(duration: 0.2), value: appeared)
 
-        // 線の太さ
-        HStack(spacing: 2) {
-            Circle()
-                .fill(Color.secondary)
-                .frame(width: 4, height: 4)
-            Slider(value: $state.lineWidth, in: 1...10, step: 1)
-                .frame(width: 60)
-                .tint(.blue)
-                .onChange(of: state.lineWidth) { newValue in
-                    onLineWidthChanged?(newValue)
-                }
-            Circle()
-                .fill(Color.secondary)
-                .frame(width: 10, height: 10)
+            // 縁取りボタン
+            Button(action: { state.strokeEnabled.toggle() }) {
+                Image(systemName: state.strokeEnabled ? "diamond.inset.filled" : "diamond")
+                    .font(.system(size: iconSize, weight: .medium))
+                    .foregroundColor(state.strokeEnabled ? .white : .secondary)
+                    .frame(width: buttonSize, height: buttonSize)
+                    .background(state.strokeEnabled ? Color.blue : Color.white.opacity(0.9))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(NoHighlightButtonStyle())
+            .help("縁取り")
+            .offset(x: animatedOffset(index: 8))
+            .animation(.easeOut(duration: 0.2), value: appeared)
         }
-        .offset(x: animatedOffset(index: 7))
-        .animation(.easeOut(duration: 0.2), value: appeared)
-
-        // 縁取りボタン
-        Button(action: { state.strokeEnabled.toggle() }) {
-            Image(systemName: state.strokeEnabled ? "diamond.inset.filled" : "diamond")
-                .font(.system(size: iconSize, weight: .medium))
-                .foregroundColor(state.strokeEnabled ? .white : .secondary)
-                .frame(width: buttonSize, height: buttonSize)
-                .background(state.strokeEnabled ? Color.blue : Color.white.opacity(0.9))
-                .clipShape(Circle())
-        }
-        .buttonStyle(NoHighlightButtonStyle())
-        .help("縁取り")
-        .offset(x: animatedOffset(index: 8))
-        .animation(.easeOut(duration: 0.2), value: appeared)
     }
 
     @ViewBuilder

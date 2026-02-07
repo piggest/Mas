@@ -150,6 +150,7 @@ enum EditTool: String, CaseIterable {
     case ellipse = "丸"
     case text = "文字"
     case mosaic = "ぼかし"
+    case trim = "トリミング"
 
     var icon: String {
         switch self {
@@ -161,6 +162,7 @@ enum EditTool: String, CaseIterable {
         case .ellipse: return "circle"
         case .text: return "textformat"
         case .mosaic: return "drop.fill"
+        case .trim: return "crop"
         }
     }
 }
@@ -467,6 +469,9 @@ struct EditorWindow: View {
             },
             onToolChanged: { [self] tool in
                 toolbarController?.setTool(tool)
+            },
+            onTrimRequested: { [self] rect in
+                performTrim(canvasRect: rect)
             }
         )
         .frame(
@@ -1088,18 +1093,11 @@ struct EditorWindow: View {
         let scale = originalImageSize.width / canvasSize.width
 
         // originDeltaからトリミング領域を計算
-        // SwiftUIのoffset(x: originDelta.x)で画像をシフトしている
-        // offsetX正 = 画像が右に移動 = ウィンドウには左側が見える
-        // offsetX負 = 画像が左に移動 = ウィンドウには右側が見える
-        // 表示領域の左端（画像座標）= -originDelta.x
         let cropX = -resizeState.originDelta.x * scale
         let cropY = -resizeState.originDelta.y * scale
         let cropWidth = windowSize.width * scale
         let cropHeight = windowSize.height * scale
 
-        // CGImageは左上原点
-        // cropX: 左からのオフセット
-        // cropY: 上からのオフセット（SwiftUIのoffsetYがそのまま使える）
         let cropRect = CGRect(
             x: max(0, cropX),
             y: max(0, cropY),
@@ -1107,35 +1105,107 @@ struct EditorWindow: View {
             height: min(cropHeight, originalImageSize.height - max(0, cropY))
         )
 
-        // 画像をトリミング
         guard let cgImage = screenshot.originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
               let croppedCGImage = cgImage.cropping(to: cropRect) else { return }
 
         let croppedImage = NSImage(cgImage: croppedCGImage, size: NSSize(width: croppedCGImage.width, height: croppedCGImage.height))
 
-        // スクリーンショットを更新
         screenshot.updateImage(croppedCGImage)
         screenshot.captureRegion = CGRect(origin: .zero, size: CGSize(width: cropRect.width / scale, height: cropRect.height / scale))
 
-        // originDeltaをリセット
         resizeState.reset()
 
-        // ドラッグ用画像を更新
         imageForDrag = croppedImage
 
-        // 自動保存
         let autoSaveEnabled = UserDefaults.standard.object(forKey: "autoSaveEnabled") as? Bool ?? true
         if autoSaveEnabled {
             Self.saveImageToFile(croppedImage, url: screenshot.savedURL)
         }
 
-        // クリップボードにコピー
         let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
         if autoCopyToClipboard {
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.writeObjects([croppedImage])
         }
+    }
+
+    private func performTrim(canvasRect: CGRect) {
+        // 1. 既存アノテーションがあれば先に画像に焼き込み
+        if !toolboxState.annotations.isEmpty {
+            applyAnnotations()
+        }
+
+        let imageSize = screenshot.originalImage.size
+        let canvasSize = screenshot.captureRegion?.size ?? imageSize
+        guard canvasSize.width > 0, canvasSize.height > 0 else { return }
+        let scale = imageSize.width / canvasSize.width
+
+        // 2. キャンバス座標→ピクセル座標に変換
+        // AnnotationCanvas は左下原点、CGImage は左上原点
+        let pixelX = canvasRect.origin.x * scale
+        let pixelY = (canvasSize.height - canvasRect.origin.y - canvasRect.height) * scale
+        let pixelWidth = canvasRect.width * scale
+        let pixelHeight = canvasRect.height * scale
+
+        // 画像範囲内にclamp
+        let imageBounds = CGRect(x: 0, y: 0, width: imageSize.width, height: imageSize.height)
+        let cropRect = CGRect(x: pixelX, y: pixelY, width: pixelWidth, height: pixelHeight)
+            .integral
+            .intersection(imageBounds)
+
+        guard cropRect.width > 0, cropRect.height > 0 else { return }
+
+        // 3. CGImage.cropping(to:) で切り取り
+        guard let cgImage = screenshot.originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let croppedCGImage = cgImage.cropping(to: cropRect) else { return }
+
+        // 4. screenshot.updateImage() で画像更新
+        screenshot.updateImage(croppedCGImage)
+
+        // 5. captureRegion を新サイズに更新（トリミング後のキャンバスサイズ）
+        let newCanvasWidth = cropRect.width / scale
+        let newCanvasHeight = cropRect.height / scale
+        let oldRegion = screenshot.captureRegion ?? CGRect(origin: .zero, size: imageSize)
+        screenshot.captureRegion = CGRect(
+            x: oldRegion.origin.x,
+            y: oldRegion.origin.y,
+            width: newCanvasWidth,
+            height: newCanvasHeight
+        )
+
+        // 6. ウィンドウを新サイズにリサイズ（左上固定）
+        if let window = parentWindow {
+            let oldFrame = window.frame
+            let newFrame = NSRect(
+                x: oldFrame.origin.x,
+                y: oldFrame.maxY - newCanvasHeight,
+                width: newCanvasWidth,
+                height: newCanvasHeight
+            )
+            window.setFrame(newFrame, display: true)
+        }
+        resizeState.reset()
+
+        // 7. 自動保存・クリップボードコピー（設定に応じて）
+        let newImage = screenshot.originalImage
+        let autoSaveEnabled = UserDefaults.standard.object(forKey: "autoSaveEnabled") as? Bool ?? true
+        if autoSaveEnabled {
+            saveEditedImage(newImage)
+        }
+        let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
+        if autoCopyToClipboard {
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.writeObjects([newImage])
+        }
+
+        // ドラッグ用画像をクリア
+        imageForDrag = nil
+
+        // 8. ツールを .move に戻す
+        toolboxState.selectedTool = .move
+        toolbarController?.setTool(.move)
     }
 
     private func closeWindow() {
@@ -1168,6 +1238,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let onDoubleClickEmpty: (() -> Void)?
     let onSelectionChanged: ((Int?) -> Void)?
     let onToolChanged: ((EditTool) -> Void)?
+    var onTrimRequested: ((CGRect) -> Void)?
 
     func makeNSView(context: Context) -> AnnotationCanvas {
         let canvas = AnnotationCanvas()
@@ -1178,6 +1249,10 @@ struct AnnotationCanvasView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: AnnotationCanvas, context: Context) {
+        // ツール変更時にトリミング選択範囲をクリア
+        if nsView.selectedTool != selectedTool {
+            nsView.trimRect = nil
+        }
         nsView.annotations = annotations
         nsView.currentAnnotation = currentAnnotation
         nsView.selectedTool = selectedTool
@@ -1299,6 +1374,10 @@ struct AnnotationCanvasView: NSViewRepresentable {
         func doubleClickedOnEmpty() {
             parent.onDoubleClickEmpty?()
         }
+
+        func trimRequested(rect: CGRect) {
+            parent.onTrimRequested?(rect)
+        }
     }
 }
 
@@ -1311,6 +1390,7 @@ protocol AnnotationCanvasDelegate: AnyObject {
     func deleteSelectedAnnotation()
     func editTextAnnotation(at index: Int, annotation: TextAnnotation)
     func doubleClickedOnEmpty()
+    func trimRequested(rect: CGRect)
 }
 
 // リサイズハンドルの位置
@@ -1339,6 +1419,8 @@ class AnnotationCanvas: NSView {
     private var refreshTimer: Timer?
     private var activeResizeHandle: ResizeHandle = .none
     private var isResizing: Bool = false
+    var trimRect: CGRect?
+    private var trimDragStart: CGPoint?
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -1430,6 +1512,50 @@ class AnnotationCanvas: NSView {
             }
             current.draw(in: bounds)
         }
+
+        // トリミング選択範囲の描画
+        if selectedTool == .trim, let trimRect = trimRect {
+            drawTrimOverlay(trimRect: trimRect)
+        }
+    }
+
+    private func drawTrimOverlay(trimRect: CGRect) {
+        // 選択範囲外を半透明黒でオーバーレイ
+        let overlayPath = NSBezierPath(rect: bounds)
+        overlayPath.appendRect(trimRect)
+        overlayPath.windingRule = .evenOdd
+        NSColor.black.withAlphaComponent(0.5).setFill()
+        overlayPath.fill()
+
+        // 選択範囲に白枠
+        let borderPath = NSBezierPath(rect: trimRect)
+        borderPath.lineWidth = 1.5
+        NSColor.white.setStroke()
+        borderPath.stroke()
+
+        // 選択範囲に青点線
+        let dashPath = NSBezierPath(rect: trimRect)
+        dashPath.lineWidth = 1.5
+        let dashPattern: [CGFloat] = [6, 4]
+        dashPath.setLineDash(dashPattern, count: 2, phase: 0)
+        NSColor.systemBlue.setStroke()
+        dashPath.stroke()
+
+        // 右下にサイズ表示
+        let width = Int(trimRect.width)
+        let height = Int(trimRect.height)
+        let sizeText = "\(width) x \(height)" as NSString
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+            .foregroundColor: NSColor.white,
+            .backgroundColor: NSColor.black.withAlphaComponent(0.7)
+        ]
+        let textSize = sizeText.size(withAttributes: attributes)
+        let textPoint = NSPoint(
+            x: trimRect.maxX - textSize.width - 4,
+            y: trimRect.minY + 4
+        )
+        sizeText.draw(at: textPoint, withAttributes: attributes)
     }
 
     private func drawBoundingBox(for annotation: any Annotation, isSelected: Bool) {
@@ -1573,6 +1699,14 @@ class AnnotationCanvas: NSView {
             }
         }
 
+        // トリミングモードの場合
+        if selectedTool == .trim {
+            trimDragStart = point
+            trimRect = nil
+            needsDisplay = true
+            return
+        }
+
         // 移動モードの場合
         if selectedTool == .move {
             // まずリサイズハンドルのヒットテストを行う
@@ -1686,6 +1820,8 @@ class AnnotationCanvas: NSView {
         case .mosaic:
             // 太さ1→2, 太さ5→8, 太さ10→14 くらいの緩やかな変化
             currentAnnotation = MosaicAnnotation(rect: CGRect(origin: point, size: .zero), pixelSize: max(Int(lineWidth * 1.2 + 1), 2), sourceImage: sourceImage)
+        case .trim:
+            break
         }
         delegate?.currentAnnotationUpdated(currentAnnotation)
         needsDisplay = true
@@ -1695,6 +1831,18 @@ class AnnotationCanvas: NSView {
         guard isEditing else { return }
 
         let point = convert(event.locationInWindow, from: nil)
+
+        // トリミングモードの場合
+        if selectedTool == .trim, let start = trimDragStart {
+            trimRect = CGRect(
+                x: min(start.x, point.x),
+                y: min(start.y, point.y),
+                width: abs(point.x - start.x),
+                height: abs(point.y - start.y)
+            )
+            needsDisplay = true
+            return
+        }
 
         // リサイズ中の場合
         if isResizing, let index = selectedAnnotationIndex, index < annotations.count {
@@ -1747,6 +1895,8 @@ class AnnotationCanvas: NSView {
             if let mosaic = currentAnnotation as? MosaicAnnotation {
                 mosaic.rect = newRect
             }
+        case .trim:
+            break
         }
         delegate?.currentAnnotationUpdated(currentAnnotation)
         needsDisplay = true
@@ -1754,6 +1904,17 @@ class AnnotationCanvas: NSView {
 
     override func mouseUp(with event: NSEvent) {
         guard isEditing else { return }
+
+        // トリミングモードの場合
+        if selectedTool == .trim {
+            trimDragStart = nil
+            // 小さすぎる矩形（10px未満）はクリア
+            if let rect = trimRect, rect.width < 10 || rect.height < 10 {
+                trimRect = nil
+            }
+            needsDisplay = true
+            return
+        }
 
         // リサイズ終了
         if isResizing {
@@ -1888,6 +2049,38 @@ class AnnotationCanvas: NSView {
         annotations.append(mosaic)
         selectedAnnotationIndex = annotations.count - 1
         delegate?.annotationMoved()
+    }
+
+    // MARK: - トリミング右クリックメニュー
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        guard selectedTool == .trim, let trimRect = trimRect,
+              trimRect.width >= 10, trimRect.height >= 10 else {
+            return nil
+        }
+
+        let menu = NSMenu()
+        let trimItem = NSMenuItem(title: "トリミング", action: #selector(executeTrim), keyEquivalent: "")
+        trimItem.target = self
+        menu.addItem(trimItem)
+
+        let cancelItem = NSMenuItem(title: "キャンセル", action: #selector(cancelTrim), keyEquivalent: "")
+        cancelItem.target = self
+        menu.addItem(cancelItem)
+
+        return menu
+    }
+
+    @objc private func executeTrim() {
+        guard let trimRect = trimRect else { return }
+        delegate?.trimRequested(rect: trimRect)
+        self.trimRect = nil
+        needsDisplay = true
+    }
+
+    @objc private func cancelTrim() {
+        trimRect = nil
+        needsDisplay = true
     }
 }
 

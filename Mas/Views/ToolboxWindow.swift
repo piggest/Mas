@@ -106,7 +106,8 @@ struct ToolboxContentView: View {
                 .foregroundColor(.secondary)
             let tools = EditTool.allCases
             let firstRow = Array(tools.prefix(4))
-            let secondRow = Array(tools.dropFirst(4))
+            let secondRow = Array(tools.dropFirst(4).prefix(4))
+            let thirdRow = Array(tools.dropFirst(8))
             VStack(spacing: 4) {
                 HStack(spacing: 4) {
                     ForEach(firstRow, id: \.self) { tool in
@@ -116,6 +117,13 @@ struct ToolboxContentView: View {
                 HStack(spacing: 4) {
                     ForEach(secondRow, id: \.self) { tool in
                         toolButton(for: tool)
+                    }
+                }
+                if !thirdRow.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(thirdRow, id: \.self) { tool in
+                            toolButton(for: tool)
+                        }
                     }
                 }
             }
