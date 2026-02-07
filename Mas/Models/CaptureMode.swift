@@ -10,7 +10,7 @@ enum CaptureMode: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .fullScreen: return "rectangle.dashed"
-        case .region: return "crop"
+        case .region: return "viewfinder"
         case .window: return "macwindow"
         }
     }

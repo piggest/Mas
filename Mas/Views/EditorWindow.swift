@@ -163,7 +163,7 @@ enum EditTool: String, CaseIterable {
         case .ellipse: return "circle"
         case .text: return "textformat"
         case .mosaic: return "drop.fill"
-        case .trim: return "crop"
+        case .trim: return "square.dashed"
         }
     }
 }
