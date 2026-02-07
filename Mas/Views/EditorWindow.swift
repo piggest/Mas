@@ -190,9 +190,10 @@ struct EditorWindow: View {
 
     let onRecapture: ((CGRect, NSWindow?) -> Void)?
     let onPassThroughChanged: ((Bool) -> Void)?
+    let onAnnotationsSaved: (([any Annotation]) -> Void)?
     weak var parentWindow: NSWindow?
 
-    init(screenshot: Screenshot, resizeState: WindowResizeState, toolboxState: ToolboxState, parentWindow: NSWindow? = nil, onRecapture: ((CGRect, NSWindow?) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil, showImageInitially: Bool = true) {
+    init(screenshot: Screenshot, resizeState: WindowResizeState, toolboxState: ToolboxState, parentWindow: NSWindow? = nil, onRecapture: ((CGRect, NSWindow?) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil, onAnnotationsSaved: (([any Annotation]) -> Void)? = nil, showImageInitially: Bool = true) {
         _viewModel = StateObject(wrappedValue: EditorViewModel(screenshot: screenshot))
         self.screenshot = screenshot
         self.resizeState = resizeState
@@ -200,6 +201,7 @@ struct EditorWindow: View {
         self.parentWindow = parentWindow
         self.onRecapture = onRecapture
         self.onPassThroughChanged = onPassThroughChanged
+        self.onAnnotationsSaved = onAnnotationsSaved
         _showImage = State(initialValue: showImageInitially)
     }
 
@@ -734,6 +736,9 @@ struct EditorWindow: View {
     private func applyAnnotationsToImage() {
         guard !toolboxState.annotations.isEmpty else { return }
 
+        // アノテーションデータを保存
+        onAnnotationsSaved?(toolboxState.annotations)
+
         // 同期的に画像をレンダリング（アノテーションの参照が有効な間に処理）
         let renderedImage = Self.renderImageInBackground(
             originalImage: screenshot.originalImage,
@@ -767,6 +772,9 @@ struct EditorWindow: View {
     // SwiftUI状態に依存しない安全なレンダリング処理
     private func applyAnnotationsToImageSafe(annotations: [any Annotation], originalImage: NSImage, captureRegion: CGRect?, savedURL: URL?) {
         guard !annotations.isEmpty else { return }
+
+        // アノテーションデータを保存（クリア前に）
+        onAnnotationsSaved?(annotations)
 
         let renderedImage = Self.renderImageInBackground(
             originalImage: originalImage,

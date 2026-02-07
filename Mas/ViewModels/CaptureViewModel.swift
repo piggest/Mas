@@ -356,11 +356,16 @@ class CaptureViewModel: ObservableObject {
         showEditorWindow(for: screenshot)
     }
 
-    private func showEditorWindow(for screenshot: Screenshot, at region: CGRect? = nil, showImageInitially: Bool = true) {
+    private func showEditorWindow(for screenshot: Screenshot, at region: CGRect? = nil, showImageInitially: Bool = true, initialAnnotations: [any Annotation]? = nil) {
         // ResizableWindowを先に作成（独自のresizeStateを持つ）
         let window = ResizableWindow(contentRect: .zero, styleMask: [.borderless, .resizable], backing: .buffered, defer: false)
         // 各ウィンドウ独自のToolboxStateを作成
         let toolboxState = ToolboxState()
+
+        // 復元するアノテーションがあればセット
+        if let annotations = initialAnnotations {
+            toolboxState.annotations = annotations
+        }
 
         // PassThroughContainerViewを先に作成
         let containerView = PassThroughContainerView()
@@ -376,6 +381,8 @@ class CaptureViewModel: ObservableObject {
                 resizableWindow.passThroughEnabled = enabled
                 resizableWindow.isMovableByWindowBackground = !enabled
             }
+        }, onAnnotationsSaved: { [weak self] annotations in
+            self?.saveAnnotationsToHistory(for: screenshot, annotations: annotations)
         }, showImageInitially: showImageInitially)
         let hostingController = NSHostingController(rootView: editorView)
 
@@ -538,8 +545,16 @@ class CaptureViewModel: ObservableObject {
     // MARK: - 履歴管理
 
     func openFromHistory(_ entry: ScreenshotHistoryEntry) {
-        let url = URL(fileURLWithPath: entry.filePath)
-        guard let nsImage = NSImage(contentsOf: url) else {
+        // アノテーションがある場合はベース画像（元画像）を使用
+        let imageURL: URL
+        if let basePath = entry.baseFilePath, entry.annotations != nil,
+           FileManager.default.fileExists(atPath: basePath) {
+            imageURL = URL(fileURLWithPath: basePath)
+        } else {
+            imageURL = URL(fileURLWithPath: entry.filePath)
+        }
+
+        guard let nsImage = NSImage(contentsOf: imageURL) else {
             // ファイルが存在しない場合は履歴から削除
             removeHistoryEntry(id: entry.id)
             return
@@ -563,10 +578,16 @@ class CaptureViewModel: ObservableObject {
         }
 
         let screenshot = Screenshot(image: nsImage, mode: entry.mode == "全画面" ? .fullScreen : .region, region: region)
-        screenshot.savedURL = url
+        screenshot.savedURL = URL(fileURLWithPath: entry.filePath)
         currentScreenshot = screenshot
 
-        showEditorWindow(for: screenshot, at: region)
+        // アノテーションを復元
+        var restoredAnnotations: [any Annotation]? = nil
+        if let codableAnnotations = entry.annotations, !codableAnnotations.isEmpty {
+            restoredAnnotations = codableAnnotations.compactMap { $0.toAnnotation(sourceImage: nsImage) }
+        }
+
+        showEditorWindow(for: screenshot, at: region, initialAnnotations: restoredAnnotations)
     }
 
     func removeHistoryEntry(id: UUID) {
@@ -576,6 +597,41 @@ class CaptureViewModel: ObservableObject {
             closeEditorWindow(windowInfo)
         }
         historyService.removeEntry(id: id)
+        historyEntries = historyService.load()
+    }
+
+    private func saveAnnotationsToHistory(for screenshot: Screenshot, annotations: [any Annotation]) {
+        guard let filePath = screenshot.savedURL?.path else { return }
+
+        let codable = annotations.compactMap { CodableAnnotation.from($0) }
+
+        // ベース画像（アノテーション適用前の元画像）を保存
+        var baseFilePath: String? = nil
+        if !codable.isEmpty {
+            let fileURL = URL(fileURLWithPath: filePath)
+            let baseName = fileURL.deletingPathExtension().lastPathComponent + "_base"
+            let ext = fileURL.pathExtension
+            let baseURL = fileURL.deletingLastPathComponent().appendingPathComponent(baseName).appendingPathExtension(ext)
+
+            // まだベース画像がなければ保存
+            if !FileManager.default.fileExists(atPath: baseURL.path) {
+                if let tiffData = screenshot.originalImage.tiffRepresentation,
+                   let bitmap = NSBitmapImageRep(data: tiffData) {
+                    let pngData: Data?
+                    if ext.lowercased() == "jpg" || ext.lowercased() == "jpeg" {
+                        pngData = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.9])
+                    } else {
+                        pngData = bitmap.representation(using: .png, properties: [:])
+                    }
+                    if let data = pngData {
+                        try? data.write(to: baseURL)
+                    }
+                }
+            }
+            baseFilePath = baseURL.path
+        }
+
+        historyService.updateAnnotations(forFilePath: filePath, annotations: codable.isEmpty ? nil : codable, baseFilePath: baseFilePath)
         historyEntries = historyService.load()
     }
 

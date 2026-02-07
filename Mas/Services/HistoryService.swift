@@ -44,6 +44,25 @@ class HistoryService {
         save(entries)
     }
 
+    func updateEntry(_ updated: ScreenshotHistoryEntry) {
+        var entries = load()
+        if let index = entries.firstIndex(where: { $0.id == updated.id }) {
+            entries[index] = updated
+        } else if let index = entries.firstIndex(where: { $0.filePath == updated.filePath }) {
+            entries[index] = updated
+        }
+        save(entries)
+    }
+
+    func updateAnnotations(forFilePath filePath: String, annotations: [CodableAnnotation]?, baseFilePath: String?) {
+        var entries = load()
+        if let index = entries.firstIndex(where: { $0.filePath == filePath }) {
+            entries[index].annotations = annotations
+            entries[index].baseFilePath = baseFilePath
+            save(entries)
+        }
+    }
+
     func removeInvalidEntries() -> [ScreenshotHistoryEntry] {
         var entries = load()
         entries.removeAll { !$0.fileExists }

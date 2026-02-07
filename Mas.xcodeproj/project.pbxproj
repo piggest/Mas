@@ -40,6 +40,7 @@
 		'HISTENTRY01BUILD' = {isa = PBXBuildFile; fileRef = HISTENTRY01FILEREF; };
 		'HISTSVC001BUILD' = {isa = PBXBuildFile; fileRef = HISTSVC001FILEREF; };
 		'HISTWIN001BUILD' = {isa = PBXBuildFile; fileRef = HISTWIN001FILEREF; };
+		'CODANNOT01BUILD' = {isa = PBXBuildFile; fileRef = CODANNOT01FILEREF; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +55,7 @@
 		62FF5E8583862D4BA967A830 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
 		788C0D7CDED4A7DA6FA0F286 /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		83F83616E14B03BE4E917A2E /* MosaicAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosaicAnnotation.swift; sourceTree = "<group>"; };
+		'CODANNOT01FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodableAnnotation.swift; sourceTree = "<group>"; };
 		8E0C035641F7CFE5019E75B3 /* Annotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Annotation.swift; sourceTree = "<group>"; };
 		8F9909D433CD57C9C7B08E3C /* Screenshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Screenshot.swift; sourceTree = "<group>"; };
 		9702C9A674BA192EFF166589 /* ArrowAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrowAnnotation.swift; sourceTree = "<group>"; };
@@ -131,6 +133,7 @@
 				83F83616E14B03BE4E917A2E /* MosaicAnnotation.swift */,
 				2089CBB684BD2E5D5853CAD1 /* RectAnnotation.swift */,
 				C0122035751DFFAC7447DA18 /* TextAnnotation.swift */,
+				CODANNOT01FILEREF /* CodableAnnotation.swift */,
 			);
 			path = Annotations;
 			sourceTree = "<group>";
@@ -290,6 +293,7 @@
 				HISTENTRY01BUILD /* ScreenshotHistoryEntry.swift in Sources */,
 				HISTSVC001BUILD /* HistoryService.swift in Sources */,
 				HISTWIN001BUILD /* HistoryWindow.swift in Sources */,
+				CODANNOT01BUILD /* CodableAnnotation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
