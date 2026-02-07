@@ -49,10 +49,10 @@ struct MenuBarView: View {
                     .foregroundColor(.secondary)
                     .font(.caption)
             }
+            .padding(.horizontal)
+            .padding(.vertical, 4)
         }
         .buttonStyle(NoHighlightButtonStyle())
-        .padding(.horizontal)
-        .padding(.vertical, 4)
         Divider()
     }
 
@@ -69,10 +69,10 @@ struct MenuBarView: View {
                         .foregroundColor(.secondary)
                         .font(.caption)
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 4)
             }
             .buttonStyle(NoHighlightButtonStyle())
-            .padding(.horizontal)
-            .padding(.vertical, 4)
         }
     }
 
@@ -99,10 +99,10 @@ struct MenuBarView: View {
                                 }
                                 Spacer()
                             }
+                            .padding(.horizontal)
+                            .padding(.vertical, 2)
                         }
                         .buttonStyle(NoHighlightButtonStyle())
-                        .padding(.horizontal)
-                        .padding(.vertical, 2)
                     }
                 }
             }
@@ -164,10 +164,10 @@ struct MenuBarView: View {
                     Text("すべて閉じる")
                     Spacer()
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 4)
             }
             .buttonStyle(NoHighlightButtonStyle())
-            .padding(.horizontal)
-            .padding(.vertical, 4)
         }
     }
 
@@ -185,10 +185,10 @@ struct MenuBarView: View {
                     .foregroundColor(.secondary)
                     .font(.caption)
             }
+            .padding(.horizontal)
+            .padding(.vertical, 4)
         }
         .buttonStyle(NoHighlightButtonStyle())
-        .padding(.horizontal)
-        .padding(.vertical, 4)
 
         Divider()
 
@@ -202,10 +202,10 @@ struct MenuBarView: View {
                     .foregroundColor(.secondary)
                     .font(.caption)
             }
+            .padding(.horizontal)
+            .padding(.vertical, 4)
         }
         .buttonStyle(NoHighlightButtonStyle())
-        .padding(.horizontal)
-        .padding(.vertical, 4)
 
         Spacer()
             .frame(height: 8)
