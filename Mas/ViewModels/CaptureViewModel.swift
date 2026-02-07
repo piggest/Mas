@@ -628,6 +628,11 @@ class CaptureViewModel: ObservableObject {
         historyEntries = historyService.load()
     }
 
+    func toggleFavorite(id: UUID) {
+        historyService.toggleFavorite(id: id)
+        historyEntries = historyService.load()
+    }
+
     private func saveAnnotationsToHistory(for screenshot: Screenshot, annotations: [any Annotation]) {
         guard let filePath = screenshot.savedURL?.path else { return }
 

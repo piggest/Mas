@@ -63,6 +63,13 @@ class HistoryService {
         save(entries)
     }
 
+    func toggleFavorite(id: UUID) {
+        var entries = load()
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        entries[index].isFavorite = (entries[index].isFavorite == true) ? nil : true
+        save(entries)
+    }
+
     // MARK: - アノテーション（個別ファイル管理）
 
     private func annotationFileURL(id: UUID) -> URL {

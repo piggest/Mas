@@ -13,18 +13,68 @@ private let masuBgInactive = Color(red: 0.88, green: 0.84, blue: 0.78) // 非ア
 struct HistoryWindow: View {
     @ObservedObject var viewModel: CaptureViewModel
     @State private var isWindowActive = true
+    @State private var showFavoritesOnly = false
+
+    private var filteredEntries: [ScreenshotHistoryEntry] {
+        if showFavoritesOnly {
+            return viewModel.historyEntries.filter { $0.isFavorite == true }
+        }
+        return viewModel.historyEntries
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            if viewModel.historyEntries.isEmpty {
-                emptyState
+            // フィルターバー
+            if !viewModel.historyEntries.isEmpty {
+                HStack {
+                    Button(action: { showFavoritesOnly.toggle() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: showFavoritesOnly ? "star.fill" : "star")
+                                .font(.system(size: 12))
+                            Text(showFavoritesOnly ? "お気に入り" : "すべて")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(showFavoritesOnly ? Color(red: 0.85, green: 0.65, blue: 0.10) : masuSub)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(showFavoritesOnly ? Color(red: 0.85, green: 0.65, blue: 0.10).opacity(0.15) : Color.clear)
+                        .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                    Text("\(filteredEntries.count)件")
+                        .font(.system(size: 11))
+                        .foregroundColor(masuSub)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+            }
+
+            if filteredEntries.isEmpty {
+                if showFavoritesOnly {
+                    VStack(spacing: 10) {
+                        Spacer()
+                        Image(systemName: "star")
+                            .font(.system(size: 36))
+                            .foregroundColor(masuEdge)
+                        Text("お気に入りはありません")
+                            .font(.body)
+                            .foregroundColor(masuText)
+                        Spacer()
+                    }
+                } else {
+                    emptyState
+                }
             } else {
                 ScrollView {
                     VStack(spacing: 10) {
-                        ForEach(viewModel.historyEntries) { entry in
+                        ForEach(filteredEntries) { entry in
                             let windowInfo = viewModel.editorWindows.first { info in
                                 info.screenshot.savedURL?.path == entry.filePath
                             }
-                            HistoryEntryRow(entry: entry, isOpen: windowInfo != nil, isPinned: windowInfo?.windowController.window?.level == .floating, onTap: {
+                            HistoryEntryRow(entry: entry, isOpen: windowInfo != nil, isPinned: windowInfo?.windowController.window?.level == .floating, onFavorite: {
+                                viewModel.toggleFavorite(id: entry.id)
+                            }, onTap: {
                                 if let info = windowInfo {
                                     // 表示中 → 非表示
                                     viewModel.closeEditorWindow(info)
@@ -86,6 +136,7 @@ struct HistoryEntryRow: View {
     let entry: ScreenshotHistoryEntry
     var isOpen: Bool = false
     var isPinned: Bool = false
+    var onFavorite: (() -> Void)?
     let onTap: () -> Void
     let onDelete: () -> Void
     var onFlash: (() -> Void)?
@@ -125,7 +176,13 @@ struct HistoryEntryRow: View {
 
             // 情報
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Button(action: { onFavorite?() }) {
+                        Image(systemName: entry.isFavorite == true ? "star.fill" : "star")
+                            .font(.system(size: 12))
+                            .foregroundColor(entry.isFavorite == true ? Color(red: 0.85, green: 0.65, blue: 0.10) : masuSub.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
                     Text(entry.fileName)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(masuText)
