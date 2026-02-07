@@ -132,8 +132,6 @@ class CaptureViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            try await Task.sleep(nanoseconds: 200_000_000)
-
             let cgImage = try await captureService.captureFullScreen()
 
             // 画面全体をregionとして設定
