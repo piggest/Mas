@@ -473,6 +473,9 @@ struct EditorWindow: View {
             },
             onTrimRequested: { [self] rect in
                 performTrim(canvasRect: rect)
+            },
+            onCopyTrimRegion: { [self] rect in
+                performCopyRegion(canvasRect: rect)
             }
         )
         .frame(
@@ -1064,6 +1067,34 @@ struct EditorWindow: View {
         onPassThroughChanged?(passThroughEnabled)
     }
 
+    private func performCopyRegion(canvasRect: CGRect) {
+        let imageSize = screenshot.originalImage.size
+        let canvasSize = screenshot.captureRegion?.size ?? imageSize
+        guard canvasSize.width > 0, canvasSize.height > 0 else { return }
+        let scale = imageSize.width / canvasSize.width
+
+        // キャンバス座標→ピクセル座標に変換（左下原点→左上原点）
+        let pixelX = canvasRect.origin.x * scale
+        let pixelY = (canvasSize.height - canvasRect.origin.y - canvasRect.height) * scale
+        let pixelWidth = canvasRect.width * scale
+        let pixelHeight = canvasRect.height * scale
+
+        let imageBounds = CGRect(x: 0, y: 0, width: imageSize.width, height: imageSize.height)
+        let cropRect = CGRect(x: pixelX, y: pixelY, width: pixelWidth, height: pixelHeight)
+            .integral
+            .intersection(imageBounds)
+
+        guard cropRect.width > 0, cropRect.height > 0 else { return }
+
+        guard let cgImage = screenshot.originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let croppedCGImage = cgImage.cropping(to: cropRect) else { return }
+
+        let croppedImage = NSImage(cgImage: croppedCGImage, size: NSSize(width: cropRect.width, height: cropRect.height))
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects([croppedImage])
+    }
+
     private func performTrim(canvasRect: CGRect) {
         // 1. 既存アノテーションがあれば先に画像に焼き込み
         if !toolboxState.annotations.isEmpty {
@@ -1181,6 +1212,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let onSelectionChanged: ((Int?) -> Void)?
     let onToolChanged: ((EditTool) -> Void)?
     var onTrimRequested: ((CGRect) -> Void)?
+    var onCopyTrimRegion: ((CGRect) -> Void)?
 
     func makeNSView(context: Context) -> AnnotationCanvas {
         let canvas = AnnotationCanvas()
@@ -1320,6 +1352,10 @@ struct AnnotationCanvasView: NSViewRepresentable {
         func trimRequested(rect: CGRect) {
             parent.onTrimRequested?(rect)
         }
+
+        func copyTrimRegionRequested(rect: CGRect) {
+            parent.onCopyTrimRegion?(rect)
+        }
     }
 }
 
@@ -1333,6 +1369,7 @@ protocol AnnotationCanvasDelegate: AnyObject {
     func editTextAnnotation(at index: Int, annotation: TextAnnotation)
     func doubleClickedOnEmpty()
     func trimRequested(rect: CGRect)
+    func copyTrimRegionRequested(rect: CGRect)
 }
 
 // リサイズハンドルの位置
@@ -2006,9 +2043,9 @@ class AnnotationCanvas: NSView {
         trimItem.target = self
         menu.addItem(trimItem)
 
-        let cancelItem = NSMenuItem(title: "キャンセル", action: #selector(cancelTrim), keyEquivalent: "")
-        cancelItem.target = self
-        menu.addItem(cancelItem)
+        let copyItem = NSMenuItem(title: "コピー", action: #selector(executeCopy), keyEquivalent: "")
+        copyItem.target = self
+        menu.addItem(copyItem)
 
         return menu
     }
@@ -2018,6 +2055,11 @@ class AnnotationCanvas: NSView {
         delegate?.trimRequested(rect: trimRect)
         self.trimRect = nil
         needsDisplay = true
+    }
+
+    @objc private func executeCopy() {
+        guard let trimRect = trimRect else { return }
+        delegate?.copyTrimRegionRequested(rect: trimRect)
     }
 
     @objc private func cancelTrim() {
