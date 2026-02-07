@@ -18,7 +18,7 @@ struct SettingsWindow: View {
                     Label("情報", systemImage: "info.circle")
                 }
         }
-        .frame(width: 450, height: 320)
+        .frame(width: 450, height: 380)
     }
 }
 
@@ -35,59 +35,95 @@ struct GeneralSettingsView: View {
     @State private var displayPath = ""
 
     var body: some View {
-        Form {
-            Section("キャプチャ時の動作") {
-                Toggle("クリップボードにコピー", isOn: $autoCopyToClipboard)
-                Toggle("ファイルに保存", isOn: $autoSaveEnabled)
-
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader("キャプチャ")
+            VStack(alignment: .leading, spacing: 8) {
+                settingRow("クリップボードにコピー") {
+                    Toggle("", isOn: $autoCopyToClipboard).labelsHidden()
+                }
+                settingRow("ファイルに保存") {
+                    Toggle("", isOn: $autoSaveEnabled).labelsHidden()
+                }
                 if autoSaveEnabled {
-                    HStack {
-                        Text("保存先")
-                        Spacer()
-                        Text(displayPath.isEmpty ? "~/Pictures/Mas" : displayPath)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Button("変更...") {
-                            selectFolder()
+                    settingRow("保存先") {
+                        HStack {
+                            Text(displayPath.isEmpty ? "~/Pictures/Mas" : displayPath)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Button("変更...") { selectFolder() }
+                                .controlSize(.small)
+                        }
+                    }
+                    settingRow("保存形式") {
+                        Picker("", selection: $defaultFormat) {
+                            Text("PNG").tag("PNG")
+                            Text("JPEG").tag("JPEG")
+                        }
+                        .labelsHidden()
+                        .frame(width: 100)
+                    }
+                    if defaultFormat == "JPEG" {
+                        settingRow("JPEG品質") {
+                            HStack {
+                                Slider(value: $jpegQuality, in: 0.1...1.0, step: 0.1)
+                                Text("\(Int(jpegQuality * 100))%")
+                                    .monospacedDigit()
+                                    .frame(width: 36, alignment: .trailing)
+                            }
                         }
                     }
                 }
             }
 
-            Section("保存形式") {
-                Picker("デフォルト保存形式", selection: $defaultFormat) {
-                    Text("PNG").tag("PNG")
-                    Text("JPEG").tag("JPEG")
-                }
+            Divider()
 
-                if defaultFormat == "JPEG" {
-                    HStack {
-                        Text("JPEG品質")
-                        Slider(value: $jpegQuality, in: 0.1...1.0, step: 0.1)
-                        Text("\(Int(jpegQuality * 100))%")
-                            .frame(width: 40)
+            sectionHeader("ウィンドウ")
+            VStack(alignment: .leading, spacing: 8) {
+                settingRow("ピン（最前面表示）") {
+                    Picker("", selection: $pinBehavior) {
+                        Text("常にON").tag("alwaysOn")
+                        Text("最新のみON").tag("latestOnly")
+                        Text("デフォルトOFF").tag("off")
                     }
+                    .labelsHidden()
+                    .frame(width: 140)
+                }
+                settingRow("ドラッグ成功時に閉じる") {
+                    Toggle("", isOn: $closeOnDragSuccess).labelsHidden()
                 }
             }
 
-            Section("ウィンドウ") {
-                Picker("ピン（最前面表示）", selection: $pinBehavior) {
-                    Text("常にON").tag("alwaysOn")
-                    Text("最新のみON").tag("latestOnly")
-                    Text("デフォルトOFF").tag("off")
+            Divider()
+
+            sectionHeader("その他")
+            VStack(alignment: .leading, spacing: 8) {
+                settingRow("マウスカーソルを含める") {
+                    Toggle("", isOn: $showCursor).labelsHidden()
+                }
+                settingRow("キャプチャ時にサウンド再生") {
+                    Toggle("", isOn: $playSound).labelsHidden()
                 }
             }
 
-            Section("オプション") {
-                Toggle("マウスカーソルを含める", isOn: $showCursor)
-                Toggle("キャプチャ時にサウンドを再生", isOn: $playSound)
-                Toggle("ドラッグ成功時にウィンドウを閉じる", isOn: $closeOnDragSuccess)
-            }
+            Spacer()
         }
         .padding()
         .onAppear {
             updateDisplayPath()
+        }
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 13, weight: .bold))
+    }
+
+    private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(label)
+                .frame(width: 180, alignment: .leading)
+            content()
         }
     }
 
