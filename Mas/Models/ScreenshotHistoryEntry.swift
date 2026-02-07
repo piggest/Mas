@@ -11,8 +11,8 @@ struct ScreenshotHistoryEntry: Codable, Identifiable {
     let windowY: Double?    // キャプチャ時のウィンドウ位置Y
     let windowW: Double?    // キャプチャ時のウィンドウ幅
     let windowH: Double?    // キャプチャ時のウィンドウ高さ
-    var annotations: [CodableAnnotation]?   // アノテーションデータ
     var baseFilePath: String?               // アノテーション適用前の元画像パス
+    var hasAnnotations: Bool?               // アノテーションデータが存在するか
 
     var fileExists: Bool {
         FileManager.default.fileExists(atPath: filePath)

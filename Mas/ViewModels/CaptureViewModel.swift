@@ -547,7 +547,7 @@ class CaptureViewModel: ObservableObject {
     func openFromHistory(_ entry: ScreenshotHistoryEntry) {
         // アノテーションがある場合はベース画像（元画像）を使用
         let imageURL: URL
-        if let basePath = entry.baseFilePath, entry.annotations != nil,
+        if let basePath = entry.baseFilePath, entry.hasAnnotations == true,
            FileManager.default.fileExists(atPath: basePath) {
             imageURL = URL(fileURLWithPath: basePath)
         } else {
@@ -581,9 +581,10 @@ class CaptureViewModel: ObservableObject {
         screenshot.savedURL = URL(fileURLWithPath: entry.filePath)
         currentScreenshot = screenshot
 
-        // アノテーションを復元
+        // アノテーションを復元（個別ファイルから読み込み）
         var restoredAnnotations: [any Annotation]? = nil
-        if let codableAnnotations = entry.annotations, !codableAnnotations.isEmpty {
+        if entry.hasAnnotations == true,
+           let codableAnnotations = historyService.loadAnnotations(id: entry.id), !codableAnnotations.isEmpty {
             restoredAnnotations = codableAnnotations.compactMap { $0.toAnnotation(sourceImage: nsImage) }
         }
 
