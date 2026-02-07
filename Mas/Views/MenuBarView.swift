@@ -213,13 +213,9 @@ struct MenuBarView: View {
 
     private func dismissMenu() {
         // MenuBarExtraのパネルを閉じる
-        for window in NSApp.windows {
-            // NSPanelでlevelがpopUpMenu付近のものを探す
-            if window.level.rawValue >= NSWindow.Level.popUpMenu.rawValue - 1 &&
-               window.level.rawValue <= NSWindow.Level.popUpMenu.rawValue + 1 {
-                window.orderOut(nil)
-                break
-            }
+        // メニュー操作中はパネルがキーウィンドウになっている
+        if let panel = NSApp.keyWindow as? NSPanel {
+            panel.orderOut(nil)
         }
     }
 

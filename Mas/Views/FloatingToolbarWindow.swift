@@ -640,13 +640,43 @@ struct FloatingToolbarViewIndependent: View {
     }
 }
 
+// NSMenu用のヘルパー（@objcメソッドのターゲット）
+class ToolMenuHelper: NSObject {
+    var onSelectTool: ((EditTool) -> Void)?
+
+    @objc func menuItemSelected(_ sender: NSMenuItem) {
+        guard let tool = sender.representedObject as? EditTool else { return }
+        onSelectTool?(tool)
+    }
+}
+
+// NSMenuのアンカー用NSView（NSViewRepresentable経由で取得）
+struct MenuAnchorView: NSViewRepresentable {
+    @Binding var anchorView: NSView?
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            anchorView = view
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        if anchorView !== nsView {
+            anchorView = nsView
+        }
+    }
+}
+
 // 丸いツールグループボタン
 struct ToolGroupButtonCircle: View {
     @ObservedObject var state: FloatingToolbarState
     let group: ToolGroup
     let buttonSize: CGFloat
     let iconSize: CGFloat
-    @State private var showPopover = false
+    @State private var menuHelper = ToolMenuHelper()
+    @State private var anchorView: NSView?
 
     private var currentTool: EditTool {
         state.lastToolFor(group: group)
@@ -658,11 +688,10 @@ struct ToolGroupButtonCircle: View {
 
     var body: some View {
         Button(action: {
-            if isGroupSelected {
-                showPopover = true
-            } else {
+            if !isGroupSelected {
                 state.selectTool(currentTool)
             }
+            showNSMenu()
         }) {
             HStack(spacing: 2) {
                 Image(systemName: currentTool.icon)
@@ -677,43 +706,36 @@ struct ToolGroupButtonCircle: View {
         }
         .buttonStyle(NoHighlightButtonStyle())
         .help(currentTool.rawValue)
-        .popover(isPresented: $showPopover, arrowEdge: .bottom) {
-            VStack(spacing: 6) {
-                ForEach(group.tools, id: \.self) { tool in
-                    Button(action: {
-                        state.selectTool(tool)
-                        showPopover = false
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: tool.icon)
-                                .font(.system(size: 12))
-                                .frame(width: 20)
-                            Text(tool.rawValue)
-                                .font(.system(size: 12))
-                            Spacer()
-                            if state.lastToolFor(group: group) == tool {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .frame(minWidth: 100)
-                        .background(state.lastToolFor(group: group) == tool ? Color.blue.opacity(0.1) : Color.clear)
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(NoHighlightButtonStyle())
-                }
-            }
-            .padding(8)
+        .background(MenuAnchorView(anchorView: $anchorView))
+    }
+
+    private func showNSMenu() {
+        guard let view = anchorView else { return }
+
+        menuHelper.onSelectTool = { tool in
+            state.selectTool(tool)
         }
-        .onTapGesture(count: 1) {
-            if !isGroupSelected {
-                state.selectTool(currentTool)
+
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        for tool in group.tools {
+            let item = NSMenuItem(
+                title: tool.rawValue,
+                action: #selector(ToolMenuHelper.menuItemSelected(_:)),
+                keyEquivalent: ""
+            )
+            item.target = menuHelper
+            item.representedObject = tool
+            item.image = NSImage(systemSymbolName: tool.icon, accessibilityDescription: nil)
+            if state.lastToolFor(group: group) == tool {
+                item.state = .on
             }
-            showPopover = true
+            menu.addItem(item)
         }
+
+        // ボタンの下にメニューを表示
+        let point = NSPoint(x: 0, y: 0)
+        menu.popUp(positioning: nil, at: point, in: view)
     }
 }
 
