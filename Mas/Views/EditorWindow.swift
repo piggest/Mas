@@ -531,13 +531,7 @@ struct EditorWindow: View {
                         .border(isSelected ? Color.blue : Color.blue.opacity(0.3), width: isSelected ? 1.5 : 0.5)
                         .frame(width: block.rect.width, height: block.rect.height)
                         .position(x: block.rect.midX, y: y + block.rect.height / 2)
-                        .onTapGesture {
-                            if selectedTextIndices.contains(index) {
-                                selectedTextIndices.remove(index)
-                            } else {
-                                selectedTextIndices.insert(index)
-                            }
-                        }
+                        .allowsHitTesting(false)
                 }
 
                 // ドラッグ選択矩形
@@ -547,6 +541,7 @@ struct EditorWindow: View {
                         .background(Color.blue.opacity(0.1))
                         .frame(width: rect.width, height: rect.height)
                         .position(x: rect.midX, y: rect.midY)
+                        .allowsHitTesting(false)
                 }
 
                 // ローディング表示
@@ -589,30 +584,54 @@ struct EditorWindow: View {
             }
             .contentShape(Rectangle())
             .gesture(
-                DragGesture(minimumDistance: 3)
+                DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         let start = value.startLocation
                         let current = value.location
-                        let rect = CGRect(
-                            x: min(start.x, current.x),
-                            y: min(start.y, current.y),
-                            width: abs(current.x - start.x),
-                            height: abs(current.y - start.y)
-                        )
-                        textSelectionRect = rect
+                        let distance = hypot(current.x - start.x, current.y - start.y)
 
-                        // ドラッグ矩形と交差するテキストブロックを選択
-                        var newSelection = Set<Int>()
-                        for (index, block) in recognizedTexts.enumerated() {
-                            let blockY = canvasHeight - block.rect.origin.y - block.rect.height
-                            let blockRect = CGRect(x: block.rect.origin.x, y: blockY, width: block.rect.width, height: block.rect.height)
-                            if rect.intersects(blockRect) {
-                                newSelection.insert(index)
+                        if distance >= 3 {
+                            // ドラッグ範囲選択
+                            let rect = CGRect(
+                                x: min(start.x, current.x),
+                                y: min(start.y, current.y),
+                                width: abs(current.x - start.x),
+                                height: abs(current.y - start.y)
+                            )
+                            textSelectionRect = rect
+
+                            var newSelection = Set<Int>()
+                            for (index, block) in recognizedTexts.enumerated() {
+                                let blockY = canvasHeight - block.rect.origin.y - block.rect.height
+                                let blockRect = CGRect(x: block.rect.origin.x, y: blockY, width: block.rect.width, height: block.rect.height)
+                                if rect.intersects(blockRect) {
+                                    newSelection.insert(index)
+                                }
+                            }
+                            selectedTextIndices = newSelection
+                        }
+                    }
+                    .onEnded { value in
+                        let start = value.startLocation
+                        let end = value.location
+                        let distance = hypot(end.x - start.x, end.y - start.y)
+
+                        if distance < 3 {
+                            // タップ：クリック位置のブロックをトグル選択
+                            let tapPoint = end
+                            for (index, block) in recognizedTexts.enumerated() {
+                                let blockY = canvasHeight - block.rect.origin.y - block.rect.height
+                                let blockRect = CGRect(x: block.rect.origin.x, y: blockY, width: block.rect.width, height: block.rect.height)
+                                if blockRect.contains(tapPoint) {
+                                    if selectedTextIndices.contains(index) {
+                                        selectedTextIndices.remove(index)
+                                    } else {
+                                        selectedTextIndices.insert(index)
+                                    }
+                                    break
+                                }
                             }
                         }
-                        selectedTextIndices = newSelection
-                    }
-                    .onEnded { _ in
                         textSelectionRect = nil
                     }
             )
