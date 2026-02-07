@@ -6,7 +6,6 @@ class CaptureViewModel: ObservableObject {
     @Published var isCapturing = false
     @Published var currentScreenshot: Screenshot?
     @Published var errorMessage: String?
-    @Published var availableWindows: [ScreenCaptureService.WindowInfo] = []
 
     private let captureService = ScreenCaptureService()
     private let clipboardService = ClipboardService()
@@ -53,12 +52,6 @@ class CaptureViewModel: ObservableObject {
         )
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleCaptureWindow),
-            name: .captureWindow,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
             selector: #selector(handleShowCaptureFrame),
             name: .showCaptureFrame,
             object: nil
@@ -81,10 +74,6 @@ class CaptureViewModel: ObservableObject {
 
     @objc private func handleCaptureRegion() {
         Task { await startRegionSelection() }
-    }
-
-    @objc private func handleCaptureWindow() {
-        Task { await loadAvailableWindows() }
     }
 
     @objc private func handleShowCaptureFrame() {
@@ -310,32 +299,6 @@ class CaptureViewModel: ObservableObject {
             print("Recapture error: \(error)")
             window?.makeKeyAndOrderFront(nil)
         }
-    }
-
-    func loadAvailableWindows() async {
-        availableWindows = captureService.getAvailableWindows()
-    }
-
-    func captureWindow(_ window: ScreenCaptureService.WindowInfo) async {
-        guard await checkPermission() else { return }
-
-        isCapturing = true
-        errorMessage = nil
-
-        do {
-            let cgImage = try await captureService.captureWindow(windowID: window.id)
-            // ウィンドウのboundsをregionとして使用
-            let screenshot = Screenshot(cgImage: cgImage, mode: .window, region: window.bounds)
-            currentScreenshot = screenshot
-            captureFlash.showFlash(in: window.bounds)
-            processScreenshot(screenshot)
-            showEditorWindow(for: screenshot, at: window.bounds)
-        } catch {
-            errorMessage = error.localizedDescription
-            print("Window capture error: \(error)")
-        }
-
-        isCapturing = false
     }
 
     // キャプチャ枠だけを表示（画像なし）

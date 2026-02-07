@@ -9,7 +9,6 @@ struct MenuBarView: View {
             captureFrameButton
             captureModeButtons
             openFileButton
-            windowListSection
             openWindowsSection
             bottomSection
         }
@@ -97,39 +96,6 @@ struct MenuBarView: View {
         .buttonStyle(NoHighlightButtonStyle())
     }
 
-    @ViewBuilder
-    private var windowListSection: some View {
-        if !viewModel.availableWindows.isEmpty {
-            Divider()
-            Text("ウィンドウ")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.horizontal)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(viewModel.availableWindows) { window in
-                        Button(action: { captureWindow(window) }) {
-                            HStack {
-                                Text(window.ownerName)
-                                    .lineLimit(1)
-                                if !window.name.isEmpty {
-                                    Text("- \(window.name)")
-                                        .lineLimit(1)
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                            }
-                            .padding(.horizontal)
-                            .padding(.vertical, 2)
-                        }
-                        .buttonStyle(NoHighlightButtonStyle())
-                    }
-                }
-            }
-            .frame(maxHeight: 150)
-        }
-    }
 
     @ViewBuilder
     private var openWindowsSection: some View {
@@ -276,25 +242,14 @@ struct MenuBarView: View {
     }
 
     private func performCapture(mode: CaptureMode) {
-        if mode != .window {
-            dismissMenu()
-        }
+        dismissMenu()
         Task {
             switch mode {
             case .fullScreen:
                 await viewModel.captureFullScreen()
             case .region:
                 await viewModel.startRegionSelection()
-            case .window:
-                await viewModel.loadAvailableWindows()
             }
-        }
-    }
-
-    private func captureWindow(_ window: ScreenCaptureService.WindowInfo) {
-        dismissMenu()
-        Task {
-            await viewModel.captureWindow(window)
         }
     }
 

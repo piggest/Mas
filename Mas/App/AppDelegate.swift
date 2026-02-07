@@ -101,13 +101,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         hotkeyManager.register(
-            keyCode: HotkeyConfig.windowKeyCode,
-            modifiers: HotkeyConfig.modifiers
-        ) {
-            NotificationCenter.default.post(name: .captureWindow, object: nil)
-        }
-
-        hotkeyManager.register(
             keyCode: HotkeyConfig.frameKeyCode,
             modifiers: HotkeyConfig.modifiers
         ) {
@@ -120,7 +113,6 @@ extension Notification.Name {
     static let captureFullScreen = Notification.Name("captureFullScreen")
     static let captureRegion = Notification.Name("captureRegion")
     static let showCaptureFrame = Notification.Name("showCaptureFrame")
-    static let captureWindow = Notification.Name("captureWindow")
     static let editorWindowClosed = Notification.Name("editorWindowClosed")
     static let windowPinChanged = Notification.Name("windowPinChanged")
 }

@@ -145,16 +145,6 @@ struct ShortcutsSettingsView: View {
                         .cornerRadius(4)
                 }
 
-                HStack {
-                    Text("ウィンドウキャプチャ")
-                    Spacer()
-                    Text("⌘⇧5")
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.secondary.opacity(0.2))
-                        .cornerRadius(4)
-                }
             }
 
             Section {
