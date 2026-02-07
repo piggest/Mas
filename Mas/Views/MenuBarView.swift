@@ -212,10 +212,13 @@ struct MenuBarView: View {
     }
 
     private func dismissMenu() {
-        // MenuBarExtraのパネルを閉じる
-        // メニュー操作中はパネルがキーウィンドウになっている
+        // MenuBarExtraのパネルをアニメーションなしで即座に閉じる
         if let panel = NSApp.keyWindow as? NSPanel {
+            panel.animationBehavior = .none
+            panel.alphaValue = 0
             panel.orderOut(nil)
+            // 次回表示時のためにalphaを復元
+            panel.alphaValue = 1
         }
     }
 
@@ -224,7 +227,6 @@ struct MenuBarView: View {
             dismissMenu()
         }
         Task {
-            try? await Task.sleep(nanoseconds: 150_000_000)
             switch mode {
             case .fullScreen:
                 await viewModel.captureFullScreen()
@@ -239,7 +241,6 @@ struct MenuBarView: View {
     private func captureWindow(_ window: ScreenCaptureService.WindowInfo) {
         dismissMenu()
         Task {
-            try? await Task.sleep(nanoseconds: 150_000_000)
             await viewModel.captureWindow(window)
         }
     }
@@ -250,13 +251,14 @@ struct MenuBarView: View {
     }
 
     private func quitApp() {
+        guard !viewModel.isCapturing else { return }
+        dismissMenu()
         NSApplication.shared.terminate(nil)
     }
 
     private func showCaptureFrame() {
         dismissMenu()
         Task {
-            try? await Task.sleep(nanoseconds: 150_000_000)
             await viewModel.showCaptureFrame()
         }
     }
