@@ -261,6 +261,14 @@ struct MenuBarView: View {
     private func openSettings() {
         dismissMenu()
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        NSApp.activate(ignoringOtherApps: true)
+        // 設定ウィンドウをfloatingエディタウィンドウより前に出す
+        DispatchQueue.main.async {
+            if let keyWindow = NSApp.keyWindow {
+                keyWindow.level = .floating
+                keyWindow.makeKeyAndOrderFront(nil)
+            }
+        }
     }
 
     private func quitApp() {
