@@ -186,6 +186,7 @@ struct EditorWindow: View {
     @State private var isLoadingAnnotationAttributes = false
     @State private var imageForDrag: NSImage?  // アノテーション付きドラッグ用画像
     @State private var editingTextIndex: Int?  // 編集中のテキストアノテーションのインデックス
+    @State private var alwaysOnTop: Bool = true
 
     let onRecapture: ((CGRect, NSWindow?) -> Void)?
     let onPassThroughChanged: ((Bool) -> Void)?
@@ -222,6 +223,7 @@ struct EditorWindow: View {
             ZStack(alignment: .topLeading) {
                 imageContent
                 closeButton
+                pinButton
                 editModeToggle(geometry: geometry)
                 topRightButtons(geometry: geometry)
                 dragArea(geometry: geometry)
@@ -495,6 +497,22 @@ struct EditorWindow: View {
         }
         .buttonStyle(NoHighlightButtonStyle())
         .position(x: 20, y: 20)
+    }
+
+    private var pinButton: some View {
+        Button(action: {
+            alwaysOnTop.toggle()
+            parentWindow?.level = alwaysOnTop ? .floating : .normal
+        }) {
+            Image(systemName: alwaysOnTop ? "pin.fill" : "pin.slash")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(showImage ? .white : .gray)
+                .padding(6)
+                .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
+                .clipShape(Circle())
+        }
+        .buttonStyle(NoHighlightButtonStyle())
+        .position(x: 48, y: 20)
     }
 
     private var inlineTextInput: some View {
