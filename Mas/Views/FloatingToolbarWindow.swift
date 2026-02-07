@@ -537,7 +537,8 @@ struct FloatingToolbarViewIndependent: View {
 
         circleToolButton(for: .text, index: 3)
         circleToolButton(for: .mosaic, index: 4)
-        circleToolButton(for: .trim, index: 5)
+        circleToolButton(for: .textSelection, index: 5)
+        circleToolButton(for: .trim, index: 6)
     }
 
     @ViewBuilder

@@ -151,6 +151,7 @@ enum EditTool: String, CaseIterable {
     case ellipse = "丸"
     case text = "文字"
     case mosaic = "ぼかし"
+    case textSelection = "テキスト選択"
     case trim = "トリミング"
 
     var icon: String {
@@ -163,6 +164,7 @@ enum EditTool: String, CaseIterable {
         case .ellipse: return "circle"
         case .text: return "textformat"
         case .mosaic: return "drop.fill"
+        case .textSelection: return "text.viewfinder"
         case .trim: return "square.dashed"
         }
     }
@@ -187,6 +189,13 @@ struct EditorWindow: View {
     @State private var imageForDrag: NSImage?  // アノテーション付きドラッグ用画像
     @State private var editingTextIndex: Int?  // 編集中のテキストアノテーションのインデックス
     @State private var alwaysOnTop: Bool = true
+    // テキスト選択モード
+    @State private var recognizedTexts: [RecognizedTextBlock] = []
+    @State private var selectedTextIndices: Set<Int> = []
+    @State private var textSelectionDragStart: CGPoint?
+    @State private var textSelectionRect: CGRect?
+    @State private var isRecognizingText = false
+    private let textRecognitionService = TextRecognitionService()
 
     let onRecapture: ((CGRect, NSWindow?) -> Void)?
     let onPassThroughChanged: ((Bool) -> Void)?
@@ -304,6 +313,14 @@ struct EditorWindow: View {
             // テキスト入力中に別のツールに切り替えたら入力をキャンセル
             if showTextInput && newTool != .text {
                 cancelTextInput()
+            }
+            // テキスト選択モードの切替
+            if newTool == .textSelection {
+                startTextRecognition()
+            } else {
+                recognizedTexts = []
+                selectedTextIndices = []
+                textSelectionRect = nil
             }
         }
     }
@@ -492,6 +509,114 @@ struct EditorWindow: View {
             width: screenshot.captureRegion?.width ?? screenshot.originalImage.size.width,
             height: screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
         )
+        .overlay {
+            if toolboxState.selectedTool == .textSelection {
+                textSelectionOverlay
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var textSelectionOverlay: some View {
+        let canvasHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
+        GeometryReader { geometry in
+            ZStack {
+                // 認識テキストブロック表示
+                ForEach(Array(recognizedTexts.enumerated()), id: \.offset) { index, block in
+                    let isSelected = selectedTextIndices.contains(index)
+                    // Vision座標（左下原点）→ SwiftUI座標（左上原点）に変換
+                    let y = canvasHeight - block.rect.origin.y - block.rect.height
+                    Rectangle()
+                        .fill(isSelected ? Color.blue.opacity(0.35) : Color.blue.opacity(0.08))
+                        .border(isSelected ? Color.blue : Color.blue.opacity(0.3), width: isSelected ? 1.5 : 0.5)
+                        .frame(width: block.rect.width, height: block.rect.height)
+                        .position(x: block.rect.midX, y: y + block.rect.height / 2)
+                        .onTapGesture {
+                            if selectedTextIndices.contains(index) {
+                                selectedTextIndices.remove(index)
+                            } else {
+                                selectedTextIndices.insert(index)
+                            }
+                        }
+                }
+
+                // ドラッグ選択矩形
+                if let rect = textSelectionRect {
+                    Rectangle()
+                        .stroke(Color.blue, lineWidth: 1)
+                        .background(Color.blue.opacity(0.1))
+                        .frame(width: rect.width, height: rect.height)
+                        .position(x: rect.midX, y: rect.midY)
+                }
+
+                // ローディング表示
+                if isRecognizingText {
+                    VStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("テキスト認識中...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(12)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(8)
+                }
+
+                // 選択中テキストのコピーボタン
+                if !selectedTextIndices.isEmpty {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button(action: { copySelectedText() }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "doc.on.doc")
+                                    Text("コピー (\(selectedTextIndices.count))")
+                                }
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.blue)
+                                .cornerRadius(6)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(8)
+                        }
+                    }
+                }
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 3)
+                    .onChanged { value in
+                        let start = value.startLocation
+                        let current = value.location
+                        let rect = CGRect(
+                            x: min(start.x, current.x),
+                            y: min(start.y, current.y),
+                            width: abs(current.x - start.x),
+                            height: abs(current.y - start.y)
+                        )
+                        textSelectionRect = rect
+
+                        // ドラッグ矩形と交差するテキストブロックを選択
+                        var newSelection = Set<Int>()
+                        for (index, block) in recognizedTexts.enumerated() {
+                            let blockY = canvasHeight - block.rect.origin.y - block.rect.height
+                            let blockRect = CGRect(x: block.rect.origin.x, y: blockY, width: block.rect.width, height: block.rect.height)
+                            if rect.intersects(blockRect) {
+                                newSelection.insert(index)
+                            }
+                        }
+                        selectedTextIndices = newSelection
+                    }
+                    .onEnded { _ in
+                        textSelectionRect = nil
+                    }
+            )
+        }
     }
 
     private var closeButton: some View {
@@ -1228,6 +1353,46 @@ struct EditorWindow: View {
         parentWindow?.close()
         NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
     }
+
+    // MARK: - テキスト選択（OCR）
+
+    private func startTextRecognition() {
+        guard !isRecognizingText else { return }
+        isRecognizingText = true
+        recognizedTexts = []
+        selectedTextIndices = []
+
+        let image = screenshot.originalImage
+        // canvasのポイントサイズで座標変換する（Retina対応）
+        let canvasSize = CGSize(
+            width: screenshot.captureRegion?.width ?? image.size.width,
+            height: screenshot.captureRegion?.height ?? image.size.height
+        )
+
+        Task {
+            let blocks = await textRecognitionService.recognizeText(in: image, imageSize: canvasSize)
+            await MainActor.run {
+                recognizedTexts = blocks
+                isRecognizingText = false
+            }
+        }
+    }
+
+    private func copySelectedText() {
+        let texts = selectedTextIndices.sorted().compactMap { index -> String? in
+            guard index < recognizedTexts.count else { return nil }
+            return recognizedTexts[index].text
+        }
+        guard !texts.isEmpty else { return }
+        let joined = texts.joined(separator: "\n")
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(joined, forType: .string)
+        copiedToClipboard = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            copiedToClipboard = false
+        }
+    }
 }
 
 
@@ -1691,6 +1856,8 @@ class AnnotationCanvas: NSView {
 
     override func mouseDown(with event: NSEvent) {
         guard isEditing else { return }
+        // テキスト選択モードはSwiftUIオーバーレイで処理
+        if selectedTool == .textSelection { return }
 
         let point = convert(event.locationInWindow, from: nil)
         dragStart = point
@@ -1837,7 +2004,7 @@ class AnnotationCanvas: NSView {
         case .mosaic:
             // 太さ1→2, 太さ5→8, 太さ10→14 くらいの緩やかな変化
             currentAnnotation = MosaicAnnotation(rect: CGRect(origin: point, size: .zero), pixelSize: max(Int(lineWidth * 1.2 + 1), 2), sourceImage: sourceImage)
-        case .trim:
+        case .textSelection, .trim:
             break
         }
         delegate?.currentAnnotationUpdated(currentAnnotation)
@@ -1912,7 +2079,7 @@ class AnnotationCanvas: NSView {
             if let mosaic = currentAnnotation as? MosaicAnnotation {
                 mosaic.rect = newRect
             }
-        case .trim:
+        case .textSelection, .trim:
             break
         }
         delegate?.currentAnnotationUpdated(currentAnnotation)
