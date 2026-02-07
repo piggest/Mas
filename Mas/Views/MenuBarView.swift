@@ -8,6 +8,7 @@ struct MenuBarView: View {
             headerSection
             captureFrameButton
             captureModeButtons
+            openFileButton
             windowListSection
             openWindowsSection
             bottomSection
@@ -77,6 +78,23 @@ struct MenuBarView: View {
             }
             .buttonStyle(NoHighlightButtonStyle())
         }
+    }
+
+    private var openFileButton: some View {
+        Button(action: { openImageFile() }) {
+            HStack {
+                Image(systemName: "folder")
+                    .frame(width: 20)
+                Text("開く...")
+                Spacer()
+                Text("⌘O")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(NoHighlightButtonStyle())
     }
 
     @ViewBuilder
@@ -278,6 +296,11 @@ struct MenuBarView: View {
         Task {
             await viewModel.captureWindow(window)
         }
+    }
+
+    private func openImageFile() {
+        dismissMenu()
+        viewModel.openImageFile()
     }
 
     private func openSettings() {

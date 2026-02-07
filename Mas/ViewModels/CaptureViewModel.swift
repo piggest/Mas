@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 class CaptureViewModel: ObservableObject {
@@ -369,6 +370,22 @@ class CaptureViewModel: ObservableObject {
         let screenshot = Screenshot(cgImage: cgImage, mode: .region, region: frameRect)
         currentScreenshot = screenshot
         showEditorWindow(for: screenshot, at: frameRect, showImageInitially: false)
+    }
+
+    func openImageFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image, .png, .jpeg, .tiff, .bmp, .gif]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.level = .floating
+
+        guard panel.runModal() == .OK, let url = panel.url,
+              let nsImage = NSImage(contentsOf: url) else { return }
+
+        let screenshot = Screenshot(image: nsImage, mode: .fullScreen)
+        screenshot.savedURL = url
+        currentScreenshot = screenshot
+        showEditorWindow(for: screenshot)
     }
 
     private func showEditorWindow(for screenshot: Screenshot, at region: CGRect? = nil, showImageInitially: Bool = true) {
