@@ -1107,12 +1107,20 @@ struct EditorWindow: View {
             height: newCanvasHeight
         )
 
-        // 6. ウィンドウを新サイズにリサイズ（左上固定）
+        // 6. ウィンドウをトリミング範囲のスクリーン位置に移動＆リサイズ
+        // canvasRect.originはキャンバス座標（左下原点）でのトリミング範囲の左下
+        // originDelta: SwiftUIの.offset()によるキャンバスのシフト量
+        let dx = resizeState.originDelta.x
+        let dy = resizeState.originDelta.y
         if let window = parentWindow {
             let oldFrame = window.frame
+            // キャンバスの左下のスクリーン座標 = ウィンドウ上端 - dy - canvasHeight
+            // トリミング範囲の左下のスクリーン座標:
+            let screenX = oldFrame.origin.x + dx + canvasRect.origin.x
+            let screenY = oldFrame.origin.y + oldFrame.height - dy - canvasSize.height + canvasRect.origin.y
             let newFrame = NSRect(
-                x: oldFrame.origin.x,
-                y: oldFrame.maxY - newCanvasHeight,
+                x: screenX,
+                y: screenY,
                 width: newCanvasWidth,
                 height: newCanvasHeight
             )
