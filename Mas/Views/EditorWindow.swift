@@ -652,10 +652,9 @@ struct EditorWindow: View {
                 if !showImage {
                     passThroughButton
                 }
-                trimButton
                 recaptureButton
             }
-            .position(x: geometry.size.width - (showImage ? 36 : 52), y: 20)
+            .position(x: geometry.size.width - (showImage ? 20 : 36), y: 20)
         }
     }
 
@@ -672,21 +671,6 @@ struct EditorWindow: View {
                 .clipShape(Circle())
         }
         .buttonStyle(NoHighlightButtonStyle())
-    }
-
-    private var trimButton: some View {
-        Button(action: {
-            trimImageToCurrentSize()
-        }) {
-            Image(systemName: "crop")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(showImage ? .white : .gray)
-                .padding(6)
-                .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
-                .clipShape(Circle())
-        }
-        .buttonStyle(NoHighlightButtonStyle())
-        .help("現在のサイズでトリミング")
     }
 
     private var recaptureButton: some View {
@@ -1077,57 +1061,6 @@ struct EditorWindow: View {
 
     private func updatePassThrough() {
         onPassThroughChanged?(passThroughEnabled)
-    }
-
-    private func trimImageToCurrentSize() {
-        guard let window = parentWindow else { return }
-
-        // 現在のウィンドウサイズを取得
-        let windowSize = window.frame.size
-
-        // 元の画像サイズとキャンバスサイズ
-        let originalImageSize = screenshot.originalImage.size
-        let canvasSize = screenshot.captureRegion?.size ?? originalImageSize
-
-        // スケール（画像座標系への変換用）
-        let scale = originalImageSize.width / canvasSize.width
-
-        // originDeltaからトリミング領域を計算
-        let cropX = -resizeState.originDelta.x * scale
-        let cropY = -resizeState.originDelta.y * scale
-        let cropWidth = windowSize.width * scale
-        let cropHeight = windowSize.height * scale
-
-        let cropRect = CGRect(
-            x: max(0, cropX),
-            y: max(0, cropY),
-            width: min(cropWidth, originalImageSize.width - max(0, cropX)),
-            height: min(cropHeight, originalImageSize.height - max(0, cropY))
-        )
-
-        guard let cgImage = screenshot.originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
-              let croppedCGImage = cgImage.cropping(to: cropRect) else { return }
-
-        let croppedImage = NSImage(cgImage: croppedCGImage, size: NSSize(width: croppedCGImage.width, height: croppedCGImage.height))
-
-        screenshot.updateImage(croppedCGImage)
-        screenshot.captureRegion = CGRect(origin: .zero, size: CGSize(width: cropRect.width / scale, height: cropRect.height / scale))
-
-        resizeState.reset()
-
-        imageForDrag = croppedImage
-
-        let autoSaveEnabled = UserDefaults.standard.object(forKey: "autoSaveEnabled") as? Bool ?? true
-        if autoSaveEnabled {
-            Self.saveImageToFile(croppedImage, url: screenshot.savedURL)
-        }
-
-        let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
-        if autoCopyToClipboard {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.writeObjects([croppedImage])
-        }
     }
 
     private func performTrim(canvasRect: CGRect) {
