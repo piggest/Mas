@@ -190,7 +190,7 @@ struct MenuBarView: View {
                     }
                 }
             }
-            .frame(maxHeight: 180)
+            .frame(maxHeight: 360)
 
             Button(action: closeAllWindows) {
                 HStack {
