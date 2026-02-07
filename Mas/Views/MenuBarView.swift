@@ -130,32 +130,44 @@ struct MenuBarView: View {
             .padding(.horizontal)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     ForEach(viewModel.editorWindows) { windowInfo in
-                        HStack {
-                            Button(action: { focusWindow(windowInfo) }) {
-                                HStack {
-                                    Image(systemName: windowInfo.screenshot.mode.icon)
-                                        .frame(width: 16)
+                        Button(action: { focusWindow(windowInfo) }) {
+                            HStack(spacing: 8) {
+                                Image(nsImage: windowInfo.screenshot.originalImage)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 48, height: 36)
+                                    .clipped()
+                                    .cornerRadius(4)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                                    )
+                                VStack(alignment: .leading, spacing: 2) {
                                     Text(windowInfo.displayName)
+                                        .font(.caption)
                                         .lineLimit(1)
-                                    Spacer()
+                                    let size = windowInfo.screenshot.originalImage.size
+                                    Text("\(Int(size.width))×\(Int(size.height))")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
                                 }
+                                Spacer()
+                                Button(action: { closeWindow(windowInfo) }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.secondary)
+                                }
+                                .buttonStyle(NoHighlightButtonStyle())
                             }
-                            .buttonStyle(NoHighlightButtonStyle())
-
-                            Button(action: { closeWindow(windowInfo) }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.secondary)
-                            }
-                            .buttonStyle(NoHighlightButtonStyle())
                         }
+                        .buttonStyle(NoHighlightButtonStyle())
                         .padding(.horizontal)
                         .padding(.vertical, 2)
                     }
                 }
             }
-            .frame(maxHeight: 120)
+            .frame(maxHeight: 180)
 
             Button(action: closeAllWindows) {
                 HStack {

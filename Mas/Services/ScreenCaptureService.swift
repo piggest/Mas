@@ -11,72 +11,38 @@ class ScreenCaptureService: NSObject {
             throw CaptureError.noDisplayFound
         }
 
-        // 自アプリのウィンドウを除外してキャプチャ
         let screenRect = screen.frame
-        guard let image = CGWindowListCreateImage(
-            screenRect,
-            .optionOnScreenOnly,
-            kCGNullWindowID,
-            [.bestResolution]
-        ) else {
-            throw CaptureError.captureFailedWithError("CGWindowListCreateImage failed")
-        }
-
-        // 自アプリのウィンドウIDを取得
         let myPID = ProcessInfo.processInfo.processIdentifier
-        let myWindowIDs: Set<CGWindowID> = {
-            guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return [] }
-            var ids = Set<CGWindowID>()
-            for info in list {
-                if let pid = info[kCGWindowOwnerPID as String] as? Int32, pid == myPID,
-                   let wid = info[kCGWindowNumber as String] as? CGWindowID {
-                    ids.insert(wid)
-                }
-            }
-            return ids
-        }()
 
-        // 自アプリのウィンドウがなければそのまま返す
-        if myWindowIDs.isEmpty {
-            return image
+        // 画面上のウィンドウ一覧を取得し、自アプリを除外
+        guard let allWindows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            throw CaptureError.captureFailedWithError("Failed to get window list")
         }
 
-        // 自アプリのウィンドウを除外して再キャプチャ
-        // optionOnScreenAboveWindow で自アプリの最下層ウィンドウの下のウィンドウのみ取得
-        // → excludeDesktopElements で自アプリを除外
-        guard let filteredImage = CGWindowListCreateImage(
-            screenRect,
-            .optionAll,
-            kCGNullWindowID,
-            [.bestResolution, .nominalResolution]
-        ) else {
-            return image
-        }
-
-        // 自アプリを除外するには、ウィンドウIDリストを指定してキャプチャ
-        // CGWindowListCreateImageFromArray を使用
-        guard let allWindows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else {
-            return image
-        }
-
-        var otherWindowIDs: [CGWindowID] = []
+        var otherWindowIDs: [NSNumber] = []
         for info in allWindows {
-            guard let wid = info[kCGWindowNumber as String] as? CGWindowID else { continue }
-            if !myWindowIDs.contains(wid) {
-                otherWindowIDs.append(wid)
+            guard let pid = info[kCGWindowOwnerPID as String] as? Int32,
+                  let wid = info[kCGWindowNumber as String] as? CGWindowID else { continue }
+            if pid != myPID {
+                otherWindowIDs.append(NSNumber(value: wid))
             }
         }
 
-        guard !otherWindowIDs.isEmpty else { return image }
-
-        let windowArray = otherWindowIDs as CFArray
-        guard let excludedImage = CGImage(windowListFromArrayScreenBounds: screenRect,
-                                          windowArray: windowArray as CFArray,
-                                          imageOption: [.bestResolution]) else {
-            return image
+        // 自アプリ以外のウィンドウで画面をキャプチャ
+        if !otherWindowIDs.isEmpty {
+            let windowArray = otherWindowIDs as CFArray
+            if let excludedImage = CGImage(windowListFromArrayScreenBounds: screenRect,
+                                           windowArray: windowArray,
+                                           imageOption: [.bestResolution]) {
+                return excludedImage
+            }
         }
 
-        return excludedImage
+        // フォールバック: 通常キャプチャ
+        guard let image = CGDisplayCreateImage(CGMainDisplayID()) else {
+            throw CaptureError.captureFailedWithError("CGDisplayCreateImage failed")
+        }
+        return image
     }
 
     // MARK: - Region Capture
