@@ -181,7 +181,8 @@ class FloatingToolbarWindowController {
 
     private func startSyncTimer() {
         // 定期的にツールバー → ToolboxState の一方向同期（即座に反映するため短い間隔）
-        syncTimer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { [weak self] _ in
+        // .common モードで登録し、イベントトラッキング中（ボタンクリック等）でも同期が遅延しないようにする
+        let timer = Timer(timeInterval: 0.016, repeats: true) { [weak self] _ in
             guard let self = self, let state = self.originalState else { return }
             // 同期が一時停止中は何もしない
             if self.isSyncPaused { return }
@@ -210,6 +211,8 @@ class FloatingToolbarWindowController {
             state.selectedColor = self.toolbarState.selectedColor
             state.strokeEnabled = self.toolbarState.strokeEnabled
         }
+        RunLoop.main.add(timer, forMode: .common)
+        syncTimer = timer
     }
 
     // 選択変更時にToolboxStateの属性をツールバーに反映（明示的に呼び出す）
