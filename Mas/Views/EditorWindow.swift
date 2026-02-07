@@ -255,6 +255,11 @@ struct EditorWindow: View {
             Divider()
             Button("クリップボードにコピー") { copyToClipboard() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .windowPinChanged)) { notification in
+            if let window = notification.object as? NSWindow, window === parentWindow {
+                alwaysOnTop = window.level == .floating
+            }
+        }
         .onAppear {
             toolbarController = FloatingToolbarWindowController()
         }
@@ -503,6 +508,9 @@ struct EditorWindow: View {
         Button(action: {
             alwaysOnTop.toggle()
             parentWindow?.level = alwaysOnTop ? .floating : .normal
+            if let window = parentWindow {
+                NotificationCenter.default.post(name: .windowPinChanged, object: window)
+            }
         }) {
             Image(systemName: alwaysOnTop ? "pin.fill" : "pin.slash")
                 .font(.system(size: 10, weight: .bold))

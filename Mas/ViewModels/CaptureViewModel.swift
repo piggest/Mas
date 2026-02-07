@@ -299,6 +299,9 @@ class CaptureViewModel: ObservableObject {
             // 新しい画像を保存
             processScreenshot(screenshot)
 
+            // メニューのサムネイル更新を通知
+            objectWillChange.send()
+
             // ウィンドウを再表示
             window?.makeKeyAndOrderFront(nil)
             print("=== Recapture completed ===")

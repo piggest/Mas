@@ -16,6 +16,9 @@ struct MenuBarView: View {
         .onAppear {
             viewModel.cleanupClosedWindows()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .windowPinChanged)) { _ in
+            viewModel.objectWillChange.send()
+        }
     }
 
     private var appVersion: String {
@@ -145,13 +148,33 @@ struct MenuBarView: View {
                                             .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
                                     )
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(windowInfo.displayName)
-                                        .font(.caption)
-                                        .lineLimit(1)
+                                    HStack(spacing: 4) {
+                                        Text(windowInfo.displayName)
+                                            .font(.caption)
+                                            .lineLimit(1)
+                                        Button(action: {
+                                            togglePin(windowInfo)
+                                        }) {
+                                            Image(systemName: windowInfo.windowController.window?.level == .floating ? "pin.fill" : "pin.slash")
+                                                .font(.system(size: 8))
+                                                .foregroundColor(windowInfo.windowController.window?.level == .floating ? .accentColor : .secondary)
+                                        }
+                                        .buttonStyle(NoHighlightButtonStyle())
+                                    }
                                     let size = windowInfo.screenshot.originalImage.size
                                     Text("\(Int(size.width))×\(Int(size.height))")
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
+                                    if let savedURL = windowInfo.screenshot.savedURL {
+                                        Text(savedURL.lastPathComponent)
+                                            .font(.caption2)
+                                            .foregroundColor(.blue)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                            .onTapGesture {
+                                                NSWorkspace.shared.activateFileViewerSelecting([savedURL])
+                                            }
+                                    }
                                 }
                                 Spacer()
                                 Button(action: { closeWindow(windowInfo) }) {
@@ -273,6 +296,13 @@ struct MenuBarView: View {
         Task {
             await viewModel.showCaptureFrame()
         }
+    }
+
+    private func togglePin(_ windowInfo: CaptureViewModel.EditorWindowInfo) {
+        guard let window = windowInfo.windowController.window else { return }
+        window.level = window.level == .floating ? .normal : .floating
+        viewModel.objectWillChange.send()
+        NotificationCenter.default.post(name: .windowPinChanged, object: window)
     }
 
     private func focusWindow(_ windowInfo: CaptureViewModel.EditorWindowInfo) {
