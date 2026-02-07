@@ -1,6 +1,10 @@
 import AppKit
 import SwiftUI
 
+private class KeyableWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+}
+
 class RegionSelectionOverlay {
     private var overlayWindows: [NSWindow] = []
     private var selectionView: SelectionView?
@@ -17,7 +21,7 @@ class RegionSelectionOverlay {
         RegionSelectionOverlay.currentOverlay = self
 
         for screen in NSScreen.screens {
-            let window = NSWindow(
+            let window = KeyableWindow(
                 contentRect: screen.frame,
                 styleMask: .borderless,
                 backing: .buffered,
