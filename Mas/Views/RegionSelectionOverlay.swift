@@ -5,10 +5,12 @@ class RegionSelectionOverlay {
     private var overlayWindows: [NSWindow] = []
     private var selectionView: SelectionView?
     private let onComplete: (CGRect) -> Void
+    private let onCancel: (() -> Void)?
     private static var currentOverlay: RegionSelectionOverlay?
 
-    init(onComplete: @escaping (CGRect) -> Void) {
+    init(onComplete: @escaping (CGRect) -> Void, onCancel: (() -> Void)? = nil) {
         self.onComplete = onComplete
+        self.onCancel = onCancel
     }
 
     func show() {
@@ -32,7 +34,7 @@ class RegionSelectionOverlay {
             let selectionView = SelectionView(frame: NSRect(origin: .zero, size: screen.frame.size)) { [weak self] rect in
                 self?.handleSelection(rect, on: screen)
             } onCancel: { [weak self] in
-                self?.dismiss()
+                self?.dismiss(cancelled: true)
             }
 
             window.contentView = selectionView
@@ -61,13 +63,16 @@ class RegionSelectionOverlay {
         onComplete(globalRect)
     }
 
-    private func dismiss() {
+    private func dismiss(cancelled: Bool = false) {
         NSCursor.pop()
         for window in overlayWindows {
             window.orderOut(nil)
         }
         overlayWindows.removeAll()
         RegionSelectionOverlay.currentOverlay = nil
+        if cancelled {
+            onCancel?()
+        }
     }
 }
 

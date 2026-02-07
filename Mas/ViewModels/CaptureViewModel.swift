@@ -168,6 +168,7 @@ class CaptureViewModel: ObservableObject {
     }
 
     func startRegionSelection() async {
+        guard !isCapturing else { return }
         guard await checkPermission() else { return }
 
         isCapturing = true
@@ -177,12 +178,14 @@ class CaptureViewModel: ObservableObject {
             // 先に画面全体をキャプチャしておく
             let fullScreenImage = try await captureService.captureFullScreen()
 
-            let overlay = RegionSelectionOverlay { [weak self] rect in
+            let overlay = RegionSelectionOverlay(onComplete: { [weak self] rect in
                 guard let self = self else { return }
                 Task {
                     await self.cropRegion(rect, from: fullScreenImage)
                 }
-            }
+            }, onCancel: { [weak self] in
+                self?.isCapturing = false
+            })
             overlay.show()
         } catch {
             errorMessage = error.localizedDescription
