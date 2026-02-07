@@ -12,6 +12,9 @@ class CaptureViewModel: ObservableObject {
     private let fileStorageService = FileStorageService()
     private let permissionService = PermissionService()
     private let captureFlash = CaptureFlashView()
+    private let historyService = HistoryService()
+
+    @Published var historyEntries: [ScreenshotHistoryEntry] = []
 
     // エディターウィンドウ情報（メニュー表示用）
     struct EditorWindowInfo: Identifiable {
@@ -33,7 +36,11 @@ class CaptureViewModel: ObservableObject {
     // 前回のキャプチャ範囲を保存するキー
     private let lastCaptureRectKey = "lastCaptureRect"
 
+    private var historyWindowController: NSWindowController?
+    private var historyWindowDelegate: HistoryWindowDelegateHandler?
+
     init() {
+        historyEntries = historyService.load()
         setupNotifications()
     }
 
@@ -475,6 +482,18 @@ class CaptureViewModel: ObservableObject {
                 )
                 screenshot.savedURL = url
                 print("Screenshot saved to: \(url.path)")
+
+                // 履歴に追加
+                let entry = ScreenshotHistoryEntry(
+                    id: UUID(),
+                    timestamp: Date(),
+                    mode: screenshot.mode.rawValue,
+                    filePath: url.path,
+                    width: Int(screenshot.originalImage.size.width),
+                    height: Int(screenshot.originalImage.size.height)
+                )
+                historyService.addEntry(entry)
+                historyEntries = historyService.load()
             } catch {
                 print("Failed to auto-save screenshot: \(error)")
             }
@@ -509,5 +528,200 @@ class CaptureViewModel: ObservableObject {
         return editorWindows.filter { info in
             info.windowController.window != nil && info.windowController.window!.isVisible
         }.count
+    }
+
+    // MARK: - 履歴管理
+
+    func openFromHistory(_ entry: ScreenshotHistoryEntry) {
+        let url = URL(fileURLWithPath: entry.filePath)
+        guard let nsImage = NSImage(contentsOf: url) else {
+            // ファイルが存在しない場合は履歴から削除
+            removeHistoryEntry(id: entry.id)
+            return
+        }
+
+        // Retina対応: NSImageのサイズをポイント単位に修正
+        let scale = NSScreen.main?.backingScaleFactor ?? 1.0
+        let pointWidth = nsImage.size.width / scale
+        let pointHeight = nsImage.size.height / scale
+        nsImage.size = NSSize(width: pointWidth, height: pointHeight)
+
+        let screenshot = Screenshot(image: nsImage, mode: entry.mode == "全画面" ? .fullScreen : .region)
+        screenshot.savedURL = url
+        currentScreenshot = screenshot
+
+        // 画面中央に配置
+        let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
+        let x = (screenFrame.width - pointWidth) / 2
+        let y = (screenFrame.height - pointHeight) / 2
+        let region = CGRect(x: x, y: y, width: pointWidth, height: pointHeight)
+
+        showEditorWindow(for: screenshot, at: region)
+    }
+
+    func removeHistoryEntry(id: UUID) {
+        // 表示中のエディタウィンドウがあれば閉じる
+        if let entry = historyEntries.first(where: { $0.id == id }),
+           let windowInfo = editorWindows.first(where: { $0.screenshot.savedURL?.path == entry.filePath }) {
+            closeEditorWindow(windowInfo)
+        }
+        historyService.removeEntry(id: id)
+        historyEntries = historyService.load()
+    }
+
+    func flashEditorWindow(for entry: ScreenshotHistoryEntry) {
+        cleanupClosedWindows()
+        guard let existing = editorWindows.first(where: { $0.screenshot.savedURL?.path == entry.filePath }),
+              let window = existing.windowController.window else { return }
+
+        // latestOnlyの場合、ピンをこのウィンドウに切り替え
+        let pinBehavior = UserDefaults.standard.string(forKey: "pinBehavior") ?? "alwaysOn"
+        if pinBehavior == "latestOnly" {
+            for info in editorWindows {
+                if info.windowController.window?.level == .floating && info.id != existing.id {
+                    info.windowController.window?.level = .normal
+                    NotificationCenter.default.post(name: .windowPinChanged, object: info.windowController.window)
+                }
+            }
+            window.level = .floating
+            NotificationCenter.default.post(name: .windowPinChanged, object: window)
+        }
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        let frame = window.frame
+        let screenHeight = NSScreen.main?.frame.height ?? 0
+        let topLeftRect = CGRect(
+            x: frame.origin.x,
+            y: screenHeight - frame.origin.y - frame.height,
+            width: frame.width,
+            height: frame.height
+        )
+        captureFlash.showFlash(in: topLeftRect)
+    }
+
+    func cleanupInvalidHistoryEntries() {
+        historyEntries = historyService.removeInvalidEntries()
+    }
+
+    // MARK: - 履歴ウィンドウ管理
+
+    func showHistoryWindow() {
+        // 既に表示中なら前面に出す
+        if let window = historyWindowController?.window, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        // 無効なエントリをクリーンアップ
+        cleanupInvalidHistoryEntries()
+
+        // Dockアイコンを表示
+        NSApp.setActivationPolicy(.regular)
+
+        let historyView = HistoryWindow(viewModel: self)
+        let hostingController = NSHostingController(rootView: historyView)
+
+        let window = ClickThroughWindow(contentViewController: hostingController)
+        window.title = "ライブラリ"
+        window.setContentSize(NSSize(width: 400, height: 480))
+        window.styleMask = [.titled, .closable, .resizable, .miniaturizable]
+        window.minSize = NSSize(width: 400, height: 300)
+
+        // 保存された位置を復元、なければ右上に配置
+        if let frameStr = UserDefaults.standard.string(forKey: "libraryWindowFrame") {
+            window.setFrame(NSRectFromString(frameStr), display: true)
+        } else {
+            let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
+            let x = screenFrame.maxX - 400 - 20
+            let y = screenFrame.maxY - 480 - 20
+            window.setFrame(NSRect(x: x, y: y, width: 400, height: 480), display: true)
+        }
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = NSColor(red: 0.45, green: 0.32, blue: 0.18, alpha: 1.0)
+
+        // タイトルバーにピンボタンを追加
+        let pinButton = NSButton(frame: NSRect(x: 0, y: 0, width: 30, height: 30))
+        pinButton.bezelStyle = .inline
+        pinButton.isBordered = false
+        pinButton.image = NSImage(systemSymbolName: "pin.slash", accessibilityDescription: "ピン")
+        pinButton.contentTintColor = .white
+        pinButton.target = self
+        pinButton.action = #selector(toggleHistoryWindowPin(_:))
+        let accessory = NSTitlebarAccessoryViewController()
+        accessory.view = pinButton
+        accessory.layoutAttribute = .trailing
+        window.addTitlebarAccessoryViewController(accessory)
+
+        let delegate = HistoryWindowDelegateHandler { [weak self] in
+            self?.onHistoryWindowClosed()
+        }
+        self.historyWindowDelegate = delegate
+        window.delegate = delegate
+
+        let controller = NSWindowController(window: window)
+        historyWindowController = controller
+        controller.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    @objc func toggleHistoryWindowPin(_ sender: NSButton) {
+        guard let window = historyWindowController?.window else { return }
+        if window.level == .floating {
+            window.level = .normal
+            sender.image = NSImage(systemSymbolName: "pin.slash", accessibilityDescription: "ピン")
+        } else {
+            window.level = .floating
+            sender.image = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: "ピン解除")
+        }
+    }
+
+    func closeHistoryWindow() {
+        historyWindowController?.window?.close()
+        historyWindowController = nil
+        onHistoryWindowClosed()
+    }
+
+    private func onHistoryWindowClosed() {
+        historyWindowController = nil
+        historyWindowDelegate = nil
+        // Dockアイコンを非表示に戻す
+        NSApp.setActivationPolicy(.accessory)
+    }
+}
+
+// MARK: - 非アクティブでもクリック可能なウィンドウ
+
+class ClickThroughWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+
+    override func sendEvent(_ event: NSEvent) {
+        // 非アクティブ時のマウスクリックもそのまま処理する
+        if event.type == .leftMouseDown && !isKeyWindow {
+            makeKey()
+        }
+        super.sendEvent(event)
+    }
+}
+
+// MARK: - 履歴ウィンドウのデリゲート
+
+class HistoryWindowDelegateHandler: NSObject, NSWindowDelegate {
+    private let onClose: () -> Void
+
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        if let window = notification.object as? NSWindow {
+            UserDefaults.standard.set(NSStringFromRect(window.frame), forKey: "libraryWindowFrame")
+        }
+        DispatchQueue.main.async { [weak self] in
+            self?.onClose()
+        }
     }
 }

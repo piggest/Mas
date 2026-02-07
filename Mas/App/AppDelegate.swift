@@ -115,4 +115,5 @@ extension Notification.Name {
     static let showCaptureFrame = Notification.Name("showCaptureFrame")
     static let editorWindowClosed = Notification.Name("editorWindowClosed")
     static let windowPinChanged = Notification.Name("windowPinChanged")
+    static let showHistory = Notification.Name("showHistory")
 }

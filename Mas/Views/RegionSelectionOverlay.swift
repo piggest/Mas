@@ -226,10 +226,10 @@ class SelectionView: NSView {
 
     private func drawDimensions(for rect: CGRect) {
         let text = "\(Int(rect.width)) × \(Int(rect.height))"
-        let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
+        guard let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .medium) as NSFont? else { return }
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: NSColor.white
+            .font: font as Any,
+            .foregroundColor: NSColor.white as Any
         ]
 
         let size = (text as NSString).size(withAttributes: attributes)

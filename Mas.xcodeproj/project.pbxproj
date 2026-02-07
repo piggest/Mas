@@ -37,6 +37,9 @@
 		'FREEHAND01BUILD' = {isa = PBXBuildFile; fileRef = FREEHAND01FILEREF; };
 		'RESIZE74158BUILD' = {isa = PBXBuildFile; fileRef = RESIZE60656FILE; };
 		'TOOLBOX001BUILD' = {isa = PBXBuildFile; fileRef = TOOLBOX001FILEREF; };
+		'HISTENTRY01BUILD' = {isa = PBXBuildFile; fileRef = HISTENTRY01FILEREF; };
+		'HISTSVC001BUILD' = {isa = PBXBuildFile; fileRef = HISTSVC001FILEREF; };
+		'HISTWIN001BUILD' = {isa = PBXBuildFile; fileRef = HISTWIN001FILEREF; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -73,6 +76,9 @@
 		'FREEHAND01FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreehandAnnotation.swift; sourceTree = "<group>"; };
 		'RESIZE60656FILE' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResizableWindow.swift; sourceTree = "<group>"; };
 		'TOOLBOX001FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolboxWindow.swift; sourceTree = "<group>"; };
+		'HISTENTRY01FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotHistoryEntry.swift; sourceTree = "<group>"; };
+		'HISTSVC001FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryService.swift; sourceTree = "<group>"; };
+		'HISTWIN001FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryWindow.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -84,6 +90,7 @@
 				TOOLBOX001FILEREF,
 				788C0D7CDED4A7DA6FA0F286 /* CanvasView.swift */,
 				D798FE0D9F51C7776EC6EE3F /* EditorWindow.swift */,
+				HISTWIN001FILEREF /* HistoryWindow.swift */,
 				BD3B265CA8F46C67C372C189 /* MenuBarView.swift */,
 				9AADE98A628BFE59D34AF3B4 /* RegionSelectionOverlay.swift */,
 				62FF5E8583862D4BA967A830 /* SettingsWindow.swift */,
@@ -107,6 +114,7 @@
 			children = (
 				F9206D463AC21C096C205611 /* CaptureMode.swift */,
 				8F9909D433CD57C9C7B08E3C /* Screenshot.swift */,
+				HISTENTRY01FILEREF /* ScreenshotHistoryEntry.swift */,
 				50E86763E5568B95176CD6A8 /* Annotations */,
 			);
 			path = Models;
@@ -157,6 +165,7 @@
 			children = (
 				EB5AB34A4452A8C7DD8CFBFA /* ClipboardService.swift */,
 				E5FD798C319657988E241C66 /* FileStorageService.swift */,
+				HISTSVC001FILEREF /* HistoryService.swift */,
 				002A68B3D208C945FEA1D830 /* PermissionService.swift */,
 				357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */,
 			);
@@ -278,6 +287,9 @@
 				8AC44A64CA722FCC94B08C8F /* TextAnnotation.swift in Sources */,
 				043C577D0F42433673F56F0A /* WindowPickerView.swift in Sources */,
 				B523471DBC30AE30C3DBBF5E /* FloatingToolbarWindow.swift in Sources */,
+				HISTENTRY01BUILD /* ScreenshotHistoryEntry.swift in Sources */,
+				HISTSVC001BUILD /* HistoryService.swift in Sources */,
+				HISTWIN001BUILD /* HistoryWindow.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

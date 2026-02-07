@@ -9,6 +9,8 @@ struct MenuBarView: View {
             captureFrameButton
             captureModeButtons
             openFileButton
+            Divider()
+            historyButton
             openWindowsSection
             bottomSection
         }
@@ -77,6 +79,20 @@ struct MenuBarView: View {
             }
             .buttonStyle(NoHighlightButtonStyle())
         }
+    }
+
+    private var historyButton: some View {
+        Button(action: { openHistory() }) {
+            HStack {
+                Image(systemName: "square.grid.2x2")
+                    .frame(width: 20)
+                Text("ライブラリ")
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(NoHighlightButtonStyle())
     }
 
     private var openFileButton: some View {
@@ -251,6 +267,11 @@ struct MenuBarView: View {
                 await viewModel.startRegionSelection()
             }
         }
+    }
+
+    private func openHistory() {
+        dismissMenu()
+        viewModel.showHistoryWindow()
     }
 
     private func openImageFile() {
