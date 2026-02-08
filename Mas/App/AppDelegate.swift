@@ -204,4 +204,5 @@ extension Notification.Name {
     static let windowPinChanged = Notification.Name("windowPinChanged")
     static let showHistory = Notification.Name("showHistory")
     static let startGifRecording = Notification.Name("startGifRecording")
+    static let startGifRecordingAtRegion = Notification.Name("startGifRecordingAtRegion")
 }

@@ -914,6 +914,27 @@ struct EditorWindow: View {
         .position(x: 24, y: geometry.size.height - 24)
     }
 
+    private var gifRecordButton: some View {
+        Button(action: {
+            let rect = getCurrentWindowRect()
+            closeWindow()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                NotificationCenter.default.post(
+                    name: .startGifRecordingAtRegion,
+                    object: NSValue(rect: rect)
+                )
+            }
+        }) {
+            Image(systemName: "record.circle")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(showImage ? .white : .gray)
+                .padding(6)
+                .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
+                .clipShape(Circle())
+        }
+        .buttonStyle(NoHighlightButtonStyle())
+    }
+
     @ViewBuilder
     private func topRightButtons(geometry: GeometryProxy) -> some View {
         if screenshot.captureRegion != nil {
@@ -921,9 +942,10 @@ struct EditorWindow: View {
                 if !showImage {
                     passThroughButton
                 }
+                gifRecordButton
                 recaptureButton
             }
-            .position(x: geometry.size.width - (showImage ? 20 : 36), y: 20)
+            .position(x: geometry.size.width - (showImage ? 34 : 50), y: 20)
         }
     }
 

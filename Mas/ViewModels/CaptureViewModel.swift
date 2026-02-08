@@ -80,6 +80,12 @@ class CaptureViewModel: ObservableObject {
             name: .startGifRecording,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleStartGifRecordingAtRegion(_:)),
+            name: .startGifRecordingAtRegion,
+            object: nil
+        )
     }
 
     @objc private func handleEditorWindowClosed() {
@@ -100,6 +106,12 @@ class CaptureViewModel: ObservableObject {
 
     @objc private func handleStartGifRecording() {
         Task { await startGifRecording() }
+    }
+
+    @objc private func handleStartGifRecordingAtRegion(_ notification: Notification) {
+        guard let rect = notification.object as? NSValue else { return }
+        let region = rect.rectValue
+        Task { await beginRecordingFromWindow(in: region) }
     }
 
     // 前回のキャプチャ範囲を保存
@@ -399,6 +411,12 @@ class CaptureViewModel: ObservableObject {
             self?.isCapturing = false
         })
         overlay.show()
+    }
+
+    // エディターウィンドウの位置から直接録画開始
+    func beginRecordingFromWindow(in region: CGRect) async {
+        guard !isRecording else { return }
+        await beginRecording(in: region)
     }
 
     private func beginRecording(in region: CGRect) async {
