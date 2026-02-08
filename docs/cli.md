@@ -1,3 +1,8 @@
+---
+title: CLI リファレンス
+layout: default
+---
+
 # Mas CLI リファレンス
 
 `mas-cli` はMasの全機能にコマンドラインからアクセスできるツールです。
