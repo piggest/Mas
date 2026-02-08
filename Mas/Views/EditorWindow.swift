@@ -273,9 +273,7 @@ struct EditorWindow: View {
                 imageContent
                 closeButton
                 pinButton
-                if !screenshot.isGif {
-                    editModeToggle(geometry: geometry)
-                }
+                editModeToggle(geometry: geometry)
                 topRightButtons(geometry: geometry)
                 dragArea(geometry: geometry)
 
@@ -338,6 +336,11 @@ struct EditorWindow: View {
         }
         .onChange(of: editMode) { newValue in
             if newValue {
+                // GIF: 編集開始時に再生停止 + プレーヤーツールバーを閉じる
+                if screenshot.isGif {
+                    gifPlayerState?.pause()
+                    gifToolbarController?.close()
+                }
                 showToolbar()
             } else {
                 // テキスト入力をキャンセル
@@ -352,6 +355,17 @@ struct EditorWindow: View {
                 toolbarController = nil
                 DispatchQueue.main.async {
                     controller?.close()
+                }
+                // GIF: 編集終了時にプレーヤーツールバーを再表示 + 再生再開
+                if screenshot.isGif {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        if let parent = self.parentWindow, let player = self.gifPlayerState {
+                            let ctrl = GifPlayerToolbarController()
+                            ctrl.show(attachedTo: parent, playerState: player)
+                            self.gifToolbarController = ctrl
+                            player.play()
+                        }
+                    }
                 }
             }
         }
@@ -534,7 +548,7 @@ struct EditorWindow: View {
             selectedColor: safeColor,
             lineWidth: toolboxState.lineWidth,
             strokeEnabled: toolboxState.strokeEnabled,
-            sourceImage: screenshot.originalImage,
+            sourceImage: gifPlayerState?.currentFrameImage ?? screenshot.originalImage,
             isEditing: editMode,
             showImage: showImage,
             toolboxState: toolboxState,
@@ -867,19 +881,24 @@ struct EditorWindow: View {
     private func editModeToggle(geometry: GeometryProxy) -> some View {
         Button(action: {
             if editMode && !toolboxState.annotations.isEmpty && showImage {
-                // 編集モード終了時にアノテーションを画像に適用
-                let annotationsCopy = toolboxState.annotations
-                let originalImage = screenshot.originalImage
-                let captureRegion = screenshot.captureRegion
-                let savedURL = screenshot.savedURL
+                if screenshot.isGif {
+                    // GIF: 全フレームにアノテーションを焼き込み
+                    applyAnnotationsToGif()
+                } else {
+                    // 編集モード終了時にアノテーションを画像に適用
+                    let annotationsCopy = toolboxState.annotations
+                    let originalImage = screenshot.originalImage
+                    let captureRegion = screenshot.captureRegion
+                    let savedURL = screenshot.savedURL
 
-                DispatchQueue.main.async {
-                    self.applyAnnotationsToImageSafe(
-                        annotations: annotationsCopy,
-                        originalImage: originalImage,
-                        captureRegion: captureRegion,
-                        savedURL: savedURL
-                    )
+                    DispatchQueue.main.async {
+                        self.applyAnnotationsToImageSafe(
+                            annotations: annotationsCopy,
+                            originalImage: originalImage,
+                            captureRegion: captureRegion,
+                            savedURL: savedURL
+                        )
+                    }
                 }
             }
             editMode.toggle()
@@ -956,6 +975,8 @@ struct EditorWindow: View {
     // アノテーションを画像に反映して自動保存（アノテーションは保持）
     private func applyAnnotationsToImage() {
         guard !toolboxState.annotations.isEmpty else { return }
+        // GIFモードでは中間保存しない（applyAnnotationsToGifで一括処理）
+        if screenshot.isGif { return }
 
         // アノテーションデータを保存
         onAnnotationsSaved?(toolboxState.annotations)
@@ -1030,6 +1051,72 @@ struct EditorWindow: View {
             pasteboard.clearContents()
             pasteboard.writeObjects([image])
         }
+    }
+
+    // GIF全フレームにアノテーションを焼き込んで再保存
+    private func applyAnnotationsToGif() {
+        guard let player = gifPlayerState, !toolboxState.annotations.isEmpty else { return }
+
+        let annotations = toolboxState.annotations
+        let captureRegion = screenshot.captureRegion
+
+        // 各フレームにアノテーションを描画
+        var annotatedFrames: [NSImage] = []
+        for frame in player.frames {
+            if let rendered = Self.renderImageInBackground(
+                originalImage: frame,
+                annotations: annotations,
+                captureRegion: captureRegion
+            ) {
+                annotatedFrames.append(rendered)
+            } else {
+                annotatedFrames.append(frame)
+            }
+        }
+
+        // フレームを更新
+        player.replaceFrames(annotatedFrames)
+
+        // アノテーションをクリア
+        toolboxState.annotations.removeAll()
+        imageForDrag = nil
+
+        // GIFファイルを再エンコードして保存
+        if let savedURL = screenshot.savedURL {
+            DispatchQueue.global(qos: .userInitiated).async {
+                Self.reencodeGif(frames: annotatedFrames, delays: player.frameDelays, to: savedURL)
+            }
+        }
+    }
+
+    // GIFフレームをファイルに再エンコード
+    private static func reencodeGif(frames: [NSImage], delays: [Double], to url: URL) {
+        guard let destination = CGImageDestinationCreateWithURL(
+            url as CFURL,
+            "com.compuserve.gif" as CFString,
+            frames.count,
+            nil
+        ) else { return }
+
+        let gifProperties: [String: Any] = [
+            kCGImagePropertyGIFDictionary as String: [
+                kCGImagePropertyGIFLoopCount as String: 0
+            ]
+        ]
+        CGImageDestinationSetProperties(destination, gifProperties as CFDictionary)
+
+        for (i, frame) in frames.enumerated() {
+            guard let cgImage = frame.cgImage(forProposedRect: nil, context: nil, hints: nil) else { continue }
+            let delay = i < delays.count ? delays[i] : 0.1
+            let frameProperties: [String: Any] = [
+                kCGImagePropertyGIFDictionary as String: [
+                    kCGImagePropertyGIFDelayTime as String: delay
+                ]
+            ]
+            CGImageDestinationAddImage(destination, cgImage, frameProperties as CFDictionary)
+        }
+
+        CGImageDestinationFinalize(destination)
     }
 
     // バックグラウンドで画像をレンダリング

@@ -3,7 +3,7 @@ import ImageIO
 
 @MainActor
 class GifPlayerState: ObservableObject {
-    let frames: [NSImage]
+    var frames: [NSImage]
     let frameDelays: [Double]
 
     @Published var currentFrameIndex: Int = 0
@@ -113,6 +113,12 @@ class GifPlayerState: ObservableObject {
                 self.scheduleNextFrame()
             }
         }
+    }
+
+    func replaceFrames(_ newFrames: [NSImage]) {
+        guard newFrames.count == frames.count else { return }
+        frames = newFrames
+        objectWillChange.send()
     }
 
     deinit {
