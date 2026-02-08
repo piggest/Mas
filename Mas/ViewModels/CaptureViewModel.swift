@@ -366,6 +366,13 @@ class CaptureViewModel: ObservableObject {
         showEditorWindow(for: screenshot, at: frameRect, showImageInitially: false)
     }
 
+    func openImageFromCLI(image: NSImage, filePath: String) {
+        let screenshot = Screenshot(image: image, mode: .fullScreen)
+        screenshot.savedURL = URL(fileURLWithPath: filePath)
+        currentScreenshot = screenshot
+        showEditorWindow(for: screenshot)
+    }
+
     func openImageFile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.image, .png, .jpeg, .tiff, .bmp, .gif]

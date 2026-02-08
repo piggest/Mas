@@ -245,6 +245,9 @@ struct AboutView: View {
 }
 
 struct DeveloperSettingsView: View {
+    @State private var captureDelay: Double = 3
+    @State private var countdownRemaining: Int?
+
     private var dataFolderURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return appSupport.appendingPathComponent("Mas")
@@ -277,9 +280,66 @@ struct DeveloperSettingsView: View {
                 }
             }
 
+            sectionHeader("遅延キャプチャ")
+            Text("メニューやライブラリなど、通常キャプチャしづらいUI要素を撮影できます")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                settingRow("遅延時間") {
+                    HStack {
+                        Slider(value: $captureDelay, in: 1...10, step: 1)
+                            .frame(width: 120)
+                        Text("\(Int(captureDelay))秒")
+                            .frame(width: 30)
+                    }
+                }
+                settingRow("") {
+                    HStack(spacing: 8) {
+                        Button("全画面キャプチャ") {
+                            startDelayedCapture(notification: .captureFullScreen)
+                        }
+                        .controlSize(.small)
+                        .disabled(countdownRemaining != nil)
+
+                        Button("範囲選択キャプチャ") {
+                            startDelayedCapture(notification: .captureRegion)
+                        }
+                        .controlSize(.small)
+                        .disabled(countdownRemaining != nil)
+
+                        if let remaining = countdownRemaining {
+                            Text("\(remaining)秒後にキャプチャ...")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                    }
+                }
+            }
+
             Spacer()
         }
         .padding()
+    }
+
+    private func startDelayedCapture(notification: Notification.Name) {
+        let delay = Int(captureDelay)
+        countdownRemaining = delay
+
+        // 設定ウィンドウを閉じる
+        NSApp.windows.filter { $0.title.contains("設定") || $0.contentViewController is NSHostingController<SettingsWindow> }.forEach { $0.close() }
+
+        // カウントダウン
+        for i in 0..<delay {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i)) { [self] in
+                countdownRemaining = delay - i
+            }
+        }
+
+        // 遅延後にキャプチャ実行
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(delay)) {
+            countdownRemaining = nil
+            NotificationCenter.default.post(name: notification, object: nil)
+        }
     }
 
     private func sectionHeader(_ title: String) -> some View {

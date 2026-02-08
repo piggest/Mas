@@ -14,6 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupHotkeyHandlers()
         setupStatusItem()
+        setupDistributedNotifications()
     }
 
     private func setupStatusItem() {
@@ -83,6 +84,79 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 popover.contentViewController?.view.window?.makeKey()
             }
         }
+    }
+
+    // MARK: - CLI連携（DistributedNotificationCenter）
+
+    private func setupDistributedNotifications() {
+        let dnc = DistributedNotificationCenter.default()
+        dnc.addObserver(self, selector: #selector(handleDistributedCaptureFullScreen),
+            name: NSNotification.Name("com.example.Mas.capture.fullscreen"), object: nil)
+        dnc.addObserver(self, selector: #selector(handleDistributedCaptureRegion),
+            name: NSNotification.Name("com.example.Mas.capture.region"), object: nil)
+        dnc.addObserver(self, selector: #selector(handleDistributedCaptureFrame),
+            name: NSNotification.Name("com.example.Mas.capture.frame"), object: nil)
+        dnc.addObserver(self, selector: #selector(handleDistributedShowHistory),
+            name: NSNotification.Name("com.example.Mas.show.history"), object: nil)
+        dnc.addObserver(self, selector: #selector(handleDistributedOpenFile(_:)),
+            name: NSNotification.Name("com.example.Mas.open.file"), object: nil)
+        dnc.addObserver(self, selector: #selector(handleDistributedShowMenu),
+            name: NSNotification.Name("com.example.Mas.show.menu"), object: nil)
+        dnc.addObserver(self, selector: #selector(handleDistributedShowLibrary),
+            name: NSNotification.Name("com.example.Mas.show.library"), object: nil)
+        dnc.addObserver(self, selector: #selector(handleDistributedShowSettings),
+            name: NSNotification.Name("com.example.Mas.show.settings"), object: nil)
+    }
+
+    @objc private func handleDistributedCaptureFullScreen() {
+        NotificationCenter.default.post(name: .captureFullScreen, object: nil)
+    }
+
+    @objc private func handleDistributedCaptureRegion() {
+        NotificationCenter.default.post(name: .captureRegion, object: nil)
+    }
+
+    @objc private func handleDistributedCaptureFrame() {
+        NotificationCenter.default.post(name: .showCaptureFrame, object: nil)
+    }
+
+    @objc private func handleDistributedShowHistory() {
+        captureViewModel.showHistoryWindow()
+    }
+
+    @objc private func handleDistributedShowMenu() {
+        guard let button = statusItem?.button else { return }
+        if let popover = popover, !popover.isShown {
+            popover.behavior = .applicationDefined  // 自動で閉じないようにする
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
+        }
+    }
+
+    @objc private func handleDistributedShowLibrary() {
+        captureViewModel.showHistoryWindow()
+    }
+
+    @objc private func handleDistributedShowSettings() {
+        let settingsWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 400),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        settingsWindow.title = "設定"
+        settingsWindow.contentViewController = NSHostingController(rootView: SettingsWindow())
+        settingsWindow.center()
+        settingsWindow.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func handleDistributedOpenFile(_ notification: Notification) {
+        guard let filePath = notification.object as? String else { return }
+        let url = URL(fileURLWithPath: filePath)
+        guard FileManager.default.fileExists(atPath: filePath),
+              let image = NSImage(contentsOf: url) else { return }
+        captureViewModel.openImageFromCLI(image: image, filePath: filePath)
     }
 
     private func setupHotkeyHandlers() {

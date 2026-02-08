@@ -20,3 +20,6 @@ Pods/
 # IDE
 .idea/
 *.xcworkspace/xcuserdata/
+
+# CLI build artifact
+CLI/mas-cli
