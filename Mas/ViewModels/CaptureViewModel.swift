@@ -701,13 +701,15 @@ class CaptureViewModel: ObservableObject {
             imageURL = URL(fileURLWithPath: entry.filePath)
         }
 
+        let isGifEntry = entry.mode == "GIF録画"
+
         guard let nsImage = NSImage(contentsOf: imageURL) else {
             // ファイルが存在しない場合は履歴から削除
             removeHistoryEntry(id: entry.id)
             return
         }
 
-        // Retina対応: NSImageのサイズをポイント単位に修正
+        // Retina対応: NSImageのサイズをポイント単位に修正（GIFはGifPlayerStateで処理するのでここでは補正）
         let scale = NSScreen.main?.backingScaleFactor ?? 1.0
         let pointWidth = nsImage.size.width / scale
         let pointHeight = nsImage.size.height / scale
@@ -724,7 +726,8 @@ class CaptureViewModel: ObservableObject {
             region = CGRect(x: x, y: y, width: pointWidth, height: pointHeight)
         }
 
-        let screenshot = Screenshot(image: nsImage, mode: entry.mode == "全画面" ? .fullScreen : .region, region: region)
+        let captureMode: CaptureMode = isGifEntry ? .gifRecording : (entry.mode == "全画面" ? .fullScreen : .region)
+        let screenshot = Screenshot(image: nsImage, mode: captureMode, region: region)
         screenshot.savedURL = URL(fileURLWithPath: entry.filePath)
         currentScreenshot = screenshot
 
