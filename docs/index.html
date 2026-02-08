@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mas — Mac Area Screenshot</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
+  color: #1d1d1f;
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Top Bar */
+.top-bar {
+  background: linear-gradient(90deg, #8b6914, #a67c2e, #c4993a);
+  height: 24px;
+}
+
+/* Hero */
+.hero {
+  text-align: center;
+  padding: 80px 20px 60px;
+  background: linear-gradient(180deg, #faf8f5 0%, #fff 100%);
+}
+
+.hero img.icon {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 20px;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.1));
+}
+
+.hero h1 {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 12px;
+}
+
+.hero .tagline {
+  font-size: 20px;
+  color: #6e6e73;
+  line-height: 1.5;
+  margin-bottom: 32px;
+}
+
+.hero .download-btn {
+  display: inline-block;
+  background: #0071e3;
+  color: #fff;
+  text-decoration: none;
+  padding: 14px 36px;
+  border-radius: 980px;
+  font-size: 17px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.hero .download-btn:hover {
+  background: #0077ed;
+}
+
+.hero .version {
+  display: block;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #86868b;
+}
+
+/* Screenshot */
+.screenshot-section {
+  text-align: center;
+  padding: 20px 20px 60px;
+  background: #fff;
+}
+
+.screenshot-section img {
+  max-width: 780px;
+  width: 90%;
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+}
+
+/* Features */
+.features {
+  padding: 80px 20px;
+  background: #faf8f5;
+}
+
+.features-inner {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.features h2 {
+  text-align: center;
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 48px;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 32px;
+}
+
+.feature-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+
+.feature-card .feature-icon {
+  font-size: 32px;
+  margin-bottom: 16px;
+}
+
+.feature-card h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.feature-card p {
+  font-size: 15px;
+  color: #6e6e73;
+  line-height: 1.6;
+}
+
+/* How it works */
+.how {
+  padding: 80px 20px;
+  background: #fff;
+}
+
+.how-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.how h2 {
+  text-align: center;
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 48px;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 36px;
+}
+
+.step-number {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #0071e3;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  margin-right: 20px;
+  margin-top: 2px;
+}
+
+.step-content h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.step-content p {
+  font-size: 15px;
+  color: #6e6e73;
+  line-height: 1.5;
+}
+
+/* Tools */
+.tools {
+  padding: 80px 20px;
+  background: #faf8f5;
+}
+
+.tools-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.tools h2 {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.tools .tools-desc {
+  font-size: 17px;
+  color: #6e6e73;
+  margin-bottom: 40px;
+}
+
+.tool-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.tool-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 80px;
+}
+
+.tool-item img {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 8px;
+  opacity: 0.7;
+}
+
+.tool-item span {
+  font-size: 12px;
+  color: #6e6e73;
+}
+
+/* CTA */
+.cta {
+  text-align: center;
+  padding: 80px 20px;
+  background: #fff;
+}
+
+.cta h2 {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.cta p {
+  font-size: 17px;
+  color: #6e6e73;
+  margin-bottom: 32px;
+}
+
+.cta .download-btn {
+  display: inline-block;
+  background: #0071e3;
+  color: #fff;
+  text-decoration: none;
+  padding: 14px 36px;
+  border-radius: 980px;
+  font-size: 17px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.cta .download-btn:hover {
+  background: #0077ed;
+}
+
+/* Footer */
+footer {
+  text-align: center;
+  padding: 32px 20px;
+  border-top: 1px solid #e8e8ed;
+  font-size: 13px;
+  color: #86868b;
+}
+
+footer a {
+  color: #0071e3;
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar"></div>
+
+<section class="hero">
+  <img class="icon" src="images/icon.png" alt="Mas">
+  <h1>Mas</h1>
+  <p class="tagline">まるでマスですくうように<br>簡単に正確にスクリーンショットを作成します</p>
+  <a class="download-btn" href="https://github.com/piggest/Mas/releases/latest">ダウンロード</a>
+  <span class="version">v2.0.0 — macOS 13.0+</span>
+</section>
+
+<section class="screenshot-section">
+  <img src="images/editor.png" alt="Mas エディター">
+</section>
+
+<section class="how">
+  <div class="how-inner">
+    <h2>3ステップで完了</h2>
+    <div class="step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <h3>ダブルクリック</h3>
+        <p>メニューバーのMasアイコンをダブルクリックするだけで範囲選択モードに。</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <h3>範囲を選択</h3>
+        <p>ドラッグで撮りたい範囲を選択。選択した部分がそのまま切り取られます。</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <h3>注釈を追加</h3>
+        <p>矢印、テキスト、ぼかしなど豊富な編集ツールですぐに注釈を入れられます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="features-inner">
+    <h2>機能</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📸</div>
+        <h3>柔軟なキャプチャ</h3>
+        <p>全画面、範囲選択、キャプチャ枠。ショートカットキーですばやく撮影。前回の範囲も記憶します。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">✏️</div>
+        <h3>豊富な編集ツール</h3>
+        <p>矢印、四角、丸、テキスト、ペン、マーカー、モザイク。必要なツールがすべて揃っています。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔍</div>
+        <h3>テキスト認識（OCR）</h3>
+        <p>スクリーンショット内のテキストを認識。文字単位で選択してコピーできます。日本語・英語対応。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">✂️</div>
+        <h3>トリミング</h3>
+        <p>不要な部分をカット。キャプチャ後にすぐ範囲を調整できます。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📋</div>
+        <h3>ドラッグ&ドロップ</h3>
+        <p>編集した画像をそのまま他のアプリにドラッグ&ドロップ。注釈付きの画像がすぐに使えます。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⌨️</div>
+        <h3>CLIツール</h3>
+        <p>コマンドラインから操作可能。キャプチャ、アノテーション追加、OCR、設定変更をスクリプトで自動化。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tools">
+  <div class="tools-inner">
+    <h2>編集ツール</h2>
+    <p class="tools-desc">フローティングツールバーからワンクリックで切り替え</p>
+    <div class="tool-list">
+      <div class="tool-item">
+        <img src="images/tools/move.png" alt="移動">
+        <span>移動</span>
+      </div>
+      <div class="tool-item">
+        <img src="images/tools/pen.png" alt="ペン">
+        <span>ペン</span>
+      </div>
+      <div class="tool-item">
+        <img src="images/tools/marker.png" alt="マーカー">
+        <span>マーカー</span>
+      </div>
+      <div class="tool-item">
+        <img src="images/tools/arrow.png" alt="矢印">
+        <span>矢印</span>
+      </div>
+      <div class="tool-item">
+        <img src="images/tools/rect.png" alt="四角">
+        <span>四角</span>
+      </div>
+      <div class="tool-item">
+        <img src="images/tools/ellipse.png" alt="丸">
+        <span>丸</span>
+      </div>
+      <div class="tool-item">
+        <img src="images/tools/text.png" alt="文字">
+        <span>文字</span>
+      </div>
+      <div class="tool-item">
+        <img src="images/tools/mosaic.png" alt="ぼかし">
+        <span>ぼかし</span>
+      </div>
+      <div class="tool-item">
+        <img src="images/tools/ocr.png" alt="OCR">
+        <span>OCR</span>
+      </div>
+      <div class="tool-item">
+        <img src="images/tools/trim.png" alt="トリミング">
+        <span>トリミング</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <h2>今すぐ始めよう</h2>
+  <p>macOS 13.0以降対応・無料</p>
+  <a class="download-btn" href="https://github.com/piggest/Mas/releases/latest">ダウンロード</a>
+</section>
+
+<footer>
+  <p><a href="https://github.com/piggest/Mas">GitHub</a> · <a href="user-guide.md">ユーザーガイド</a> · <a href="cli.md">CLI リファレンス</a></p>
+</footer>
+
+</body>
+</html>
