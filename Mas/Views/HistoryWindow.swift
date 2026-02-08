@@ -14,6 +14,8 @@ struct HistoryWindow: View {
     @ObservedObject var viewModel: CaptureViewModel
     @State private var isWindowActive = true
     @State private var showFavoritesOnly = false
+    @State private var selectedIDs: Set<UUID> = []
+    @State private var showBulkDeleteConfirm = false
 
     private var filteredEntries: [ScreenshotHistoryEntry] {
         if showFavoritesOnly {
@@ -27,27 +29,64 @@ struct HistoryWindow: View {
             // フィルターバー
             if !viewModel.historyEntries.isEmpty {
                 HStack {
-                    Button(action: { showFavoritesOnly.toggle() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: showFavoritesOnly ? "star.fill" : "star")
-                                .font(.system(size: 12))
-                            Text(showFavoritesOnly ? "お気に入り" : "すべて")
-                                .font(.system(size: 11, weight: .medium))
+                    if selectedIDs.isEmpty {
+                        Button(action: { showFavoritesOnly.toggle() }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: showFavoritesOnly ? "star.fill" : "star")
+                                    .font(.system(size: 12))
+                                Text(showFavoritesOnly ? "お気に入り" : "すべて")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .foregroundColor(showFavoritesOnly ? Color(red: 0.85, green: 0.65, blue: 0.10) : masuSub)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(showFavoritesOnly ? Color(red: 0.85, green: 0.65, blue: 0.10).opacity(0.15) : Color.clear)
+                            .cornerRadius(4)
                         }
-                        .foregroundColor(showFavoritesOnly ? Color(red: 0.85, green: 0.65, blue: 0.10) : masuSub)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(showFavoritesOnly ? Color(red: 0.85, green: 0.65, blue: 0.10).opacity(0.15) : Color.clear)
-                        .cornerRadius(4)
+                        .buttonStyle(.plain)
+                    } else {
+                        Button(action: { selectedIDs.removeAll() }) {
+                            Text("選択解除")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(masuSub)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: { showBulkDeleteConfirm = true }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 11))
+                                Text("\(selectedIDs.count)件を削除")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.red.opacity(0.8))
+                            .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                     Spacer()
-                    Text("\(filteredEntries.count)件")
+                    Text("\(selectedIDs.isEmpty ? "\(filteredEntries.count)件" : "\(selectedIDs.count)/\(filteredEntries.count)件選択")")
                         .font(.system(size: 11))
                         .foregroundColor(masuSub)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
+                .alert("\(selectedIDs.count)件をライブラリから削除", isPresented: $showBulkDeleteConfirm) {
+                    Button("削除", role: .destructive) {
+                        for id in selectedIDs {
+                            viewModel.removeHistoryEntry(id: id)
+                        }
+                        selectedIDs.removeAll()
+                    }
+                    Button("キャンセル", role: .cancel) { }
+                } message: {
+                    Text("選択した\(selectedIDs.count)件をライブラリから削除しますか？\nファイル自体は削除されません。")
+                }
             }
 
             if filteredEntries.isEmpty {
@@ -72,14 +111,13 @@ struct HistoryWindow: View {
                             let windowInfo = viewModel.editorWindows.first { info in
                                 info.screenshot.savedURL?.path == entry.filePath
                             }
-                            HistoryEntryRow(entry: entry, isOpen: windowInfo != nil, isPinned: windowInfo?.windowController.window?.level == .floating, onFavorite: {
+                            let isSelected = selectedIDs.contains(entry.id)
+                            HistoryEntryRow(entry: entry, isOpen: windowInfo != nil, isPinned: windowInfo?.windowController.window?.level == .floating, isSelected: isSelected, hasSelection: !selectedIDs.isEmpty, onFavorite: {
                                 viewModel.toggleFavorite(id: entry.id)
                             }, onTap: {
                                 if let info = windowInfo {
-                                    // 表示中 → 非表示
                                     viewModel.closeEditorWindow(info)
                                 } else {
-                                    // 非表示 → 表示
                                     viewModel.openFromHistory(entry)
                                 }
                             }, onDelete: {
@@ -91,6 +129,12 @@ struct HistoryWindow: View {
                                     window.level = window.level == .floating ? .normal : .floating
                                     viewModel.objectWillChange.send()
                                     NotificationCenter.default.post(name: .windowPinChanged, object: window)
+                                }
+                            }, onCommandTap: {
+                                if selectedIDs.contains(entry.id) {
+                                    selectedIDs.remove(entry.id)
+                                } else {
+                                    selectedIDs.insert(entry.id)
                                 }
                             })
                         }
@@ -136,11 +180,14 @@ struct HistoryEntryRow: View {
     let entry: ScreenshotHistoryEntry
     var isOpen: Bool = false
     var isPinned: Bool = false
+    var isSelected: Bool = false
+    var hasSelection: Bool = false
     var onFavorite: (() -> Void)?
     let onTap: () -> Void
     let onDelete: () -> Void
     var onFlash: (() -> Void)?
     var onTogglePin: (() -> Void)?
+    var onCommandTap: (() -> Void)?
 
     @State private var thumbnail: NSImage?
     @State private var isHovering = false
@@ -210,41 +257,49 @@ struct HistoryEntryRow: View {
 
             Spacer()
 
-            VStack(spacing: 8) {
-                if isOpen {
-                    Button(action: { onTogglePin?() }) {
-                        Image(systemName: isPinned ? "pin.fill" : "pin.slash")
-                            .font(.system(size: 18))
-                            .foregroundColor(isPinned ? masuBorder : masuSub)
-                    }
-                    .buttonStyle(.plain)
+            if !hasSelection {
+                VStack(spacing: 8) {
+                    if isOpen {
+                        Button(action: { onTogglePin?() }) {
+                            Image(systemName: isPinned ? "pin.fill" : "pin.slash")
+                                .font(.system(size: 18))
+                                .foregroundColor(isPinned ? masuBorder : masuSub)
+                        }
+                        .buttonStyle(.plain)
 
-                    Button(action: { onFlash?() }) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(masuBorder)
+                        Button(action: { onFlash?() }) {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(masuBorder)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Button(action: { showDeleteConfirm = true }) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14))
+                            .foregroundColor(masuSub)
                     }
                     .buttonStyle(.plain)
                 }
-
-                Button(action: { showDeleteConfirm = true }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 14))
-                        .foregroundColor(masuSub)
-                }
-                .buttonStyle(.plain)
+            } else if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.blue)
             }
         }
         .padding(10)
         .background(
-            isOpen
-                ? Color(red: 0.95, green: 0.88, blue: 0.70)
-                : (isHovering ? masuBorder.opacity(0.35) : masuInner)
+            isSelected
+                ? Color.blue.opacity(0.12)
+                : (isOpen
+                    ? Color(red: 0.95, green: 0.88, blue: 0.70)
+                    : (isHovering ? masuBorder.opacity(0.35) : masuInner))
         )
         // 内枠
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(isOpen ? Color(red: 0.80, green: 0.55, blue: 0.10) : masuBorder, lineWidth: isOpen ? 2.5 : 1.5)
+                .stroke(isSelected ? Color.blue : (isOpen ? Color(red: 0.80, green: 0.55, blue: 0.10) : masuBorder), lineWidth: isSelected ? 2.5 : (isOpen ? 2.5 : 1.5))
         )
         .cornerRadius(6)
         // 外枠との間にスペース
@@ -252,14 +307,23 @@ struct HistoryEntryRow: View {
         // 外枠
         .overlay(
             RoundedRectangle(cornerRadius: 9)
-                .stroke(isOpen ? Color(red: 0.80, green: 0.55, blue: 0.10).opacity(0.8) : masuBorder.opacity(0.7), lineWidth: isOpen ? 2.5 : 1.5)
+                .stroke(isSelected ? Color.blue.opacity(0.8) : (isOpen ? Color(red: 0.80, green: 0.55, blue: 0.10).opacity(0.8) : masuBorder.opacity(0.7)), lineWidth: isSelected ? 2.5 : (isOpen ? 2.5 : 1.5))
         )
         .contentShape(Rectangle())
         .onHover { hovering in
             isHovering = hovering
         }
+        .simultaneousGesture(
+            TapGesture().modifiers(.command).onEnded {
+                onCommandTap?()
+            }
+        )
         .onTapGesture {
-            onTap()
+            if hasSelection {
+                onCommandTap?()
+            } else {
+                onTap()
+            }
         }
         .contextMenu {
             Button("エディタで開く") { onTap() }
