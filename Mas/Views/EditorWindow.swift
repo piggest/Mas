@@ -1,5 +1,21 @@
 import SwiftUI
 
+// GIFフレーム表示用（@ObservedObjectでPublished変更を監視）
+struct GifFrameView: View {
+    @ObservedObject var playerState: GifPlayerState
+    var region: CGRect?
+
+    var body: some View {
+        if let region = region {
+            Image(nsImage: playerState.currentFrameImage)
+                .resizable()
+                .frame(width: region.width, height: region.height)
+        } else {
+            Image(nsImage: playerState.currentFrameImage)
+        }
+    }
+}
+
 // タップ時に色が変わらないButtonStyle
 struct NoHighlightButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -12,17 +28,20 @@ struct NoHighlightButtonStyle: ButtonStyle {
 struct DraggableImageView: NSViewRepresentable {
     let image: NSImage
     let showImage: Bool
+    var gifURL: URL? = nil
 
     func makeNSView(context: Context) -> DragSourceView {
         let view = DragSourceView()
         view.image = image
         view.showImage = showImage
+        view.gifURL = gifURL
         return view
     }
 
     func updateNSView(_ nsView: DragSourceView, context: Context) {
         nsView.image = image
         nsView.showImage = showImage
+        nsView.gifURL = gifURL
         nsView.needsDisplay = true
     }
 }
@@ -30,6 +49,7 @@ struct DraggableImageView: NSViewRepresentable {
 class DragSourceView: NSView {
     var image: NSImage?
     var showImage: Bool = true
+    var gifURL: URL?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -91,13 +111,21 @@ class DragSourceView: NSView {
         guard let image = image else { return }
 
         let tempDir = FileManager.default.temporaryDirectory
-        let fileName = "Mas_Screenshot_\(Int(Date().timeIntervalSince1970)).png"
-        let fileURL = tempDir.appendingPathComponent(fileName)
+        let fileURL: URL
 
-        if let tiffData = image.tiffRepresentation,
-           let bitmapRep = NSBitmapImageRep(data: tiffData),
-           let pngData = bitmapRep.representation(using: .png, properties: [:]) {
-            try? pngData.write(to: fileURL)
+        if let gifSource = gifURL, FileManager.default.fileExists(atPath: gifSource.path) {
+            // GIFファイルはそのままコピー
+            let fileName = "Mas_Recording_\(Int(Date().timeIntervalSince1970)).gif"
+            fileURL = tempDir.appendingPathComponent(fileName)
+            try? FileManager.default.copyItem(at: gifSource, to: fileURL)
+        } else {
+            let fileName = "Mas_Screenshot_\(Int(Date().timeIntervalSince1970)).png"
+            fileURL = tempDir.appendingPathComponent(fileName)
+            if let tiffData = image.tiffRepresentation,
+               let bitmapRep = NSBitmapImageRep(data: tiffData),
+               let pngData = bitmapRep.representation(using: .png, properties: [:]) {
+                try? pngData.write(to: fileURL)
+            }
         }
 
         let draggingItem = NSDraggingItem(pasteboardWriter: fileURL as NSURL)
@@ -203,6 +231,10 @@ struct EditorWindow: View {
     @State private var charSelEnd: Int?
     private let textRecognitionService = TextRecognitionService()
 
+    // GIF再生
+    @State private var gifPlayerState: GifPlayerState?
+    @State private var gifToolbarController: GifPlayerToolbarController?
+
     let onRecapture: ((CGRect, NSWindow?) -> Void)?
     let onPassThroughChanged: ((Bool) -> Void)?
     let onAnnotationsSaved: (([any Annotation]) -> Void)?
@@ -241,7 +273,9 @@ struct EditorWindow: View {
                 imageContent
                 closeButton
                 pinButton
-                editModeToggle(geometry: geometry)
+                if !screenshot.isGif {
+                    editModeToggle(geometry: geometry)
+                }
                 topRightButtons(geometry: geometry)
                 dragArea(geometry: geometry)
 
@@ -280,9 +314,27 @@ struct EditorWindow: View {
         .onAppear {
             toolbarController = FloatingToolbarWindowController()
             alwaysOnTop = parentWindow?.level == .floating
+
+            // GIFモード: プレイヤー初期化 + ツールバー表示 + 自動再生
+            if screenshot.isGif, let url = screenshot.savedURL {
+                if let player = GifPlayerState(url: url) {
+                    gifPlayerState = player
+                    // 少し遅延させて親ウィンドウのフレームが確定してからツールバーを表示
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        if let parent = self.parentWindow {
+                            let controller = GifPlayerToolbarController()
+                            controller.show(attachedTo: parent, playerState: player)
+                            self.gifToolbarController = controller
+                        }
+                        player.play()
+                    }
+                }
+            }
         }
         .onDisappear {
             toolbarController?.close()
+            gifPlayerState?.pause()
+            gifToolbarController?.close()
         }
         .onChange(of: editMode) { newValue in
             if newValue {
@@ -460,7 +512,10 @@ struct EditorWindow: View {
 
     @ViewBuilder
     private var screenshotImage: some View {
-        if let region = screenshot.captureRegion {
+        if let gifPlayer = gifPlayerState {
+            // GIFモード: GifFrameView(@ObservedObject)でフレーム変更を監視
+            GifFrameView(playerState: gifPlayer, region: screenshot.captureRegion)
+        } else if let region = screenshot.captureRegion {
             Image(nsImage: screenshot.originalImage)
                 .resizable()
                 .frame(width: region.width, height: region.height)
@@ -889,9 +944,13 @@ struct EditorWindow: View {
     }
 
     private func dragArea(geometry: GeometryProxy) -> some View {
-        DraggableImageView(image: imageForDrag ?? screenshot.originalImage, showImage: showImage)
-            .frame(width: 32, height: 32)
-            .position(x: geometry.size.width - 24, y: geometry.size.height - 24)
+        DraggableImageView(
+            image: imageForDrag ?? screenshot.originalImage,
+            showImage: showImage,
+            gifURL: screenshot.isGif ? screenshot.savedURL : nil
+        )
+        .frame(width: 32, height: 32)
+        .position(x: geometry.size.width - 24, y: geometry.size.height - 24)
     }
 
     // アノテーションを画像に反映して自動保存（アノテーションは保持）

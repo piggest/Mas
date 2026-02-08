@@ -104,6 +104,7 @@ struct HotkeyConfig {
     static let regionKeyCode: UInt32 = 21      // 4
     static let windowKeyCode: UInt32 = 23      // 5
     static let frameKeyCode: UInt32 = 22       // 6 (Cmd+Shift+6)
+    static let gifRecordingKeyCode: UInt32 = 26  // 7 (Cmd+Shift+7)
 
     static let modifiers = UInt32(NSEvent.ModifierFlags.command.rawValue | NSEvent.ModifierFlags.shift.rawValue)
 }

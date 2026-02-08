@@ -106,6 +106,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name("com.example.Mas.show.library"), object: nil)
         dnc.addObserver(self, selector: #selector(handleDistributedShowSettings),
             name: NSNotification.Name("com.example.Mas.show.settings"), object: nil)
+        dnc.addObserver(self, selector: #selector(handleDistributedGifRecording),
+            name: NSNotification.Name("com.example.Mas.capture.gif"), object: nil)
     }
 
     @objc private func handleDistributedCaptureFullScreen() {
@@ -151,6 +153,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    @objc private func handleDistributedGifRecording() {
+        NotificationCenter.default.post(name: .startGifRecording, object: nil)
+    }
+
     @objc private func handleDistributedOpenFile(_ notification: Notification) {
         guard let filePath = notification.object as? String else { return }
         let url = URL(fileURLWithPath: filePath)
@@ -180,6 +186,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ) {
             NotificationCenter.default.post(name: .showCaptureFrame, object: nil)
         }
+
+        hotkeyManager.register(
+            keyCode: HotkeyConfig.gifRecordingKeyCode,
+            modifiers: HotkeyConfig.modifiers
+        ) {
+            NotificationCenter.default.post(name: .startGifRecording, object: nil)
+        }
     }
 }
 
@@ -190,4 +203,5 @@ extension Notification.Name {
     static let editorWindowClosed = Notification.Name("editorWindowClosed")
     static let windowPinChanged = Notification.Name("windowPinChanged")
     static let showHistory = Notification.Name("showHistory")
+    static let startGifRecording = Notification.Name("startGifRecording")
 }

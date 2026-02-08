@@ -265,6 +265,8 @@ struct MenuBarView: View {
                 await viewModel.captureFullScreen()
             case .region:
                 await viewModel.startRegionSelection()
+            case .gifRecording:
+                await viewModel.startGifRecording()
             }
         }
     }

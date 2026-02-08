@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 @MainActor
 class CaptureViewModel: ObservableObject {
     @Published var isCapturing = false
+    @Published var isRecording = false
     @Published var currentScreenshot: Screenshot?
     @Published var errorMessage: String?
 
@@ -13,6 +14,9 @@ class CaptureViewModel: ObservableObject {
     private let permissionService = PermissionService()
     private let captureFlash = CaptureFlashView()
     private let historyService = HistoryService()
+    private var gifRecordingService: GifRecordingService?
+    private var recordingControlWindow: RecordingControlWindowController?
+    private var gifRecordingRegion: CGRect?
 
     @Published var historyEntries: [ScreenshotHistoryEntry] = []
 
@@ -70,6 +74,12 @@ class CaptureViewModel: ObservableObject {
             name: .editorWindowClosed,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleStartGifRecording),
+            name: .startGifRecording,
+            object: nil
+        )
     }
 
     @objc private func handleEditorWindowClosed() {
@@ -86,6 +96,10 @@ class CaptureViewModel: ObservableObject {
 
     @objc private func handleShowCaptureFrame() {
         Task { await showCaptureFrame() }
+    }
+
+    @objc private func handleStartGifRecording() {
+        Task { await startGifRecording() }
     }
 
     // 前回のキャプチャ範囲を保存
@@ -364,6 +378,105 @@ class CaptureViewModel: ObservableObject {
         let screenshot = Screenshot(cgImage: cgImage, mode: .region, region: frameRect)
         currentScreenshot = screenshot
         showEditorWindow(for: screenshot, at: frameRect, showImageInitially: false)
+    }
+
+    // MARK: - GIF録画
+
+    func startGifRecording() async {
+        guard !isCapturing, !isRecording else { return }
+        guard await checkPermission() else { return }
+
+        isCapturing = true
+        errorMessage = nil
+
+        let overlay = RegionSelectionOverlay(onComplete: { [weak self] rect in
+            guard let self = self else { return }
+            self.isCapturing = false
+            Task {
+                await self.beginRecording(in: rect)
+            }
+        }, onCancel: { [weak self] in
+            self?.isCapturing = false
+        })
+        overlay.show()
+    }
+
+    private func beginRecording(in region: CGRect) async {
+        let service = GifRecordingService()
+        self.gifRecordingService = service
+        self.gifRecordingRegion = region
+
+        let controlWindow = RecordingControlWindowController()
+        self.recordingControlWindow = controlWindow
+
+        service.startRecording(region: region)
+        isRecording = true
+
+        controlWindow.show(above: region) { [weak self] in
+            guard let self = self else { return }
+            Task {
+                await self.stopGifRecording()
+            }
+        }
+    }
+
+    func stopGifRecording() async {
+        guard isRecording else { return }
+
+        recordingControlWindow?.close()
+        recordingControlWindow = .none
+
+        guard let service = gifRecordingService else {
+            isRecording = false
+            return
+        }
+
+        let gifURL = await service.stopRecording()
+        gifRecordingService = .none
+        isRecording = false
+
+        guard let url = gifURL, let nsImage = NSImage(contentsOf: url) else {
+            errorMessage = "GIFの生成に失敗しました"
+            return
+        }
+
+        // Retina対応: ピクセルサイズ→ポイントサイズに変換
+        let scale = NSScreen.main?.backingScaleFactor ?? 1.0
+        nsImage.size = NSSize(
+            width: nsImage.size.width / scale,
+            height: nsImage.size.height / scale
+        )
+
+        let region = gifRecordingRegion
+        gifRecordingRegion = nil
+
+        let screenshot = Screenshot(image: nsImage, mode: .gifRecording, region: region)
+        screenshot.savedURL = url
+        currentScreenshot = screenshot
+
+        // クリップボードにコピー
+        let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
+        if autoCopyToClipboard {
+            _ = clipboardService.copyToClipboard(nsImage)
+        }
+
+        // 履歴に追加
+        let entry = ScreenshotHistoryEntry(
+            id: UUID(),
+            timestamp: Date(),
+            mode: "GIF録画",
+            filePath: url.path,
+            width: Int(nsImage.size.width),
+            height: Int(nsImage.size.height),
+            windowX: region.map { Double($0.origin.x) },
+            windowY: region.map { Double($0.origin.y) },
+            windowW: region.map { Double($0.width) },
+            windowH: region.map { Double($0.height) }
+        )
+        historyService.addEntry(entry)
+        historyEntries = historyService.load()
+
+        showEditorWindow(for: screenshot, at: region)
     }
 
     func openImageFromCLI(image: NSImage, filePath: String) {

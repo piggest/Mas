@@ -42,6 +42,10 @@
 		'HISTWIN001BUILD' = {isa = PBXBuildFile; fileRef = HISTWIN001FILEREF; };
 		'CODANNOT01BUILD' = {isa = PBXBuildFile; fileRef = CODANNOT01FILEREF; };
 		'TXTRECOG01BUILD' = {isa = PBXBuildFile; fileRef = TXTRECOG01FILEREF; };
+		GIFRECSVC01BUILD = {isa = PBXBuildFile; fileRef = GIFRECSVC01FILEREF; };
+		RECCTRLW01BUILD = {isa = PBXBuildFile; fileRef = RECCTRLW01FILEREF; };
+		GIFPLYST01BUILD = {isa = PBXBuildFile; fileRef = GIFPLYST01FILEREF; };
+		GIFPLTB01BUILD = {isa = PBXBuildFile; fileRef = GIFPLTB01FILEREF; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -83,6 +87,10 @@
 		'HISTENTRY01FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotHistoryEntry.swift; sourceTree = "<group>"; };
 		'HISTSVC001FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryService.swift; sourceTree = "<group>"; };
 		'HISTWIN001FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryWindow.swift; sourceTree = "<group>"; };
+		GIFRECSVC01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifRecordingService.swift; sourceTree = "<group>"; };
+		RECCTRLW01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingControlWindow.swift; sourceTree = "<group>"; };
+		GIFPLYST01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifPlayerState.swift; sourceTree = "<group>"; };
+		GIFPLTB01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifPlayerToolbar.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -96,6 +104,8 @@
 				D798FE0D9F51C7776EC6EE3F /* EditorWindow.swift */,
 				HISTWIN001FILEREF /* HistoryWindow.swift */,
 				BD3B265CA8F46C67C372C189 /* MenuBarView.swift */,
+				GIFPLTB01FILEREF /* GifPlayerToolbar.swift */,
+				RECCTRLW01FILEREF /* RecordingControlWindow.swift */,
 				9AADE98A628BFE59D34AF3B4 /* RegionSelectionOverlay.swift */,
 				62FF5E8583862D4BA967A830 /* SettingsWindow.swift */,
 				13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */,
@@ -161,6 +171,7 @@
 			children = (
 				B83CBF9F86FC5B6E405972AE /* CaptureViewModel.swift */,
 				4DED66DF8556D1B2C7294624 /* EditorViewModel.swift */,
+				GIFPLYST01FILEREF /* GifPlayerState.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -170,6 +181,7 @@
 			children = (
 				EB5AB34A4452A8C7DD8CFBFA /* ClipboardService.swift */,
 				E5FD798C319657988E241C66 /* FileStorageService.swift */,
+				GIFRECSVC01FILEREF /* GifRecordingService.swift */,
 				HISTSVC001FILEREF /* HistoryService.swift */,
 				002A68B3D208C945FEA1D830 /* PermissionService.swift */,
 				357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */,
@@ -298,6 +310,10 @@
 				HISTWIN001BUILD /* HistoryWindow.swift in Sources */,
 				CODANNOT01BUILD /* CodableAnnotation.swift in Sources */,
 				TXTRECOG01BUILD /* TextRecognitionService.swift in Sources */,
+				GIFRECSVC01BUILD /* GifRecordingService.swift in Sources */,
+				RECCTRLW01BUILD /* RecordingControlWindow.swift in Sources */,
+				GIFPLYST01BUILD /* GifPlayerState.swift in Sources */,
+				GIFPLTB01BUILD /* GifPlayerToolbar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
