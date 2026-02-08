@@ -336,6 +336,11 @@ class CaptureViewModel: ObservableObject {
             // 画像と範囲を更新
             screenshot.updateImage(croppedImage)
             screenshot.captureRegion = region
+
+            // GIFモードだった場合はスクリーンショットモードに変更
+            if screenshot.isGif {
+                screenshot.savedURL = nil
+            }
             print("Image updated")
 
             // リサイズ状態をリセット（オフセットをクリア）

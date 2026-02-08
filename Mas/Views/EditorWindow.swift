@@ -967,6 +967,11 @@ struct EditorWindow: View {
     private var recaptureButton: some View {
         Button(action: {
             let rect = getCurrentWindowRect()
+            // GIFプレーヤーをクリア（再キャプチャで静止画に切り替わる）
+            gifPlayerState?.pause()
+            gifPlayerState = nil
+            gifToolbarController?.close()
+            gifToolbarController = nil
             onRecapture?(rect, parentWindow)
             showImage = true
             if passThroughEnabled {
