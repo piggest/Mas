@@ -1,6 +1,7 @@
 ---
 title: アノテーション詳細ガイド
 layout: default
+permalink: /annotations/
 ---
 
 # Mas アノテーション詳細ガイド

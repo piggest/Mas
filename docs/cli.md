@@ -1,6 +1,7 @@
 ---
 title: CLI リファレンス
 layout: default
+permalink: /cli/
 ---
 
 # Mas CLI リファレンス
