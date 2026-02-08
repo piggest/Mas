@@ -65,6 +65,10 @@ class ResizableWindow: NSWindow {
     override func sendEvent(_ event: NSEvent) {
         switch event.type {
         case .leftMouseDown:
+            // 非キーウィンドウ時もクリックイベントをそのまま処理
+            if !isKeyWindow {
+                makeKeyAndOrderFront(nil)
+            }
             if handleMouseDown(event) == nil {
                 return // イベントを消費
             }
@@ -377,6 +381,10 @@ class ResizableWindow: NSWindow {
 class PassThroughContainerView: NSView {
     var passThroughEnabled: Bool = false
     private let resizeMargin: CGFloat = 8
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
 
     override func resizeSubviews(withOldSize oldSize: NSSize) {
         super.resizeSubviews(withOldSize: oldSize)
