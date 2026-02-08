@@ -6,7 +6,7 @@ import CoreGraphics
 
 // MARK: - Constants
 
-let appVersion = "1.7.3"
+let appVersion = "2.0.0"
 let bundleIdentifier = "com.example.Mas"
 
 let historyFileURL: URL = {
