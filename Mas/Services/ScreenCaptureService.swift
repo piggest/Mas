@@ -1,20 +1,68 @@
 import AppKit
 import CoreGraphics
 
+// MARK: - NSScreen マルチスクリーン対応ヘルパー
+
+extension NSScreen {
+    /// プライマリスクリーンの高さ（CG⇔NS座標変換のベース）
+    static var primaryScreenHeight: CGFloat {
+        NSScreen.screens[0].frame.height
+    }
+
+    /// このスクリーンのCG座標系（左上原点）でのフレーム
+    var cgFrame: CGRect {
+        let primaryHeight = NSScreen.primaryScreenHeight
+        return CGRect(
+            x: frame.origin.x,
+            y: primaryHeight - frame.origin.y - frame.height,
+            width: frame.width,
+            height: frame.height
+        )
+    }
+
+    /// CGDirectDisplayID を取得
+    var displayID: CGDirectDisplayID? {
+        deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+    }
+
+    /// CG座標の矩形を含むスクリーンを検索（最も重なりが大きいスクリーンを返す）
+    static func screenContaining(cgRect: CGRect) -> NSScreen? {
+        var bestScreen: NSScreen?
+        var bestArea: CGFloat = 0
+        for screen in NSScreen.screens {
+            let intersection = screen.cgFrame.intersection(cgRect)
+            if !intersection.isNull {
+                let area = intersection.width * intersection.height
+                if area > bestArea {
+                    bestArea = area
+                    bestScreen = screen
+                }
+            }
+        }
+        return bestScreen ?? NSScreen.main
+    }
+
+    /// CG座標の矩形をNS座標（左下原点）に変換
+    static func cgToNS(_ cgRect: CGRect) -> NSRect {
+        let primaryHeight = NSScreen.primaryScreenHeight
+        return NSRect(
+            x: cgRect.origin.x,
+            y: primaryHeight - cgRect.origin.y - cgRect.height,
+            width: cgRect.width,
+            height: cgRect.height
+        )
+    }
+}
+
 @MainActor
 class ScreenCaptureService: NSObject {
 
-    // MARK: - Full Screen Capture
+    // MARK: - 指定スクリーンのキャプチャ
 
-    func captureFullScreen() async throws -> CGImage {
-        guard let screen = NSScreen.main else {
-            throw CaptureError.noDisplayFound
-        }
-
-        let screenRect = screen.frame
+    func captureScreen(_ screen: NSScreen) async throws -> CGImage {
+        let cgRect = screen.cgFrame
         let myPID = ProcessInfo.processInfo.processIdentifier
 
-        // 画面上のウィンドウ一覧を取得し、自アプリを除外
         guard let allWindows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
             throw CaptureError.captureFailedWithError("Failed to get window list")
         }
@@ -28,45 +76,75 @@ class ScreenCaptureService: NSObject {
             }
         }
 
-        // 自アプリ以外のウィンドウで画面をキャプチャ
         if !otherWindowIDs.isEmpty {
             let windowArray = otherWindowIDs as CFArray
-            if let excludedImage = CGImage(windowListFromArrayScreenBounds: screenRect,
-                                           windowArray: windowArray,
-                                           imageOption: [.bestResolution]) {
-                return excludedImage
+            if let image = CGImage(windowListFromArrayScreenBounds: cgRect,
+                                   windowArray: windowArray,
+                                   imageOption: [.bestResolution]) {
+                return image
             }
         }
 
-        // フォールバック: 通常キャプチャ
-        guard let image = CGDisplayCreateImage(CGMainDisplayID()) else {
+        // フォールバック: ディスプレイIDから直接キャプチャ
+        guard let displayID = screen.displayID else {
+            throw CaptureError.noDisplayFound
+        }
+        guard let image = CGDisplayCreateImage(displayID) else {
             throw CaptureError.captureFailedWithError("CGDisplayCreateImage failed")
         }
         return image
     }
 
-    // MARK: - Region Capture
+    // MARK: - 全スクリーンをキャプチャ
 
-    func captureRegion(_ region: CGRect) async throws -> CGImage {
-        let fullImage = try await captureFullScreen()
+    func captureAllScreens() async throws -> [CGDirectDisplayID: CGImage] {
+        let myPID = ProcessInfo.processInfo.processIdentifier
 
+        guard let allWindows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            throw CaptureError.captureFailedWithError("Failed to get window list")
+        }
+
+        var otherWindowIDs: [NSNumber] = []
+        for info in allWindows {
+            guard let pid = info[kCGWindowOwnerPID as String] as? Int32,
+                  let wid = info[kCGWindowNumber as String] as? CGWindowID else { continue }
+            if pid != myPID {
+                otherWindowIDs.append(NSNumber(value: wid))
+            }
+        }
+
+        var result: [CGDirectDisplayID: CGImage] = [:]
+        let windowArray = otherWindowIDs as CFArray
+
+        for screen in NSScreen.screens {
+            guard let displayID = screen.displayID else { continue }
+            let cgRect = screen.cgFrame
+
+            if !otherWindowIDs.isEmpty {
+                if let image = CGImage(windowListFromArrayScreenBounds: cgRect,
+                                       windowArray: windowArray,
+                                       imageOption: [.bestResolution]) {
+                    result[displayID] = image
+                    continue
+                }
+            }
+
+            // フォールバック
+            if let image = CGDisplayCreateImage(displayID) {
+                result[displayID] = image
+            }
+        }
+
+        return result
+    }
+
+    // MARK: - Full Screen Capture（後方互換）
+
+    func captureFullScreen() async throws -> CGImage {
         guard let screen = NSScreen.main else {
             throw CaptureError.noDisplayFound
         }
-
-        let scale = CGFloat(fullImage.width) / screen.frame.width
-        let scaledRect = CGRect(
-            x: region.origin.x * scale,
-            y: region.origin.y * scale,
-            width: region.width * scale,
-            height: region.height * scale
-        )
-
-        guard let croppedImage = fullImage.cropping(to: scaledRect) else {
-            throw CaptureError.captureFailedWithError("Failed to crop image")
-        }
-
-        return croppedImage
+        return try await captureScreen(screen)
     }
 
     // MARK: - Window Capture

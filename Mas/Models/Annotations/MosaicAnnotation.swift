@@ -61,7 +61,6 @@ class MosaicAnnotation: Annotation {
     }
 
     private func drawRealTimeBlur(in bounds: NSRect) {
-        guard let screen = NSScreen.main else { return }
         guard rect.width > 5 && rect.height > 5 else { return }
         guard windowNumber > 0 else {
             // ウィンドウ番号がない場合はグレーで表示
@@ -70,7 +69,7 @@ class MosaicAnnotation: Annotation {
             return
         }
 
-        let screenHeight = screen.frame.height
+        let primaryHeight = NSScreen.primaryScreenHeight
 
         // キャンバス座標（上左原点）からスクリーン座標（CG座標系、上左原点）への変換
         // 1. rectはキャンバス座標（上左原点、isFlipped=true）
@@ -78,7 +77,7 @@ class MosaicAnnotation: Annotation {
         // 3. CGWindowListCreateImageはCG座標（上左原点）
 
         // windowの左上のスクリーン座標（CG座標系）
-        let windowTopLeftY_CG = screenHeight - windowFrame.origin.y - windowFrame.height
+        let windowTopLeftY_CG = primaryHeight - windowFrame.origin.y - windowFrame.height
 
         // キャプチャ領域のスクリーン座標（CG座標系）
         let screenRect = CGRect(

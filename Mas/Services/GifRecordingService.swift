@@ -65,14 +65,17 @@ class GifRecordingService {
         guard isRecording else { return }
 
         do {
-            let fullImage = try await captureService.captureFullScreen()
+            // regionが属するスクリーンを特定してキャプチャ
+            guard let screen = NSScreen.screenContaining(cgRect: region) else { return }
+            let fullImage = try await captureService.captureScreen(screen)
 
-            guard let screen = NSScreen.main else { return }
             let scale = CGFloat(fullImage.width) / screen.frame.width
 
+            // CGグローバル座標をスクリーン相対座標に変換
+            let screenCGFrame = screen.cgFrame
             let scaledRect = CGRect(
-                x: region.origin.x * scale,
-                y: region.origin.y * scale,
+                x: (region.origin.x - screenCGFrame.origin.x) * scale,
+                y: (region.origin.y - screenCGFrame.origin.y) * scale,
                 width: region.width * scale,
                 height: region.height * scale
             )

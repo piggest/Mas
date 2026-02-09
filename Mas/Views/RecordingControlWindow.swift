@@ -82,12 +82,12 @@ class RecordingControlWindowController {
     private var borderWindow: NSWindow?
 
     func show(above region: CGRect, onStop: @escaping () -> Void) {
-        let screenHeight = NSScreen.main?.frame.height ?? 0
+        let primaryHeight = NSScreen.primaryScreenHeight
 
-        // 録画範囲の枠線ウィンドウ
+        // 録画範囲の枠線ウィンドウ（CG座標→NS座標に変換）
         let borderPadding: CGFloat = 2
         let borderX = region.origin.x - borderPadding
-        let borderY = screenHeight - (region.origin.y + region.height) - borderPadding
+        let borderY = primaryHeight - (region.origin.y + region.height) - borderPadding
         let borderW = region.width + borderPadding * 2
         let borderH = region.height + borderPadding * 2
 
@@ -129,11 +129,13 @@ class RecordingControlWindowController {
 
         let centerX = region.origin.x + region.width / 2 - controlWidth / 2
 
-        // 左上原点 → 左下原点に変換して上側に配置
-        var panelY = screenHeight - region.origin.y + gap
+        // CG座標（左上原点）→ NS座標（左下原点）に変換して上側に配置
+        var panelY = primaryHeight - region.origin.y + gap
         // 画面上部に余裕がなければ下側に配置
-        if panelY + controlHeight > screenHeight {
-            panelY = screenHeight - (region.origin.y + region.height) - controlHeight - gap
+        let targetScreen = NSScreen.screenContaining(cgRect: region)
+        let screenTop = targetScreen?.visibleFrame.maxY ?? primaryHeight
+        if panelY + controlHeight > screenTop {
+            panelY = primaryHeight - (region.origin.y + region.height) - controlHeight - gap
         }
 
         panel.setFrame(NSRect(x: centerX, y: panelY, width: controlWidth, height: controlHeight), display: true)

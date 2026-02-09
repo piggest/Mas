@@ -147,17 +147,16 @@ class CaptureViewModel: ObservableObject {
         return CGRect(x: x, y: y, width: width, height: height)
     }
 
-    // デフォルトのキャプチャ範囲（画面中央、幅1/3）
+    // デフォルトのキャプチャ範囲（画面中央、幅1/3）CGグローバル座標
     private func defaultCaptureRect() -> CGRect {
-        guard let screen = NSScreen.main else {
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else {
             return CGRect(x: 100, y: 100, width: 400, height: 300)
         }
-        let screenWidth = screen.frame.width
-        let screenHeight = screen.frame.height
-        let frameWidth = screenWidth / 3
+        let cgFrame = screen.cgFrame
+        let frameWidth = cgFrame.width / 3
         let frameHeight = frameWidth * 0.75 // 4:3のアスペクト比
-        let x = (screenWidth - frameWidth) / 2
-        let y = (screenHeight - frameHeight) / 2
+        let x = cgFrame.origin.x + (cgFrame.width - frameWidth) / 2
+        let y = cgFrame.origin.y + (cgFrame.height - frameHeight) / 2
         return CGRect(x: x, y: y, width: frameWidth, height: frameHeight)
     }
 
@@ -182,15 +181,16 @@ class CaptureViewModel: ObservableObject {
         }
 
         do {
-            let cgImage = try await captureService.captureFullScreen()
-
-            // 画面全体をregionとして設定
-            guard let screen = NSScreen.main else {
+            guard let screen = NSScreen.main ?? NSScreen.screens.first else {
                 errorMessage = "ディスプレイが見つかりません"
                 isCapturing = false
                 return
             }
-            let fullScreenRect = CGRect(x: 0, y: 0, width: screen.frame.width, height: screen.frame.height)
+
+            let cgImage = try await captureService.captureScreen(screen)
+
+            // 画面全体をCGグローバル座標でregionとして設定
+            let fullScreenRect = screen.cgFrame
 
             let screenshot = Screenshot(cgImage: cgImage, mode: .fullScreen, region: fullScreenRect)
             currentScreenshot = screenshot
@@ -224,8 +224,8 @@ class CaptureViewModel: ObservableObject {
         }
 
         do {
-            // 先に画面全体をキャプチャしておく
-            let fullScreenImage = try await captureService.captureFullScreen()
+            // 先に全スクリーンをキャプチャしておく（マルチスクリーン対応）
+            let screenImages = try await captureService.captureAllScreens()
 
             let overlay = RegionSelectionOverlay(onComplete: { [weak self] rect in
                 guard let self = self else { return }
@@ -234,7 +234,7 @@ class CaptureViewModel: ObservableObject {
                     self.historyWindowController?.window?.orderBack(nil)
                 }
                 Task {
-                    await self.cropRegion(rect, from: fullScreenImage)
+                    await self.cropRegion(rect, from: screenImages)
                 }
             }, onCancel: { [weak self] in
                 self?.isCapturing = false
@@ -251,8 +251,11 @@ class CaptureViewModel: ObservableObject {
         }
     }
 
-    private func cropRegion(_ rect: CGRect, from fullImage: CGImage) async {
-        guard let screen = NSScreen.main else {
+    private func cropRegion(_ rect: CGRect, from screenImages: [CGDirectDisplayID: CGImage]) async {
+        // 選択領域が属するスクリーンを特定
+        guard let screen = NSScreen.screenContaining(cgRect: rect),
+              let displayID = screen.displayID,
+              let fullImage = screenImages[displayID] else {
             errorMessage = "ディスプレイが見つかりません"
             isCapturing = false
             return
@@ -264,10 +267,11 @@ class CaptureViewModel: ObservableObject {
         // スケール計算（Retina対応）
         let scale = imageWidth / screen.frame.width
 
-        // rectは既に左上原点座標なので、スケールのみ適用
+        // CGグローバル座標をスクリーン相対座標に変換してからスケール適用
+        let screenCGFrame = screen.cgFrame
         let scaledRect = CGRect(
-            x: rect.origin.x * scale,
-            y: rect.origin.y * scale,
+            x: (rect.origin.x - screenCGFrame.origin.x) * scale,
+            y: (rect.origin.y - screenCGFrame.origin.y) * scale,
             width: rect.width * scale,
             height: rect.height * scale
         )
@@ -296,49 +300,40 @@ class CaptureViewModel: ObservableObject {
 
     // 再キャプチャ機能（現在のウィンドウ位置で）
     func recaptureRegion(for screenshot: Screenshot, at region: CGRect, window: NSWindow?) async {
-        print("=== Recapture started ===")
-        print("Region: \(region)")
-
         // ウィンドウを一時的に隠す
-        print("Window: \(String(describing: window))")
         window?.orderOut(nil)
 
         // 少し待つ
         try? await Task.sleep(nanoseconds: 200_000_000)
 
         do {
-            let fullScreenImage = try await captureService.captureFullScreen()
-            print("Full screen image size: \(fullScreenImage.width) x \(fullScreenImage.height)")
-
-            guard let screen = NSScreen.main else {
-                print("No screen found")
+            // regionが属するスクリーンを特定してキャプチャ
+            guard let screen = NSScreen.screenContaining(cgRect: region) else {
                 window?.makeKeyAndOrderFront(nil)
                 return
             }
+
+            let fullScreenImage = try await captureService.captureScreen(screen)
 
             let imageWidth = CGFloat(fullScreenImage.width)
             let imageHeight = CGFloat(fullScreenImage.height)
             let scale = imageWidth / screen.frame.width
-            print("Scale: \(scale), Screen width: \(screen.frame.width)")
 
+            // CGグローバル座標をスクリーン相対座標に変換
+            let screenCGFrame = screen.cgFrame
             let scaledRect = CGRect(
-                x: region.origin.x * scale,
-                y: region.origin.y * scale,
+                x: (region.origin.x - screenCGFrame.origin.x) * scale,
+                y: (region.origin.y - screenCGFrame.origin.y) * scale,
                 width: region.width * scale,
                 height: region.height * scale
             )
-            print("Scaled rect: \(scaledRect)")
 
             let clampedRect = scaledRect.intersection(CGRect(x: 0, y: 0, width: imageWidth, height: imageHeight))
-            print("Clamped rect: \(clampedRect)")
 
             guard !clampedRect.isEmpty, let croppedImage = fullScreenImage.cropping(to: clampedRect) else {
-                print("Cropping failed")
                 window?.makeKeyAndOrderFront(nil)
                 return
             }
-
-            print("Cropped image size: \(croppedImage.width) x \(croppedImage.height)")
 
             // フラッシュアニメーション
             captureFlash.showFlash(in: region)
@@ -351,7 +346,6 @@ class CaptureViewModel: ObservableObject {
             if screenshot.isGif {
                 screenshot.savedURL = nil
             }
-            print("Image updated")
 
             // リサイズ状態をリセット（オフセットをクリア）
             if let resizableWindow = window as? ResizableWindow {
@@ -366,7 +360,6 @@ class CaptureViewModel: ObservableObject {
 
             // ウィンドウを再表示
             window?.makeKeyAndOrderFront(nil)
-            print("=== Recapture completed ===")
         } catch {
             print("Recapture error: \(error)")
             window?.makeKeyAndOrderFront(nil)
@@ -597,7 +590,9 @@ class CaptureViewModel: ObservableObject {
         }
         window.ignoresMouseEvents = false
 
-        let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
+        // regionが属するスクリーンの可視領域を使用
+        let targetScreen = region.flatMap { NSScreen.screenContaining(cgRect: $0) } ?? NSScreen.main
+        let screenFrame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
 
         // 範囲選択時は選択範囲と同じサイズ・位置
         if let region = region {
@@ -606,10 +601,10 @@ class CaptureViewModel: ObservableObject {
 
             window.setContentSize(NSSize(width: windowWidth, height: windowHeight))
 
-            // 左上原点から左下原点に変換
-            let screenHeight = NSScreen.main?.frame.height ?? 0
-            let windowX = region.origin.x
-            let windowY = screenHeight - region.origin.y - windowHeight
+            // CG座標（左上原点）からNS座標（左下原点）に変換
+            let nsRect = NSScreen.cgToNS(region)
+            let windowX = nsRect.origin.x
+            let windowY = nsRect.origin.y
 
             // 画面内に収まるように調整
             let adjustedX = max(screenFrame.minX, min(windowX, screenFrame.maxX - windowWidth))
@@ -845,10 +840,11 @@ class CaptureViewModel: ObservableObject {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         let frame = window.frame
-        let screenHeight = NSScreen.main?.frame.height ?? 0
+        // NS座標（左下原点）→CG座標（左上原点）に変換
+        let primaryHeight = NSScreen.primaryScreenHeight
         let topLeftRect = CGRect(
             x: frame.origin.x,
-            y: screenHeight - frame.origin.y - frame.height,
+            y: primaryHeight - frame.origin.y - frame.height,
             width: frame.width,
             height: frame.height
         )

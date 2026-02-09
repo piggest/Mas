@@ -54,11 +54,13 @@ class RegionSelectionOverlay {
     }
 
     private func handleSelection(_ rect: CGRect, on screen: NSScreen) {
-        // rectはすでに左上原点の座標（isFlipped = true）
-        // スクリーン上のグローバル座標に変換（左上原点のまま）
+        // rectはビュー内の左上原点座標（isFlipped = true）
+        // CGグローバル座標（左上原点）に変換
+        // スクリーンの左上のCG座標 = primaryHeight - screen.NS_y - screen.height
+        let screenTopInCG = NSScreen.primaryScreenHeight - screen.frame.origin.y - screen.frame.height
         let globalRect = CGRect(
             x: screen.frame.origin.x + rect.origin.x,
-            y: rect.origin.y,  // 左上原点なのでそのまま
+            y: screenTopInCG + rect.origin.y,
             width: rect.width,
             height: rect.height
         )
@@ -138,11 +140,12 @@ class SelectionView: NSView {
     }
 
     private func findWindowAtPoint(_ point: CGPoint) -> CGRect? {
-        // スクリーン座標に変換（左上原点）
+        // ビュー座標をCGグローバル座標に変換（左上原点）
         guard let screen = window?.screen else { return nil }
+        let screenTopInCG = NSScreen.primaryScreenHeight - screen.frame.origin.y - screen.frame.height
         let screenPoint = CGPoint(
             x: screen.frame.origin.x + point.x,
-            y: point.y  // isFlipped = true なので、そのまま
+            y: screenTopInCG + point.y
         )
 
         // ウィンドウリストを取得

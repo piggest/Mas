@@ -5,14 +5,8 @@ class CaptureFlashView {
     private var flashWindow: NSWindow?
 
     func showFlash(in rect: CGRect) {
-        // 画面座標系（左上原点）から左下原点に変換
-        let screenHeight = NSScreen.main?.frame.height ?? 0
-        let windowRect = NSRect(
-            x: rect.origin.x,
-            y: screenHeight - rect.origin.y - rect.height,
-            width: rect.width,
-            height: rect.height
-        )
+        // CG座標（左上原点）からNS座標（左下原点）に変換
+        let windowRect = NSScreen.cgToNS(rect)
 
         // 既存のフラッシュウィンドウをクリア
         flashWindow?.orderOut(nil)
