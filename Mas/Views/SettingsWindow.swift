@@ -169,40 +169,218 @@ struct GeneralSettingsView: View {
 }
 
 struct ShortcutsSettingsView: View {
+    @State private var recordingAction: HotkeyAction?
+    @State private var refreshTrigger = false
+    @State private var conflictMessage: String?
+
     var body: some View {
-        Form {
-            Section("キャプチャショートカット") {
-                HStack {
-                    Text("全画面キャプチャ")
-                    Spacer()
-                    Text("⌘⇧3")
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.secondary.opacity(0.2))
-                        .cornerRadius(4)
-                }
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader("ショートカットキー")
+            Text("クリックしてからキーを入力すると変更できます")
+                .font(.caption)
+                .foregroundColor(.secondary)
 
-                HStack {
-                    Text("範囲選択キャプチャ")
-                    Spacer()
-                    Text("⌘⇧4")
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.secondary.opacity(0.2))
-                        .cornerRadius(4)
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(HotkeyAction.allCases, id: \.rawValue) { action in
+                    shortcutRow(action: action)
                 }
-
             }
 
-            Section {
-                Text("ショートカットは現在固定されています")
+            if let conflict = conflictMessage {
+                Text(conflict)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.red)
             }
+
+            Divider()
+
+            HStack {
+                Button("すべてデフォルトに戻す") {
+                    for action in HotkeyAction.allCases {
+                        action.resetToDefault()
+                    }
+                    recordingAction = nil
+                    conflictMessage = nil
+                    refreshTrigger.toggle()
+                    NotificationCenter.default.post(name: .hotkeySettingsChanged, object: nil)
+                }
+                .controlSize(.small)
+            }
+
+            Spacer()
         }
         .padding()
+        .id(refreshTrigger)
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 13, weight: .bold))
+    }
+
+    private func shortcutRow(action: HotkeyAction) -> some View {
+        HStack {
+            Text(action.label)
+                .frame(width: 160, alignment: .leading)
+
+            KeyRecorderButton(
+                action: action,
+                isRecording: recordingAction == action,
+                onStartRecording: {
+                    recordingAction = action
+                    conflictMessage = nil
+                },
+                onKeyRecorded: { keyCode, modifiers in
+                    // 競合チェック
+                    for other in HotkeyAction.allCases where other != action {
+                        if other.keyCode == keyCode && other.modifiers == modifiers {
+                            conflictMessage = "「\(other.label)」と同じキーです"
+                            recordingAction = nil
+                            return
+                        }
+                    }
+                    action.save(keyCode: keyCode, modifiers: modifiers)
+                    recordingAction = nil
+                    conflictMessage = nil
+                    refreshTrigger.toggle()
+                    NotificationCenter.default.post(name: .hotkeySettingsChanged, object: nil)
+                },
+                onCancel: {
+                    recordingAction = nil
+                }
+            )
+
+            if action.isCustomized {
+                Button(action: {
+                    action.resetToDefault()
+                    refreshTrigger.toggle()
+                    NotificationCenter.default.post(name: .hotkeySettingsChanged, object: nil)
+                }) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("デフォルトに戻す")
+            }
+
+            Spacer()
+        }
+    }
+}
+
+struct KeyRecorderButton: View {
+    let action: HotkeyAction
+    let isRecording: Bool
+    let onStartRecording: () -> Void
+    let onKeyRecorded: (UInt32, UInt32) -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        if isRecording {
+            KeyRecorderView(onKeyRecorded: onKeyRecorded, onCancel: onCancel)
+                .frame(width: 140, height: 24)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color.accentColor, lineWidth: 2)
+                )
+        } else {
+            Button(action: onStartRecording) {
+                Text(action.displayString)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundColor(.primary)
+                    .frame(width: 140, height: 24)
+                    .background(Color.secondary.opacity(0.15))
+                    .cornerRadius(4)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
+// NSViewRepresentableでキー入力をキャッチするビュー
+struct KeyRecorderView: NSViewRepresentable {
+    let onKeyRecorded: (UInt32, UInt32) -> Void
+    let onCancel: () -> Void
+
+    func makeNSView(context: Context) -> KeyRecorderNSView {
+        let view = KeyRecorderNSView()
+        view.onKeyRecorded = onKeyRecorded
+        view.onCancel = onCancel
+        DispatchQueue.main.async {
+            view.window?.makeFirstResponder(view)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: KeyRecorderNSView, context: Context) {}
+}
+
+class KeyRecorderNSView: NSView {
+    var onKeyRecorded: ((UInt32, UInt32) -> Void)?
+    var onCancel: (() -> Void)?
+    private var currentModifiers: UInt32 = 0
+    private let label = NSTextField(labelWithString: "キーを入力...")
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        label.font = NSFont.systemFont(ofSize: 12)
+        label.textColor = .secondaryLabelColor
+        label.alignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+            label.widthAnchor.constraint(equalTo: widthAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        // Escキーでキャンセル
+        if event.keyCode == 53 {
+            onCancel?()
+            return
+        }
+
+        let modifiers = UInt32(event.modifierFlags.intersection(.deviceIndependentFlagsMask).rawValue)
+
+        // 修飾キーが最低1つ必要
+        if modifiers == 0 {
+            label.stringValue = "修飾キー+キー"
+            return
+        }
+
+        onKeyRecorded?(UInt32(event.keyCode), modifiers)
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        currentModifiers = UInt32(event.modifierFlags.intersection(.deviceIndependentFlagsMask).rawValue)
+        if currentModifiers != 0 {
+            label.stringValue = HotkeyDisplayHelper.modifiersDisplayString(currentModifiers) + "..."
+        } else {
+            label.stringValue = "キーを入力..."
+        }
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        label.stringValue = "キーを入力..."
+        return true
+    }
+
+    override func resignFirstResponder() -> Bool {
+        onCancel?()
+        return true
     }
 }
 

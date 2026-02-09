@@ -166,32 +166,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupHotkeyHandlers() {
-        hotkeyManager.register(
-            keyCode: HotkeyConfig.fullScreenKeyCode,
-            modifiers: HotkeyConfig.modifiers
-        ) {
-            NotificationCenter.default.post(name: .captureFullScreen, object: nil)
-        }
+        registerAllHotkeys()
 
-        hotkeyManager.register(
-            keyCode: HotkeyConfig.regionKeyCode,
-            modifiers: HotkeyConfig.modifiers
-        ) {
-            NotificationCenter.default.post(name: .captureRegion, object: nil)
-        }
+        // 設定変更時に再登録
+        NotificationCenter.default.addObserver(self, selector: #selector(reregisterHotkeys), name: .hotkeySettingsChanged, object: nil)
+    }
 
-        hotkeyManager.register(
-            keyCode: HotkeyConfig.frameKeyCode,
-            modifiers: HotkeyConfig.modifiers
-        ) {
-            NotificationCenter.default.post(name: .showCaptureFrame, object: nil)
-        }
+    @objc private func reregisterHotkeys() {
+        hotkeyManager.removeAllHotkeys()
+        registerAllHotkeys()
+    }
 
-        hotkeyManager.register(
-            keyCode: HotkeyConfig.gifRecordingKeyCode,
-            modifiers: HotkeyConfig.modifiers
-        ) {
-            NotificationCenter.default.post(name: .startGifRecording, object: nil)
+    private func registerAllHotkeys() {
+        let actionMap: [(HotkeyAction, Notification.Name)] = [
+            (.fullScreen, .captureFullScreen),
+            (.region, .captureRegion),
+            (.frame, .showCaptureFrame),
+            (.gifRecording, .startGifRecording),
+            (.history, .showHistory),
+        ]
+
+        for (action, notificationName) in actionMap {
+            hotkeyManager.register(
+                keyCode: action.keyCode,
+                modifiers: action.modifiers
+            ) {
+                NotificationCenter.default.post(name: notificationName, object: nil)
+            }
         }
     }
 }

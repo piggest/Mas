@@ -50,7 +50,7 @@ struct MenuBarView: View {
                     .frame(width: 20)
                 Text("キャプチャ枠を表示")
                 Spacer()
-                Text("⌘⇧6")
+                Text(HotkeyAction.frame.displayString)
                     .foregroundColor(.secondary)
                     .font(.caption)
             }
@@ -88,6 +88,9 @@ struct MenuBarView: View {
                     .frame(width: 20)
                 Text("ライブラリ")
                 Spacer()
+                Text(HotkeyAction.history.displayString)
+                    .foregroundColor(.secondary)
+                    .font(.caption)
             }
             .padding(.horizontal)
             .padding(.vertical, 4)

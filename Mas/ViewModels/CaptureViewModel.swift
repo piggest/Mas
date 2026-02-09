@@ -86,6 +86,16 @@ class CaptureViewModel: ObservableObject {
             name: .startGifRecordingAtRegion,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleShowHistory),
+            name: .showHistory,
+            object: nil
+        )
+    }
+
+    @objc private func handleShowHistory() {
+        showHistoryWindow()
     }
 
     @objc private func handleEditorWindowClosed() {

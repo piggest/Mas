@@ -99,12 +99,116 @@ class HotkeyManager {
     }
 }
 
-struct HotkeyConfig {
-    static let fullScreenKeyCode: UInt32 = 20  // 3
-    static let regionKeyCode: UInt32 = 21      // 4
-    static let windowKeyCode: UInt32 = 23      // 5
-    static let frameKeyCode: UInt32 = 22       // 6 (Cmd+Shift+6)
-    static let gifRecordingKeyCode: UInt32 = 26  // 7 (Cmd+Shift+7)
+// ショートカットの識別キー
+enum HotkeyAction: String, CaseIterable {
+    case fullScreen = "fullScreen"
+    case region = "region"
+    case frame = "frame"
+    case gifRecording = "gifRecording"
+    case history = "history"
 
-    static let modifiers = UInt32(NSEvent.ModifierFlags.command.rawValue | NSEvent.ModifierFlags.shift.rawValue)
+    var label: String {
+        switch self {
+        case .fullScreen: return "全画面キャプチャ"
+        case .region: return "範囲選択キャプチャ"
+        case .frame: return "キャプチャ枠を表示"
+        case .gifRecording: return "GIF録画"
+        case .history: return "ライブラリ"
+        }
+    }
+
+    var defaultKeyCode: UInt32 {
+        switch self {
+        case .fullScreen: return 20   // 3
+        case .region: return 21       // 4
+        case .frame: return 22        // 6
+        case .gifRecording: return 26 // 7
+        case .history: return 37      // L
+        }
+    }
+
+    var defaultModifiers: UInt32 {
+        UInt32(NSEvent.ModifierFlags.command.rawValue | NSEvent.ModifierFlags.shift.rawValue)
+    }
+
+    private var userDefaultsKeyCodeKey: String { "hotkey.\(rawValue).keyCode" }
+    private var userDefaultsModifiersKey: String { "hotkey.\(rawValue).modifiers" }
+
+    var keyCode: UInt32 {
+        let stored = UserDefaults.standard.object(forKey: userDefaultsKeyCodeKey)
+        return stored != nil ? UInt32(UserDefaults.standard.integer(forKey: userDefaultsKeyCodeKey)) : defaultKeyCode
+    }
+
+    var modifiers: UInt32 {
+        let stored = UserDefaults.standard.object(forKey: userDefaultsModifiersKey)
+        return stored != nil ? UInt32(UserDefaults.standard.integer(forKey: userDefaultsModifiersKey)) : defaultModifiers
+    }
+
+    func save(keyCode: UInt32, modifiers: UInt32) {
+        UserDefaults.standard.set(Int(keyCode), forKey: userDefaultsKeyCodeKey)
+        UserDefaults.standard.set(Int(modifiers), forKey: userDefaultsModifiersKey)
+    }
+
+    func resetToDefault() {
+        UserDefaults.standard.removeObject(forKey: userDefaultsKeyCodeKey)
+        UserDefaults.standard.removeObject(forKey: userDefaultsModifiersKey)
+    }
+
+    var isCustomized: Bool {
+        UserDefaults.standard.object(forKey: userDefaultsKeyCodeKey) != nil
+    }
+
+    /// 表示用文字列（例: "⌘⇧3"）
+    var displayString: String {
+        HotkeyDisplayHelper.displayString(keyCode: keyCode, modifiers: modifiers)
+    }
+}
+
+struct HotkeyDisplayHelper {
+    static func displayString(keyCode: UInt32, modifiers: UInt32) -> String {
+        var result = ""
+        let flags = NSEvent.ModifierFlags(rawValue: UInt(modifiers))
+        if flags.contains(.control) { result += "⌃" }
+        if flags.contains(.option) { result += "⌥" }
+        if flags.contains(.shift) { result += "⇧" }
+        if flags.contains(.command) { result += "⌘" }
+        result += keyCodeToString(keyCode)
+        return result
+    }
+
+    static func modifiersDisplayString(_ modifiers: UInt32) -> String {
+        var result = ""
+        let flags = NSEvent.ModifierFlags(rawValue: UInt(modifiers))
+        if flags.contains(.control) { result += "⌃" }
+        if flags.contains(.option) { result += "⌥" }
+        if flags.contains(.shift) { result += "⇧" }
+        if flags.contains(.command) { result += "⌘" }
+        return result
+    }
+
+    static func keyCodeToString(_ keyCode: UInt32) -> String {
+        let mapping: [UInt32: String] = [
+            0: "A", 1: "S", 2: "D", 3: "F", 4: "H", 5: "G",
+            6: "Z", 7: "X", 8: "C", 9: "V", 11: "B", 12: "Q",
+            13: "W", 14: "E", 15: "R", 16: "Y", 17: "T",
+            18: "1", 19: "2", 20: "3", 21: "4", 22: "6", 23: "5",
+            24: "=", 25: "9", 26: "7", 27: "8", 28: "0", 29: "-",  // Note: 28 is 0 on keyboard but used as key 8 shortcut
+            30: "]", 31: "O", 32: "U", 33: "[", 34: "I", 35: "P",
+            37: "L", 38: "J", 39: "'", 40: "K", 41: ";", 42: "\\",
+            43: ",", 44: "/", 45: "N", 46: "M", 47: ".",
+            48: "Tab", 49: "Space", 50: "`",
+            51: "Delete", 53: "Esc",
+            96: "F5", 97: "F6", 98: "F7", 99: "F3", 100: "F8",
+            101: "F9", 103: "F11", 105: "F13", 107: "F14",
+            109: "F10", 111: "F12", 113: "F15", 115: "Home",
+            116: "PageUp", 117: "⌦", 118: "F4", 119: "End",
+            120: "F2", 121: "PageDown", 122: "F1",
+            123: "←", 124: "→", 125: "↓", 126: "↑",
+        ]
+        return mapping[keyCode] ?? "Key\(keyCode)"
+    }
+}
+
+extension Notification.Name {
+    static let hotkeySettingsChanged = Notification.Name("hotkeySettingsChanged")
 }

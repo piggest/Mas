@@ -15,11 +15,15 @@ enum CaptureMode: String, CaseIterable, Identifiable {
         }
     }
 
-    var shortcut: String {
+    var hotkeyAction: HotkeyAction? {
         switch self {
-        case .fullScreen: return "⌘⇧3"
-        case .region: return "⌘⇧4"
-        case .gifRecording: return "⌘⇧7"
+        case .fullScreen: return .fullScreen
+        case .region: return .region
+        case .gifRecording: return .gifRecording
         }
+    }
+
+    var shortcut: String {
+        hotkeyAction?.displayString ?? ""
     }
 }
