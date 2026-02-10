@@ -506,9 +506,11 @@ class CaptureViewModel: ObservableObject {
     }
 
     func openImageFromCLI(image: NSImage, filePath: String) {
+        let url = URL(fileURLWithPath: filePath)
         let screenshot = Screenshot(image: image, mode: .fullScreen)
-        screenshot.savedURL = URL(fileURLWithPath: filePath)
+        screenshot.savedURL = url
         currentScreenshot = screenshot
+        addToHistory(image: image, url: url)
         showEditorWindow(for: screenshot)
     }
 
@@ -525,7 +527,28 @@ class CaptureViewModel: ObservableObject {
         let screenshot = Screenshot(image: nsImage, mode: .fullScreen)
         screenshot.savedURL = url
         currentScreenshot = screenshot
+        addToHistory(image: nsImage, url: url)
         showEditorWindow(for: screenshot)
+    }
+
+    private func addToHistory(image: NSImage, url: URL) {
+        // 既に履歴にあればスキップ
+        guard !historyEntries.contains(where: { $0.filePath == url.path }) else { return }
+        let isGif = url.pathExtension.lowercased() == "gif"
+        let entry = ScreenshotHistoryEntry(
+            id: UUID(),
+            timestamp: Date(),
+            mode: isGif ? "GIF録画" : "開く",
+            filePath: url.path,
+            width: Int(image.size.width),
+            height: Int(image.size.height),
+            windowX: nil,
+            windowY: nil,
+            windowW: nil,
+            windowH: nil
+        )
+        historyService.addEntry(entry)
+        historyEntries = historyService.load()
     }
 
     private func showEditorWindow(for screenshot: Screenshot, at region: CGRect? = nil, showImageInitially: Bool = true, initialAnnotations: [any Annotation]? = nil) {
