@@ -74,6 +74,13 @@ struct HistoryWindow: View {
                     Text("\(selectedIDs.isEmpty ? "\(filteredEntries.count)件" : "\(selectedIDs.count)/\(filteredEntries.count)件選択")")
                         .font(.system(size: 11))
                         .foregroundColor(masuSub)
+                    Button(action: { openSaveFolder() }) {
+                        Image(systemName: "folder")
+                            .font(.system(size: 12))
+                            .foregroundColor(masuSub)
+                    }
+                    .buttonStyle(.plain)
+                    .help("保存フォルダを開く")
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
@@ -88,6 +95,21 @@ struct HistoryWindow: View {
                 } message: {
                     Text("選択した\(selectedIDs.count)件をライブラリから削除しますか？\nファイル自体は削除されません。")
                 }
+            }
+
+            if viewModel.historyEntries.isEmpty {
+                HStack {
+                    Spacer()
+                    Button(action: { openSaveFolder() }) {
+                        Image(systemName: "folder")
+                            .font(.system(size: 12))
+                            .foregroundColor(masuSub)
+                    }
+                    .buttonStyle(.plain)
+                    .help("保存フォルダを開く")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
             }
 
             if filteredEntries.isEmpty {
@@ -176,6 +198,17 @@ struct HistoryWindow: View {
         }
     }
 
+
+    private func openSaveFolder() {
+        let url = FileStorageService().getSaveFolder()
+        if FileManager.default.fileExists(atPath: url.path) {
+            NSWorkspace.shared.open(url)
+        } else {
+            // フォルダが存在しなければ作成してから開く
+            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            NSWorkspace.shared.open(url)
+        }
+    }
 
     private var emptyState: some View {
         VStack(spacing: 16) {
