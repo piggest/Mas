@@ -195,8 +195,9 @@ class GifPlayerToolbarController {
             if toolbarX + toolbarSize.width > screenFrame.maxX {
                 toolbarX = screenFrame.maxX - toolbarSize.width
             }
+            // 下端チェック（画面下端に粘りつく）
             if toolbarY < screenFrame.minY {
-                toolbarY = parentFrame.maxY - 4
+                toolbarY = screenFrame.minY
             }
             if toolbarY + toolbarSize.height > screenFrame.maxY {
                 toolbarY = screenFrame.maxY - toolbarSize.height

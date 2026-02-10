@@ -131,14 +131,26 @@ class RecordingControlWindowController {
 
         // CG座標（左上原点）→ NS座標（左下原点）に変換して上側に配置
         var panelY = primaryHeight - region.origin.y + gap
-        // 画面上部に余裕がなければ下側に配置
+        // 画面端にclamp
         let targetScreen = NSScreen.screenContaining(cgRect: region)
-        let screenTop = targetScreen?.visibleFrame.maxY ?? primaryHeight
-        if panelY + controlHeight > screenTop {
-            panelY = primaryHeight - (region.origin.y + region.height) - controlHeight - gap
+        let screenFrame = targetScreen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+        if panelY + controlHeight > screenFrame.maxY {
+            panelY = screenFrame.maxY - controlHeight
+        }
+        if panelY < screenFrame.minY {
+            panelY = screenFrame.minY
         }
 
-        panel.setFrame(NSRect(x: centerX, y: panelY, width: controlWidth, height: controlHeight), display: true)
+        // 左右端もclamp
+        var panelX = centerX
+        if panelX < screenFrame.minX {
+            panelX = screenFrame.minX
+        }
+        if panelX + controlWidth > screenFrame.maxX {
+            panelX = screenFrame.maxX - controlWidth
+        }
+
+        panel.setFrame(NSRect(x: panelX, y: panelY, width: controlWidth, height: controlHeight), display: true)
 
         let controller = NSWindowController(window: panel)
         self.windowController = controller

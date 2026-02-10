@@ -475,6 +475,9 @@ struct EditorWindow: View {
                 },
                 onDelete: {
                     self.deleteSelectedAnnotation()
+                },
+                onClose: {
+                    self.editMode = false
                 }
             )
         }

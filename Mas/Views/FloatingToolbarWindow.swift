@@ -71,12 +71,14 @@ class FloatingToolbarWindowController {
 
     private var onDelete: (() -> Void)?
     private var onUndo: (() -> Void)?
+    private var onClose: (() -> Void)?
 
-    func show(attachedTo parent: NSWindow, state: ToolboxState, onUndo: @escaping () -> Void, onDelete: @escaping () -> Void = {}) {
+    func show(attachedTo parent: NSWindow, state: ToolboxState, onUndo: @escaping () -> Void, onDelete: @escaping () -> Void = {}, onClose: @escaping () -> Void = {}) {
         parentWindow = parent
         originalState = state
         self.onDelete = onDelete
         self.onUndo = onUndo
+        self.onClose = onClose
 
         // 元の状態から初期値をコピー
         toolbarState.syncFrom(state)
@@ -241,6 +243,7 @@ class FloatingToolbarWindowController {
             state: toolbarState,
             onUndo: { [weak self] in self?.onUndo?() },
             onDelete: { [weak self] in self?.onDelete?() },
+            onClose: { [weak self] in self?.onClose?() },
             onLineWidthChanged: { [weak self] newValue in
                 self?.originalState?.lineWidth = newValue
             }
@@ -300,9 +303,9 @@ class FloatingToolbarWindowController {
             if toolbarX + toolbarWidth > screenFrame.maxX {
                 toolbarX = screenFrame.maxX - toolbarWidth
             }
-            // 下端チェック（画面下にはみ出す場合は親ウィンドウの上に配置）
+            // 下端チェック（画面下端に粘りつく）
             if toolbarY < screenFrame.minY {
-                toolbarY = parentFrame.maxY - 4
+                toolbarY = screenFrame.minY
             }
             // 上端チェック
             if toolbarY + toolbarHeight > screenFrame.maxY {
@@ -472,6 +475,7 @@ struct FloatingToolbarViewIndependent: View {
     @ObservedObject var state: FloatingToolbarState
     let onUndo: () -> Void
     let onDelete: () -> Void
+    let onClose: () -> Void
     var onLineWidthChanged: ((CGFloat) -> Void)?
 
     private let buttonSize: CGFloat = 28
@@ -485,6 +489,7 @@ struct FloatingToolbarViewIndependent: View {
             toolsSection
             optionsSection
             actionSection
+            closeSection
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -623,6 +628,26 @@ struct FloatingToolbarViewIndependent: View {
                 .help("取消")
             }
         }
+    }
+
+    @ViewBuilder
+    private var closeSection: some View {
+        // 区切り
+        Circle()
+            .fill(Color.gray.opacity(0.3))
+            .frame(width: 4, height: 4)
+            .padding(.horizontal, 4)
+
+        Button(action: onClose) {
+            Image(systemName: "xmark")
+                .font(.system(size: iconSize, weight: .medium))
+                .foregroundColor(.secondary)
+                .frame(width: buttonSize, height: buttonSize)
+                .background(Color.white.opacity(0.9))
+                .clipShape(Circle())
+        }
+        .buttonStyle(NoHighlightButtonStyle())
+        .help("閉じる")
     }
 
     private func circleToolButton(for tool: EditTool, index: Int) -> some View {
