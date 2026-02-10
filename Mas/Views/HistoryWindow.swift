@@ -14,15 +14,27 @@ struct HistoryWindow: View {
     @ObservedObject var viewModel: CaptureViewModel
     @State private var isWindowActive = true
     @State private var showFavoritesOnly = false
+    @State private var selectedCategory: String? = nil
     @State private var selectedIDs: Set<UUID> = []
     @State private var lastSelectedID: UUID?
     @State private var showBulkDeleteConfirm = false
+    @State private var showNewCategoryInput = false
+    @State private var newCategoryName = ""
+    @State private var pendingCategoryTargetIDs: Set<UUID> = []
 
     private var filteredEntries: [ScreenshotHistoryEntry] {
+        var entries = viewModel.historyEntries
         if showFavoritesOnly {
-            return viewModel.historyEntries.filter { $0.isFavorite == true }
+            entries = entries.filter { $0.isFavorite == true }
         }
-        return viewModel.historyEntries
+        if let category = selectedCategory {
+            if category == "__uncategorized__" {
+                entries = entries.filter { $0.category == nil }
+            } else {
+                entries = entries.filter { $0.category == category }
+            }
+        }
+        return entries
     }
 
     var body: some View {
@@ -45,6 +57,9 @@ struct HistoryWindow: View {
                             .cornerRadius(4)
                         }
                         .buttonStyle(.plain)
+
+                        // カテゴリフィルタメニュー
+                        categoryFilterMenu
                     } else {
                         Button(action: { selectedIDs.removeAll() }) {
                             Text("選択解除")
@@ -69,6 +84,9 @@ struct HistoryWindow: View {
                             .cornerRadius(4)
                         }
                         .buttonStyle(.plain)
+
+                        // 一括カテゴリ設定メニュー
+                        bulkCategoryMenu
                     }
                     Spacer()
                     Text("\(selectedIDs.isEmpty ? "\(filteredEntries.count)件" : "\(selectedIDs.count)/\(filteredEntries.count)件選択")")
@@ -124,6 +142,17 @@ struct HistoryWindow: View {
                             .foregroundColor(masuText)
                         Spacer()
                     }
+                } else if selectedCategory != nil {
+                    VStack(spacing: 10) {
+                        Spacer()
+                        Image(systemName: "tag")
+                            .font(.system(size: 36))
+                            .foregroundColor(masuEdge)
+                        Text("該当するエントリはありません")
+                            .font(.body)
+                            .foregroundColor(masuText)
+                        Spacer()
+                    }
                 } else {
                     emptyState
                 }
@@ -135,7 +164,7 @@ struct HistoryWindow: View {
                                 info.screenshot.savedURL?.path == entry.filePath
                             }
                             let isSelected = selectedIDs.contains(entry.id)
-                            HistoryEntryRow(entry: entry, isOpen: windowInfo != nil, isPinned: windowInfo?.windowController.window?.level == .floating, isSelected: isSelected, hasSelection: !selectedIDs.isEmpty, onFavorite: {
+                            HistoryEntryRow(entry: entry, isOpen: windowInfo != nil, isPinned: windowInfo?.windowController.window?.level == .floating, isSelected: isSelected, hasSelection: !selectedIDs.isEmpty, categories: viewModel.getCategories(), onFavorite: {
                                 viewModel.toggleFavorite(id: entry.id)
                             }, onTap: {
                                 if let info = windowInfo {
@@ -153,6 +182,12 @@ struct HistoryWindow: View {
                                     viewModel.objectWillChange.send()
                                     NotificationCenter.default.post(name: .windowPinChanged, object: window)
                                 }
+                            }, onSetCategory: { category in
+                                viewModel.setCategory(id: entry.id, category: category)
+                            }, onNewCategory: {
+                                pendingCategoryTargetIDs = [entry.id]
+                                newCategoryName = ""
+                                showNewCategoryInput = true
                             }, onCommandTap: {
                                 if selectedIDs.contains(entry.id) {
                                     selectedIDs.remove(entry.id)
@@ -196,8 +231,118 @@ struct HistoryWindow: View {
                 isWindowActive = false
             }
         }
+        .alert("新規カテゴリ", isPresented: $showNewCategoryInput) {
+            TextField("カテゴリ名", text: $newCategoryName)
+            Button("追加") {
+                let name = newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !name.isEmpty else { return }
+                for id in pendingCategoryTargetIDs {
+                    viewModel.setCategory(id: id, category: name)
+                }
+                pendingCategoryTargetIDs.removeAll()
+            }
+            Button("キャンセル", role: .cancel) {
+                pendingCategoryTargetIDs.removeAll()
+            }
+        } message: {
+            Text("新しいカテゴリ名を入力してください")
+        }
     }
 
+    // MARK: - カテゴリフィルタメニュー
+
+    private var categoryFilterMenu: some View {
+        Menu {
+            Button(action: { selectedCategory = nil }) {
+                if selectedCategory == nil {
+                    Label("すべて", systemImage: "checkmark")
+                } else {
+                    Text("すべて")
+                }
+            }
+            Divider()
+            let categories = viewModel.getCategories()
+            ForEach(categories, id: \.self) { cat in
+                Button(action: { selectedCategory = cat }) {
+                    if selectedCategory == cat {
+                        Label(cat, systemImage: "checkmark")
+                    } else {
+                        Text(cat)
+                    }
+                }
+            }
+            if !categories.isEmpty {
+                Divider()
+            }
+            Button(action: { selectedCategory = "__uncategorized__" }) {
+                if selectedCategory == "__uncategorized__" {
+                    Label("未分類", systemImage: "checkmark")
+                } else {
+                    Text("未分類")
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "tag")
+                    .font(.system(size: 11))
+                if let cat = selectedCategory {
+                    Text(cat == "__uncategorized__" ? "未分類" : cat)
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(1)
+                }
+            }
+            .foregroundColor(selectedCategory != nil ? masuBorder : masuSub)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(selectedCategory != nil ? masuBorder.opacity(0.15) : Color.clear)
+            .cornerRadius(4)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
+
+    // MARK: - 一括カテゴリ設定メニュー
+
+    private var bulkCategoryMenu: some View {
+        Menu {
+            let categories = viewModel.getCategories()
+            ForEach(categories, id: \.self) { cat in
+                Button(cat) {
+                    for id in selectedIDs {
+                        viewModel.setCategory(id: id, category: cat)
+                    }
+                }
+            }
+            if !categories.isEmpty {
+                Divider()
+            }
+            Button("新規カテゴリ…") {
+                pendingCategoryTargetIDs = selectedIDs
+                newCategoryName = ""
+                showNewCategoryInput = true
+            }
+            Divider()
+            Button("カテゴリを外す") {
+                for id in selectedIDs {
+                    viewModel.setCategory(id: id, category: nil)
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "tag")
+                    .font(.system(size: 11))
+                Text("カテゴリ")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundColor(masuSub)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(masuBorder.opacity(0.15))
+            .cornerRadius(4)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
 
     private func openSaveFolder() {
         let url = FileStorageService().getSaveFolder()
@@ -253,11 +398,14 @@ struct HistoryEntryRow: View {
     var isPinned: Bool = false
     var isSelected: Bool = false
     var hasSelection: Bool = false
+    var categories: [String] = []
     var onFavorite: (() -> Void)?
     let onTap: () -> Void
     let onDelete: () -> Void
     var onFlash: (() -> Void)?
     var onTogglePin: (() -> Void)?
+    var onSetCategory: ((String?) -> Void)?
+    var onNewCategory: (() -> Void)?
     var onCommandTap: (() -> Void)?
     var onShiftTap: (() -> Void)?
 
@@ -318,9 +466,20 @@ struct HistoryEntryRow: View {
                     }
                 }
 
-                Text(formattedDate)
-                    .font(.system(size: 11))
-                    .foregroundColor(masuSub)
+                HStack(spacing: 6) {
+                    Text(formattedDate)
+                        .font(.system(size: 11))
+                        .foregroundColor(masuSub)
+                    if let category = entry.category {
+                        Text(category)
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(masuEdge)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(masuBorder.opacity(0.2))
+                            .cornerRadius(3)
+                    }
+                }
 
                 Text("\(entry.width) × \(entry.height)")
                     .font(.system(size: 11))
@@ -405,6 +564,26 @@ struct HistoryEntryRow: View {
         .contextMenu {
             Button("エディタで開く") { onTap() }
             Button("Finderで表示") { showInFinder() }
+            Divider()
+            Menu("カテゴリ設定") {
+                ForEach(categories, id: \.self) { cat in
+                    Button(action: { onSetCategory?(cat) }) {
+                        if entry.category == cat {
+                            Label(cat, systemImage: "checkmark")
+                        } else {
+                            Text(cat)
+                        }
+                    }
+                }
+                if !categories.isEmpty {
+                    Divider()
+                }
+                Button("新規カテゴリ…") { onNewCategory?() }
+                if entry.category != nil {
+                    Divider()
+                    Button("カテゴリを外す") { onSetCategory?(nil) }
+                }
+            }
             Divider()
             Button("ライブラリから削除", role: .destructive) { onDelete() }
         }

@@ -808,6 +808,15 @@ class CaptureViewModel: ObservableObject {
         historyEntries = historyService.load()
     }
 
+    func setCategory(id: UUID, category: String?) {
+        historyService.setCategory(id: id, category: category)
+        historyEntries = historyService.load()
+    }
+
+    func getCategories() -> [String] {
+        return historyService.getCategories()
+    }
+
     private func saveAnnotationsToHistory(for screenshot: Screenshot, annotations: [any Annotation]) {
         guard let filePath = screenshot.savedURL?.path else { return }
 

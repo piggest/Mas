@@ -70,6 +70,19 @@ class HistoryService {
         save(entries)
     }
 
+    func setCategory(id: UUID, category: String?) {
+        var entries = load()
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        entries[index].category = category
+        save(entries)
+    }
+
+    func getCategories() -> [String] {
+        let entries = load()
+        let categories = Set(entries.compactMap { $0.category })
+        return categories.sorted()
+    }
+
     // MARK: - アノテーション（個別ファイル管理）
 
     private func annotationFileURL(id: UUID) -> URL {

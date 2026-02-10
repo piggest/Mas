@@ -14,6 +14,7 @@ struct ScreenshotHistoryEntry: Codable, Identifiable {
     var baseFilePath: String?               // アノテーション適用前の元画像パス
     var hasAnnotations: Bool?               // アノテーションデータが存在するか
     var isFavorite: Bool?                   // お気に入り
+    var category: String?                    // カテゴリ（タグ）
 
     var fileExists: Bool {
         FileManager.default.fileExists(atPath: filePath)
