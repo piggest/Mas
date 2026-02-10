@@ -15,6 +15,7 @@ struct HistoryWindow: View {
     @State private var isWindowActive = true
     @State private var showFavoritesOnly = false
     @State private var selectedIDs: Set<UUID> = []
+    @State private var lastSelectedID: UUID?
     @State private var showBulkDeleteConfirm = false
 
     private var filteredEntries: [ScreenshotHistoryEntry] {
@@ -136,6 +137,24 @@ struct HistoryWindow: View {
                                 } else {
                                     selectedIDs.insert(entry.id)
                                 }
+                                lastSelectedID = entry.id
+                            }, onShiftTap: {
+                                guard let lastID = lastSelectedID else {
+                                    selectedIDs.insert(entry.id)
+                                    lastSelectedID = entry.id
+                                    return
+                                }
+                                let entries = filteredEntries
+                                guard let lastIndex = entries.firstIndex(where: { $0.id == lastID }),
+                                      let currentIndex = entries.firstIndex(where: { $0.id == entry.id }) else {
+                                    selectedIDs.insert(entry.id)
+                                    lastSelectedID = entry.id
+                                    return
+                                }
+                                let range = min(lastIndex, currentIndex)...max(lastIndex, currentIndex)
+                                for i in range {
+                                    selectedIDs.insert(entries[i].id)
+                                }
                             })
                         }
                     }
@@ -159,20 +178,39 @@ struct HistoryWindow: View {
 
 
     private var emptyState: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 16) {
             Spacer()
             Image(systemName: "photo.on.rectangle.angled")
-                .font(.system(size: 36))
-                .foregroundColor(masuEdge)
+                .font(.system(size: 48))
+                .foregroundColor(masuEdge.opacity(0.6))
             Text("ライブラリは空です")
-                .font(.body)
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(masuText)
             Text("スクリーンショットを撮影すると\nここに表示されます")
-                .font(.caption)
+                .font(.system(size: 13))
                 .foregroundColor(masuSub)
                 .multilineTextAlignment(.center)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Label("⌘ + Shift + 3 — 全画面", systemImage: "display")
+                Label("⌘ + Shift + 4 — 範囲選択", systemImage: "crop")
+                Label("⌘ + Shift + 5 — 枠を表示", systemImage: "rectangle.dashed")
+            }
+            .font(.system(size: 11))
+            .foregroundColor(masuSub.opacity(0.8))
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(masuInner.opacity(0.6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(masuBorder.opacity(0.3), lineWidth: 1)
+                    )
+            )
             Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 24)
     }
 }
 
@@ -188,6 +226,7 @@ struct HistoryEntryRow: View {
     var onFlash: (() -> Void)?
     var onTogglePin: (() -> Void)?
     var onCommandTap: (() -> Void)?
+    var onShiftTap: (() -> Void)?
 
     @State private var thumbnail: NSImage?
     @State private var isHovering = false
@@ -313,6 +352,11 @@ struct HistoryEntryRow: View {
         .onHover { hovering in
             isHovering = hovering
         }
+        .simultaneousGesture(
+            TapGesture().modifiers(.shift).onEnded {
+                onShiftTap?()
+            }
+        )
         .simultaneousGesture(
             TapGesture().modifiers(.command).onEnded {
                 onCommandTap?()

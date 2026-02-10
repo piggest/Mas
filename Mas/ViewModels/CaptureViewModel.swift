@@ -298,17 +298,19 @@ class CaptureViewModel: ObservableObject {
     }
 
     // 再キャプチャ機能（現在のウィンドウ位置で）
-    func recaptureRegion(for screenshot: Screenshot, at region: CGRect, window: NSWindow?) async {
-        // ウィンドウを一時的に隠す
-        window?.orderOut(nil)
+    func recaptureRegion(for screenshot: Screenshot, at region: CGRect, window: NSWindow?, hideWindow: Bool = true) async {
+        if hideWindow {
+            // ウィンドウを一時的に隠す
+            window?.orderOut(nil)
 
-        // 少し待つ
-        try? await Task.sleep(nanoseconds: 200_000_000)
+            // 少し待つ
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
 
         do {
             // regionが属するスクリーンを特定してキャプチャ
             guard let screen = NSScreen.screenContaining(cgRect: region) else {
-                window?.makeKeyAndOrderFront(nil)
+                if hideWindow { window?.makeKeyAndOrderFront(nil) }
                 return
             }
 
@@ -330,7 +332,7 @@ class CaptureViewModel: ObservableObject {
             let clampedRect = scaledRect.intersection(CGRect(x: 0, y: 0, width: imageWidth, height: imageHeight))
 
             guard !clampedRect.isEmpty, let croppedImage = fullScreenImage.cropping(to: clampedRect) else {
-                window?.makeKeyAndOrderFront(nil)
+                if hideWindow { window?.makeKeyAndOrderFront(nil) }
                 return
             }
 
@@ -358,10 +360,10 @@ class CaptureViewModel: ObservableObject {
             objectWillChange.send()
 
             // ウィンドウを再表示
-            window?.makeKeyAndOrderFront(nil)
+            if hideWindow { window?.makeKeyAndOrderFront(nil) }
         } catch {
             print("Recapture error: \(error)")
-            window?.makeKeyAndOrderFront(nil)
+            if hideWindow { window?.makeKeyAndOrderFront(nil) }
         }
     }
 
@@ -564,10 +566,10 @@ class CaptureViewModel: ObservableObject {
         // PassThroughContainerViewを先に作成
         let containerView = PassThroughContainerView()
 
-        let editorView = EditorWindow(screenshot: screenshot, resizeState: window.resizeState, toolboxState: toolboxState, parentWindow: window, onRecapture: { [weak self] rect, sourceWindow in
+        let editorView = EditorWindow(screenshot: screenshot, resizeState: window.resizeState, toolboxState: toolboxState, parentWindow: window, onRecapture: { [weak self] rect, sourceWindow, hideWindow in
             guard let self = self else { return }
             Task {
-                await self.recaptureRegion(for: screenshot, at: rect, window: sourceWindow)
+                await self.recaptureRegion(for: screenshot, at: rect, window: sourceWindow, hideWindow: hideWindow)
             }
         }, onPassThroughChanged: { [weak window, weak containerView] enabled in
             containerView?.passThroughEnabled = enabled
@@ -903,13 +905,22 @@ class CaptureViewModel: ObservableObject {
         window.minSize = NSSize(width: 400, height: 300)
 
         // 保存された位置を復元、なければ右上に配置
+        let defaultWidth: CGFloat = 400
+        let defaultHeight: CGFloat = 480
         if let frameStr = UserDefaults.standard.string(forKey: "libraryWindowFrame") {
-            window.setFrame(NSRectFromString(frameStr), display: true)
+            let savedFrame = NSRectFromString(frameStr)
+            // アスペクト比が極端（高さが幅の2.5倍以上）なら幅を保持して高さをリセット
+            if savedFrame.height > savedFrame.width * 2.5 {
+                let corrected = NSRect(x: savedFrame.origin.x, y: savedFrame.origin.y + savedFrame.height - defaultHeight, width: max(savedFrame.width, defaultWidth), height: defaultHeight)
+                window.setFrame(corrected, display: true)
+            } else {
+                window.setFrame(savedFrame, display: true)
+            }
         } else {
             let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
-            let x = screenFrame.maxX - 400 - 20
-            let y = screenFrame.maxY - 480 - 20
-            window.setFrame(NSRect(x: x, y: y, width: 400, height: 480), display: true)
+            let x = screenFrame.maxX - defaultWidth - 20
+            let y = screenFrame.maxY - defaultHeight - 20
+            window.setFrame(NSRect(x: x, y: y, width: defaultWidth, height: defaultHeight), display: true)
         }
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden

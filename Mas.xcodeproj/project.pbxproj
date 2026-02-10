@@ -47,6 +47,8 @@
 		GIFPLYST01BUILD = {isa = PBXBuildFile; fileRef = GIFPLYST01FILEREF; };
 		GIFPLTB01BUILD = {isa = PBXBuildFile; fileRef = GIFPLTB01FILEREF; };
 		UPDSVC001BUILD = {isa = PBXBuildFile; fileRef = UPDSVC001FILEREF; };
+		SHUTSVC01BUILD = {isa = PBXBuildFile; fileRef = SHUTSVC01FILEREF; };
+		SHUTOPT01BUILD = {isa = PBXBuildFile; fileRef = SHUTOPT01FILEREF; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -93,6 +95,8 @@
 		GIFPLYST01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifPlayerState.swift; sourceTree = "<group>"; };
 		GIFPLTB01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifPlayerToolbar.swift; sourceTree = "<group>"; };
 		UPDSVC001FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
+		SHUTSVC01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShutterService.swift; sourceTree = "<group>"; };
+		SHUTOPT01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShutterOptionsPanel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -110,6 +114,7 @@
 				RECCTRLW01FILEREF /* RecordingControlWindow.swift */,
 				9AADE98A628BFE59D34AF3B4 /* RegionSelectionOverlay.swift */,
 				62FF5E8583862D4BA967A830 /* SettingsWindow.swift */,
+				SHUTOPT01FILEREF /* ShutterOptionsPanel.swift */,
 				13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */,
 				43B2464390781288C89F5D7F /* FloatingToolbarWindow.swift */,
 			);
@@ -187,6 +192,7 @@
 				HISTSVC001FILEREF /* HistoryService.swift */,
 				002A68B3D208C945FEA1D830 /* PermissionService.swift */,
 				357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */,
+				SHUTSVC01FILEREF /* ShutterService.swift */,
 				TXTRECOG01FILEREF /* TextRecognitionService.swift */,
 				UPDSVC001FILEREF /* UpdateService.swift */,
 			);
@@ -318,6 +324,8 @@
 				GIFPLYST01BUILD /* GifPlayerState.swift in Sources */,
 				GIFPLTB01BUILD /* GifPlayerToolbar.swift in Sources */,
 				UPDSVC001BUILD /* UpdateService.swift in Sources */,
+				SHUTSVC01BUILD /* ShutterService.swift in Sources */,
+				SHUTOPT01BUILD /* ShutterOptionsPanel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

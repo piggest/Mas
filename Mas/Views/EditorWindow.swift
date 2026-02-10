@@ -235,12 +235,15 @@ struct EditorWindow: View {
     @State private var gifPlayerState: GifPlayerState?
     @State private var gifToolbarController: GifPlayerToolbarController?
 
-    let onRecapture: ((CGRect, NSWindow?) -> Void)?
+    // シャッターオプション
+    @State private var shutterPanelController: ShutterOptionsPanelController?
+
+    let onRecapture: ((CGRect, NSWindow?, Bool) -> Void)?
     let onPassThroughChanged: ((Bool) -> Void)?
     let onAnnotationsSaved: (([any Annotation]) -> Void)?
     weak var parentWindow: NSWindow?
 
-    init(screenshot: Screenshot, resizeState: WindowResizeState, toolboxState: ToolboxState, parentWindow: NSWindow? = nil, onRecapture: ((CGRect, NSWindow?) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil, onAnnotationsSaved: (([any Annotation]) -> Void)? = nil, showImageInitially: Bool = true) {
+    init(screenshot: Screenshot, resizeState: WindowResizeState, toolboxState: ToolboxState, parentWindow: NSWindow? = nil, onRecapture: ((CGRect, NSWindow?, Bool) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil, onAnnotationsSaved: (([any Annotation]) -> Void)? = nil, showImageInitially: Bool = true) {
         _viewModel = StateObject(wrappedValue: EditorViewModel(screenshot: screenshot))
         self.screenshot = screenshot
         self.resizeState = resizeState
@@ -303,6 +306,10 @@ struct EditorWindow: View {
             Button("閉じる") { closeWindow() }
             Divider()
             Button("クリップボードにコピー") { copyToClipboard() }
+            if screenshot.captureRegion != nil {
+                Divider()
+                Button("シャッターオプション") { toggleShutterPanel() }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .windowPinChanged)) { notification in
             if let window = notification.object as? NSWindow, window === parentWindow {
@@ -333,6 +340,8 @@ struct EditorWindow: View {
             toolbarController?.close()
             gifPlayerState?.pause()
             gifToolbarController?.close()
+            shutterPanelController?.close()
+            shutterPanelController = nil
         }
         .onChange(of: editMode) { newValue in
             if newValue {
@@ -975,7 +984,7 @@ struct EditorWindow: View {
             gifPlayerState = nil
             gifToolbarController?.close()
             gifToolbarController = nil
-            onRecapture?(rect, parentWindow)
+            onRecapture?(rect, parentWindow, true)
             showImage = true
             if passThroughEnabled {
                 passThroughEnabled = false
@@ -1563,8 +1572,39 @@ struct EditorWindow: View {
         }
         toolboxState.annotations.removeAll()
         toolbarController?.close()
+        shutterPanelController?.close()
+        shutterPanelController = nil
         parentWindow?.close()
         NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
+    }
+
+    private func toggleShutterPanel() {
+        guard let window = parentWindow else { return }
+        if let controller = shutterPanelController {
+            controller.close()
+            shutterPanelController = nil
+        } else {
+            let controller = ShutterOptionsPanelController()
+            controller.show(attachedTo: window, screenshot: screenshot) { [self] rect, parentWin in
+                // GIFプレーヤーをクリア
+                gifPlayerState?.pause()
+                gifPlayerState = nil
+                gifToolbarController?.close()
+                gifToolbarController = nil
+                onRecapture?(rect, parentWin, false)
+                // 変化検知モード: 画像を非表示にして背後の変化が見えるようにする
+                if shutterPanelController?.shutterService.activeMode == .changeDetection {
+                    showImage = false
+                } else {
+                    showImage = true
+                }
+                if passThroughEnabled {
+                    passThroughEnabled = false
+                    updatePassThrough()
+                }
+            }
+            shutterPanelController = controller
+        }
     }
 
     // MARK: - テキスト選択（OCR）
