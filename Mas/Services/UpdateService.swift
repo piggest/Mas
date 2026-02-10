@@ -27,7 +27,7 @@ class UpdateService: ObservableObject {
 
     // MARK: - Public
 
-    func checkForUpdate() async {
+    func checkForUpdate(autoInstall: Bool = false) async {
         status = .checking
         do {
             guard let release = try await fetchLatestRelease() else {
@@ -38,7 +38,15 @@ class UpdateService: ObservableObject {
             let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
             if isNewer(release.tagName, than: currentVersion) {
                 latestDownloadURL = release.dmgURL
-                status = .available(version: release.tagName)
+                if autoInstall {
+                    status = .available(version: release.tagName)
+                    await downloadAndInstall()
+                    if case .readyToRestart = status {
+                        restart()
+                    }
+                } else {
+                    status = .available(version: release.tagName)
+                }
             } else {
                 status = .upToDate
             }
@@ -86,7 +94,7 @@ class UpdateService: ObservableObject {
             // 起動30秒後に初回チェック
             try? await Task.sleep(nanoseconds: 30_000_000_000)
             if Task.isCancelled { return }
-            await checkForUpdate()
+            await checkForUpdate(autoInstall: true)
 
             // 以降4時間ごと
             while !Task.isCancelled {
@@ -94,7 +102,7 @@ class UpdateService: ObservableObject {
                 if Task.isCancelled { return }
                 let enabled = UserDefaults.standard.bool(forKey: "autoUpdateEnabled")
                 if enabled {
-                    await checkForUpdate()
+                    await checkForUpdate(autoInstall: true)
                 }
             }
         }
@@ -217,10 +225,12 @@ class UpdateService: ObservableObject {
             DispatchQueue.global(qos: .userInitiated).async {
                 let process = Process()
                 process.launchPath = "/usr/bin/hdiutil"
-                process.arguments = ["attach", path.path, "-nobrowse", "-quiet", "-mountrandom", "/tmp"]
+                process.arguments = ["attach", path.path, "-nobrowse", "-plist", "-mountrandom", "/tmp"]
 
                 let pipe = Pipe()
                 process.standardOutput = pipe
+                let errPipe = Pipe()
+                process.standardError = errPipe
 
                 do {
                     try process.run()
@@ -228,12 +238,15 @@ class UpdateService: ObservableObject {
 
                     if process.terminationStatus == 0 {
                         let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                        let output = String(data: data, encoding: .utf8) ?? ""
-                        // hdiutil出力の最後の行からマウントポイントを取得
-                        let lines = output.components(separatedBy: "\n")
-                        if let lastLine = lines.last(where: { !$0.isEmpty }),
-                           let mountPoint = lastLine.components(separatedBy: "\t").last?.trimmingCharacters(in: .whitespaces) {
-                            continuation.resume(returning: URL(fileURLWithPath: mountPoint))
+                        // plist出力からマウントポイントを取得
+                        if let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+                           let entities = plist["system-entities"] as? [[String: Any]] {
+                            let mountPoint = entities.compactMap { $0["mount-point"] as? String }.first
+                            if let mountPoint = mountPoint {
+                                continuation.resume(returning: URL(fileURLWithPath: mountPoint))
+                            } else {
+                                continuation.resume(throwing: UpdateError.mountFailed)
+                            }
                         } else {
                             continuation.resume(throwing: UpdateError.mountFailed)
                         }
