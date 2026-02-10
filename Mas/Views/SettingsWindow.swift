@@ -27,7 +27,7 @@ struct SettingsWindow: View {
                     Label("情報", systemImage: "info.circle")
                 }
         }
-        .frame(width: 450, height: 380)
+        .frame(width: 520, height: 480)
     }
 }
 
@@ -45,83 +45,92 @@ struct GeneralSettingsView: View {
     @State private var displayPath = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionHeader("キャプチャ")
-            VStack(alignment: .leading, spacing: 8) {
-                settingRow("クリップボードにコピー") {
-                    Toggle("", isOn: $autoCopyToClipboard).labelsHidden()
-                }
-                settingRow("ファイルに保存") {
-                    Toggle("", isOn: $autoSaveEnabled).labelsHidden()
-                }
-                if autoSaveEnabled {
-                    settingRow("保存先") {
-                        HStack {
-                            Text(displayPath.isEmpty ? "~/Pictures/Mas" : displayPath)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            Button("変更...") { selectFolder() }
-                                .controlSize(.small)
-                        }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                sectionHeader("キャプチャ")
+                VStack(alignment: .leading, spacing: 8) {
+                    settingRow("クリップボードにコピー") {
+                        Toggle("", isOn: $autoCopyToClipboard).labelsHidden()
                     }
-                    settingRow("保存形式") {
-                        Picker("", selection: $defaultFormat) {
-                            Text("PNG").tag("PNG")
-                            Text("JPEG").tag("JPEG")
-                        }
-                        .labelsHidden()
-                        .frame(width: 100)
+                    settingRow("ファイルに保存") {
+                        Toggle("", isOn: $autoSaveEnabled).labelsHidden()
                     }
-                    if defaultFormat == "JPEG" {
-                        settingRow("JPEG品質") {
+                    if autoSaveEnabled {
+                        settingRow("保存先") {
                             HStack {
-                                Slider(value: $jpegQuality, in: 0.1...1.0, step: 0.1)
-                                Text("\(Int(jpegQuality * 100))%")
-                                    .monospacedDigit()
-                                    .frame(width: 36, alignment: .trailing)
+                                Text(displayPath.isEmpty ? "~/Pictures/Mas" : displayPath)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Button("変更...") { selectFolder() }
+                                    .controlSize(.small)
+                            }
+                        }
+                        settingRow("保存形式") {
+                            Picker("", selection: $defaultFormat) {
+                                Text("PNG").tag("PNG")
+                                Text("JPEG").tag("JPEG")
+                            }
+                            .labelsHidden()
+                            .frame(width: 100)
+                        }
+                        if defaultFormat == "JPEG" {
+                            settingRow("JPEG品質") {
+                                HStack {
+                                    Slider(value: $jpegQuality, in: 0.1...1.0, step: 0.1)
+                                    Text("\(Int(jpegQuality * 100))%")
+                                        .monospacedDigit()
+                                        .frame(width: 36, alignment: .trailing)
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            Divider()
+                Divider()
 
-            sectionHeader("ウィンドウ")
-            VStack(alignment: .leading, spacing: 8) {
-                settingRow("ピン（最前面表示）") {
-                    Picker("", selection: $pinBehavior) {
-                        Text("常にON").tag("alwaysOn")
-                        Text("最新のみON").tag("latestOnly")
-                        Text("デフォルトOFF").tag("off")
+                sectionHeader("ウィンドウ")
+                VStack(alignment: .leading, spacing: 8) {
+                    settingRow("ピン（最前面表示）") {
+                        Picker("", selection: $pinBehavior) {
+                            Text("常にON").tag("alwaysOn")
+                            Text("最新のみON").tag("latestOnly")
+                            Text("デフォルトOFF").tag("off")
+                        }
+                        .labelsHidden()
+                        .frame(width: 140)
                     }
-                    .labelsHidden()
-                    .frame(width: 140)
+                    settingRow("ドラッグ成功時に閉じる") {
+                        Toggle("", isOn: $closeOnDragSuccess).labelsHidden()
+                    }
                 }
-                settingRow("ドラッグ成功時に閉じる") {
-                    Toggle("", isOn: $closeOnDragSuccess).labelsHidden()
+
+                Divider()
+
+                Group {
+                    sectionHeader("メニューバー")
+                    settingRow("アイコン") {
+                        MenuBarIconPicker()
+                    }
+
+                    Divider()
+
+                    sectionHeader("その他")
+                    VStack(alignment: .leading, spacing: 8) {
+                        settingRow("マウスカーソルを含める") {
+                            Toggle("", isOn: $showCursor).labelsHidden()
+                        }
+                        settingRow("キャプチャ時にサウンド再生") {
+                            Toggle("", isOn: $playSound).labelsHidden()
+                        }
+                        settingRow("開発者モード") {
+                            Toggle("", isOn: $developerMode).labelsHidden()
+                        }
+                    }
                 }
             }
-
-            Divider()
-
-            sectionHeader("その他")
-            VStack(alignment: .leading, spacing: 8) {
-                settingRow("マウスカーソルを含める") {
-                    Toggle("", isOn: $showCursor).labelsHidden()
-                }
-                settingRow("キャプチャ時にサウンド再生") {
-                    Toggle("", isOn: $playSound).labelsHidden()
-                }
-                settingRow("開発者モード") {
-                    Toggle("", isOn: $developerMode).labelsHidden()
-                }
-            }
-
-            Spacer()
+            .padding()
         }
-        .padding()
         .onAppear {
             updateDisplayPath()
         }
@@ -381,6 +390,70 @@ class KeyRecorderNSView: NSView {
     override func resignFirstResponder() -> Bool {
         onCancel?()
         return true
+    }
+}
+
+struct MenuBarIconPicker: View {
+    @AppStorage("menuBarIconStyle") private var menuBarIconStyle = "appIcon"
+
+    private let options: [(id: String, label: String)] = [
+        ("appIcon", "Mas"),
+        ("diamond", "モノクロ"),
+        ("camera", "カメラ"),
+        ("screenshot", "枠"),
+    ]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(options, id: \.id) { option in
+                Button(action: {
+                    menuBarIconStyle = option.id
+                    NotificationCenter.default.post(name: .menuBarIconChanged, object: nil)
+                }) {
+                    VStack(spacing: 3) {
+                        iconPreview(option.id)
+                            .frame(width: 22, height: 22)
+                        Text(option.label)
+                            .font(.system(size: 9))
+                            .lineLimit(1)
+                    }
+                    .frame(width: 56, height: 48)
+                    .contentShape(Rectangle())
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(menuBarIconStyle == option.id ? Color.accentColor.opacity(0.2) : Color.clear)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(menuBarIconStyle == option.id ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: menuBarIconStyle == option.id ? 2 : 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func iconPreview(_ style: String) -> some View {
+        switch style {
+        case "diamond":
+            Image("MenuBarIconCustom")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .colorInvert()
+        case "camera":
+            Image(systemName: "camera.viewfinder")
+                .font(.system(size: 16))
+        case "screenshot":
+            Image(systemName: "rectangle.dashed.badge.record")
+                .font(.system(size: 16))
+        default: // appIcon
+            if let image = NSApp.applicationIconImage {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            }
+        }
     }
 }
 

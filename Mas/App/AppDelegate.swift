@@ -21,7 +21,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
         if let button = statusItem?.button {
-            // アプリアイコンを使用
+            applyMenuBarIcon(to: button)
+            button.action = #selector(statusItemClicked(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            button.target = self
+        }
+
+        // アイコン変更通知を監視
+        NotificationCenter.default.addObserver(self, selector: #selector(menuBarIconChanged), name: .menuBarIconChanged, object: nil)
+
+        // ポップオーバーの設定
+        popover = NSPopover()
+        popover?.contentSize = NSSize(width: 250, height: 500)
+        popover?.behavior = .transient
+        let menuBarView = MenuBarView().environmentObject(captureViewModel)
+        popover?.contentViewController = NSHostingController(rootView: menuBarView)
+    }
+
+    @objc private func menuBarIconChanged() {
+        guard let button = statusItem?.button else { return }
+        applyMenuBarIcon(to: button)
+    }
+
+    private func applyMenuBarIcon(to button: NSStatusBarButton) {
+        let style = UserDefaults.standard.string(forKey: "menuBarIconStyle") ?? "appIcon"
+
+        switch style {
+        case "diamond":
+            if let image = NSImage(named: "MenuBarIconCustom") {
+                image.size = NSSize(width: 18, height: 18)
+                image.isTemplate = true
+                button.image = image
+            }
+        case "camera":
+            button.image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Mas")
+        case "screenshot":
+            button.image = NSImage(systemSymbolName: "rectangle.dashed.badge.record", accessibilityDescription: "Mas")
+        default: // appIcon
             if let image = NSApp.applicationIconImage {
                 let size = NSSize(width: 18, height: 18)
                 let resizedImage = NSImage(size: size)
@@ -33,21 +69,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 resizedImage.unlockFocus()
                 resizedImage.isTemplate = false
                 button.image = resizedImage
-            } else {
-                // フォールバック
-                button.image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Mas")
             }
-            button.action = #selector(statusItemClicked(_:))
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-            button.target = self
         }
-
-        // ポップオーバーの設定
-        popover = NSPopover()
-        popover?.contentSize = NSSize(width: 250, height: 500)
-        popover?.behavior = .transient
-        let menuBarView = MenuBarView().environmentObject(captureViewModel)
-        popover?.contentViewController = NSHostingController(rootView: menuBarView)
     }
 
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
@@ -206,4 +229,5 @@ extension Notification.Name {
     static let showHistory = Notification.Name("showHistory")
     static let startGifRecording = Notification.Name("startGifRecording")
     static let startGifRecordingAtRegion = Notification.Name("startGifRecordingAtRegion")
+    static let menuBarIconChanged = Notification.Name("menuBarIconChanged")
 }
