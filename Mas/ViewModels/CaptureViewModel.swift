@@ -223,77 +223,76 @@ class CaptureViewModel: ObservableObject {
             historyWindowController?.window?.orderOut(nil)
         }
 
-        do {
-            // 先に全スクリーンをキャプチャしておく（マルチスクリーン対応）
-            let screenImages = try await captureService.captureAllScreens()
+        let overlay = RegionSelectionOverlay(onComplete: { [weak self] rect in
+            guard let self = self else { return }
+            Task {
+                // オーバーレイが消えるのを待ってからキャプチャ
+                try? await Task.sleep(nanoseconds: 100_000_000)
 
-            let overlay = RegionSelectionOverlay(onComplete: { [weak self] rect in
-                guard let self = self else { return }
-                // キャプチャ完了後にライブラリウィンドウを復元
+                // ライブラリウィンドウを復元
                 if libraryWasVisible {
                     self.historyWindowController?.window?.orderBack(nil)
                 }
-                Task {
-                    await self.cropRegion(rect, from: screenImages)
-                }
-            }, onCancel: { [weak self] in
-                self?.isCapturing = false
-                // キャンセル時もライブラリウィンドウを復元
-                if libraryWasVisible {
-                    self?.historyWindowController?.window?.orderBack(nil)
-                }
-            })
-            overlay.show()
-        } catch {
-            errorMessage = error.localizedDescription
-            print("Capture error: \(error)")
-            isCapturing = false
-        }
+
+                await self.captureAndCropRegion(rect)
+            }
+        }, onCancel: { [weak self] in
+            self?.isCapturing = false
+            // キャンセル時もライブラリウィンドウを復元
+            if libraryWasVisible {
+                self?.historyWindowController?.window?.orderBack(nil)
+            }
+        })
+        overlay.show()
     }
 
-    private func cropRegion(_ rect: CGRect, from screenImages: [CGDirectDisplayID: CGImage]) async {
-        // 選択領域が属するスクリーンを特定
-        guard let screen = NSScreen.screenContaining(cgRect: rect),
-              let displayID = screen.displayID,
-              let fullImage = screenImages[displayID] else {
+    private func captureAndCropRegion(_ rect: CGRect) async {
+        // 選択領域が属するスクリーンを特定してキャプチャ
+        guard let screen = NSScreen.screenContaining(cgRect: rect) else {
             errorMessage = "ディスプレイが見つかりません"
             isCapturing = false
             return
         }
 
-        let imageWidth = CGFloat(fullImage.width)
-        let imageHeight = CGFloat(fullImage.height)
+        do {
+            let fullImage = try await captureService.captureScreen(screen)
 
-        // スケール計算（Retina対応）
-        let scale = imageWidth / screen.frame.width
+            let imageWidth = CGFloat(fullImage.width)
+            let imageHeight = CGFloat(fullImage.height)
 
-        // CGグローバル座標をスクリーン相対座標に変換してからスケール適用
-        let screenCGFrame = screen.cgFrame
-        let scaledRect = CGRect(
-            x: (rect.origin.x - screenCGFrame.origin.x) * scale,
-            y: (rect.origin.y - screenCGFrame.origin.y) * scale,
-            width: rect.width * scale,
-            height: rect.height * scale
-        )
+            // スケール計算（Retina対応）
+            let scale = imageWidth / screen.frame.width
 
-        // 範囲チェック
-        let clampedRect = scaledRect.intersection(CGRect(x: 0, y: 0, width: imageWidth, height: imageHeight))
+            // CGグローバル座標をスクリーン相対座標に変換してからスケール適用
+            let screenCGFrame = screen.cgFrame
+            let scaledRect = CGRect(
+                x: (rect.origin.x - screenCGFrame.origin.x) * scale,
+                y: (rect.origin.y - screenCGFrame.origin.y) * scale,
+                width: rect.width * scale,
+                height: rect.height * scale
+            )
 
-        guard !clampedRect.isEmpty, let croppedImage = fullImage.cropping(to: clampedRect) else {
-            errorMessage = "画像の切り取りに失敗しました"
-            isCapturing = false
-            return
+            // 範囲チェック
+            let clampedRect = scaledRect.intersection(CGRect(x: 0, y: 0, width: imageWidth, height: imageHeight))
+
+            guard !clampedRect.isEmpty, let croppedImage = fullImage.cropping(to: clampedRect) else {
+                errorMessage = "画像の切り取りに失敗しました"
+                isCapturing = false
+                return
+            }
+
+            // 選択範囲を保存してスクリーンショットを作成
+            let screenshot = Screenshot(cgImage: croppedImage, mode: .region, region: rect)
+            currentScreenshot = screenshot
+            captureFlash.showFlash(in: rect)
+            processScreenshot(screenshot)
+            showEditorWindow(for: screenshot, at: rect)
+
+            // 前回のキャプチャ範囲を保存
+            saveLastCaptureRect(rect)
+        } catch {
+            errorMessage = error.localizedDescription
         }
-
-        // 選択範囲を保存してスクリーンショットを作成
-        let screenshot = Screenshot(cgImage: croppedImage, mode: .region, region: rect)
-        currentScreenshot = screenshot
-        captureFlash.showFlash(in: rect)
-        processScreenshot(screenshot)
-        showEditorWindow(for: screenshot, at: rect)
-
-        // 前回のキャプチャ範囲を保存
-        saveLastCaptureRect(rect)
 
         isCapturing = false
     }
