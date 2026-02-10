@@ -12,15 +12,19 @@
 
 ## 概要
 
-Mas（Mac Area Screenshot）は、macOS向けのネイティブスクリーンショットアプリケーションです。メニューバーに常駐し、グローバルホットキーで素早くスクリーンショットを撮影できます。撮影後は編集ウィンドウが自動的に表示され、矢印やテキストなどの注釈を追加できます。
+Mas（Mac Area Screenshot）は、macOS向けのネイティブスクリーンショットアプリケーションです。メニューバーに常駐し、グローバルホットキーで素早くスクリーンショットを撮影できます。撮影後は編集ウィンドウが自動的に表示され、矢印やテキストなどの注釈を追加できます。GIF録画やテキスト認識（OCR）にも対応しています。
 
 ## 特徴
 
 - **メニューバー常駐**: Dockに表示されず、メニューバーから操作
-- **グローバルホットキー**: 他のアプリを使用中でも素早くキャプチャ
-- **3つのキャプチャモード**: 全画面、範囲選択、ウィンドウ
-- **豊富な編集ツール**: ペン、マーカー、矢印、四角、丸、テキスト、モザイク
+- **グローバルホットキー**: 他のアプリを使用中でも素早くキャプチャ（カスタマイズ可能）
+- **多彩なキャプチャ**: 全画面、範囲選択、ウィンドウ、キャプチャ枠
+- **GIF録画**: 画面領域をアニメーションGIFとして録画
+- **豊富な編集ツール**: ペン、マーカー、矢印、四角、丸、テキスト、モザイク、トリミング
+- **テキスト認識（OCR）**: スクリーンショット内のテキストを文字単位で選択・コピー
+- **ライブラリ**: キャプチャ履歴をサムネイル付きで管理
 - **自動保存**: クリップボードへのコピーとファイル保存を自動実行
+- **自動更新**: GitHub Releasesから最新版を自動検出・更新
 - **Retina対応**: 高解像度ディスプレイに完全対応
 
 ## システム要件
@@ -37,39 +41,25 @@ Mas（Mac Area Screenshot）は、macOS向けのネイティブスクリーン�
 3. 初回起動時に「開発元が未確認」の警告が出た場合は、システム設定 → プライバシーとセキュリティ → 「このまま開く」をクリック
 4. 画面収録の権限を許可
 
-## ソースからビルド
-
-### ビルド方法
-
-```bash
-git clone https://github.com/piggest/Mas.git
-cd Mas
-xcodebuild -scheme ScreenshotApp -configuration Release build
-```
-
-ビルド後、`DerivedData`内の`Mas.app`を`/Applications`フォルダにコピーしてください。
-
 ## 使い方
 
 ### キャプチャモード
 
 | モード | ショートカット | 説明 |
 |--------|---------------|------|
-| キャプチャ枠表示 | `⌘⇧6` | 前回の範囲でキャプチャ枠を表示 |
 | 全画面 | `⌘⇧3` | メインディスプレイ全体をキャプチャ |
 | 範囲選択 | `⌘⇧4` | マウスドラッグで選択した範囲をキャプチャ |
 | ウィンドウ | `⌘⇧5` | 特定のウィンドウをキャプチャ |
+| キャプチャ枠表示 | `⌘⇧6` | 前回の範囲でキャプチャ枠を表示 |
+| GIF録画 | `⌘⇧7` | 画面領域をGIF形式で録画 |
+| ライブラリ | `⌘⇧L` | スクリーンショット履歴を表示 |
+
+ショートカットキーは設定画面からカスタマイズできます。
 
 ### メニューバーアイコン
 
 - **シングルクリック**: メニューを表示
 - **ダブルクリック**: 範囲選択キャプチャを開始
-
-### メニュー機能
-
-- **キャプチャモード選択**: 全画面、範囲選択、ウィンドウから選択
-- **開いているウィンドウ一覧**: キャプチャ中のウィンドウを表示、クリックでフォーカス
-- **すべて閉じる**: 開いているキャプチャウィンドウを一括で閉じる
 
 ### 範囲選択モード
 
@@ -77,6 +67,15 @@ xcodebuild -scheme ScreenshotApp -configuration Release build
 2. マウスをドラッグして範囲を選択
 3. マウスを離すとキャプチャが実行されます
 4. `ESC`キーでキャンセル
+
+### GIF録画
+
+1. `⌘⇧7`を押すと範囲選択モードに入ります
+2. ドラッグで録画範囲を選択すると録画が開始されます
+3. 録画範囲の上部にコントロールパネルが表示されます
+4. 停止ボタンを押すとGIFファイルが生成されます
+
+録画コントロールウィンドウはGIFに写り込みません。
 
 ### 編集機能
 
@@ -92,26 +91,39 @@ xcodebuild -scheme ScreenshotApp -configuration Release build
 | 選択 | アノテーションの選択・移動・リサイズ |
 | ペン | フリーハンドで線を描画 |
 | マーカー | 半透明のハイライト線を描画 |
-| 矢印 | 矢印を描画 |
-| 四角 | 矩形を描画 |
+| 矢印 | テーパー形状の矢印を描画 |
+| 四角 | 矩形を描画（枠線または半透明塗りつぶし） |
 | 丸 | 円・楕円を描画 |
 | テキスト | テキストを挿入 |
 | ぼかし | モザイク効果を適用 |
+| テキスト選択 | OCRでテキストを認識・選択・コピー |
+| トリミング | 画像の一部を切り出し |
 
 #### 編集オプション
 
 - **色の選択**: 10色のプリセットから選択（赤、橙、黄、緑、青、紫、ピンク、黒、白、グレー）
-- **サイズ調整**: スライダーで線幅を1〜10の範囲で調整（ドラッグ中もリアルタイム反映）
-- **縁取り**: テキストや図形に白い縁取りを追加
+- **サイズ調整**: スライダーで線幅を1〜10の範囲で調整
+- **縁取り**: テキストや図形に白い縁取りを追加（どんな背景でも視認性を確保）
 - **削除**: 選択中のアノテーションを削除
 - **取消**: 最後の操作を取り消し
+- **閉じる**: ツールバー右端の×ボタンで編集モードを終了
 
 ### エディタウィンドウの操作
 
 - **ダブルクリック**: 画像を非表示にして枠のみ表示
 - **再キャプチャ**: 右上のカメラアイコンで同じ範囲を再キャプチャ
 - **ドラッグ&ドロップ**: 右下のアイコンからファイルとしてドラッグ可能
-- **右クリック**: コンテキストメニューを表示
+- **右クリック**: コンテキストメニューを表示（保存・コピー・再キャプチャ）
+- **ピン固定**: ウィンドウを最前面に固定
+
+### ライブラリ
+
+キャプチャ履歴を管理するウィンドウです。
+
+- サムネイル付きでキャプチャ履歴をグリッド表示
+- クリックでエディターウィンドウを開閉
+- 星アイコンでお気に入り登録・フィルタリング
+- 複数選択と一括削除に対応
 
 ## 設定
 
@@ -126,32 +138,57 @@ xcodebuild -scheme ScreenshotApp -configuration Release build
 | 保存先フォルダ | ~/Pictures/Mas | 自動保存時の保存先 |
 | デフォルト保存形式 | PNG | PNG または JPEG |
 | JPEG品質 | 90% | JPEG保存時の圧縮品質 |
+| ピン機能 | デフォルトOFF | 常にON / 最新のみON / デフォルトOFF |
+| ドラッグ時に閉じる | ON | ドラッグ&ドロップ成功時にウィンドウを閉じる |
+| マウスカーソルを含める | OFF | キャプチャにカーソルを含める |
+| キャプチャ音 | ON | キャプチャ時にサウンドを再生 |
+| メニューバーアイコン | アプリアイコン | 4種類から選択可能 |
+| 自動更新 | ON | GitHub Releasesから最新版を自動検出 |
 
 ### ショートカット
 
-現在、ショートカットキーは固定されています。
+設定画面の「ショートカット」タブから、各アクションのキーバインドを自由にカスタマイズできます。
 
-| 機能 | ショートカット |
-|-----|---------------|
+| 機能 | デフォルト |
+|-----|-----------|
 | 全画面キャプチャ | `⌘⇧3` |
 | 範囲選択 | `⌘⇧4` |
 | ウィンドウキャプチャ | `⌘⇧5` |
 | キャプチャ枠表示 | `⌘⇧6` |
-| 設定を開く | `⌘,` |
-| 終了 | `⌘Q` |
+| GIF録画 | `⌘⇧7` |
+| ライブラリ | `⌘⇧L` |
+
+## CLI
+
+コマンドラインからMasの機能にアクセスできるCLIツールも付属しています。
+
+```bash
+# ビルド＆インストール
+bash CLI/build.sh
+bash CLI/install.sh
+
+# 使用例
+mas-cli capture fullscreen
+mas-cli capture region
+mas-cli capture gif
+mas-cli annotate image.png arrow --from 100,200 --to 300,400 --color red
+mas-cli ocr screenshot.png
+```
+
+詳細は [CLI リファレンス](https://piggest.github.io/Mas/cli/) を参照してください。
 
 ## プロジェクト構成
 
 ```
 Mas/
 ├── App/
-│   ├── AppDelegate.swift         # アプリケーション初期化
-│   └── HotkeyManager.swift       # グローバルホットキー管理
+│   ├── AppDelegate.swift           # アプリケーション初期化・ホットキー登録
+│   └── HotkeyManager.swift         # グローバルホットキー管理
 │
 ├── Models/
-│   ├── CaptureMode.swift         # キャプチャモード定義
-│   ├── Screenshot.swift          # スクリーンショットデータモデル
-│   └── Annotations/              # 注釈クラス群
+│   ├── CaptureMode.swift           # キャプチャモード定義
+│   ├── Screenshot.swift            # スクリーンショットデータモデル
+│   └── Annotations/                # 注釈クラス群
 │       ├── Annotation.swift
 │       ├── ArrowAnnotation.swift
 │       ├── EllipseAnnotation.swift
@@ -162,29 +199,43 @@ Mas/
 │       └── TextAnnotation.swift
 │
 ├── Services/
-│   ├── ClipboardService.swift    # クリップボード操作
-│   ├── FileStorageService.swift  # ファイル保存
-│   ├── PermissionService.swift   # 権限管理
-│   └── ScreenCaptureService.swift # 画面キャプチャ
+│   ├── ClipboardService.swift      # クリップボード操作
+│   ├── FileStorageService.swift    # ファイル保存
+│   ├── GifRecordingService.swift   # GIF録画・生成
+│   ├── HistoryService.swift        # 履歴管理
+│   ├── PermissionService.swift     # 権限管理
+│   ├── ScreenCaptureService.swift  # 画面キャプチャ
+│   ├── TextRecognitionService.swift # テキスト認識（OCR）
+│   └── UpdateService.swift         # 自動更新
 │
 ├── ViewModels/
-│   ├── CaptureViewModel.swift    # キャプチャ状態管理
-│   └── EditorViewModel.swift     # 編集状態管理
+│   ├── CaptureViewModel.swift      # キャプチャ状態管理
+│   ├── EditorViewModel.swift       # 編集状態管理
+│   └── GifPlayerState.swift        # GIFプレイヤー状態管理
 │
 ├── Views/
-│   ├── CanvasView.swift          # 描画キャンバス
-│   ├── CaptureFlashView.swift    # キャプチャ時のフラッシュ
-│   ├── EditorWindow.swift        # 編集ウィンドウ
+│   ├── CanvasView.swift            # 描画キャンバス
+│   ├── CaptureFlashView.swift      # キャプチャ時のフラッシュ
+│   ├── EditorWindow.swift          # 編集ウィンドウ
 │   ├── FloatingToolbarWindow.swift # フローティングツールバー
-│   ├── MenuBarView.swift         # メニューバーUI
+│   ├── GifPlayerToolbar.swift      # GIFプレイヤーツールバー
+│   ├── HistoryWindow.swift         # ライブラリウィンドウ
+│   ├── MenuBarView.swift           # メニューバーUI
+│   ├── RecordingControlWindow.swift # GIF録画コントロール
 │   ├── RegionSelectionOverlay.swift # 範囲選択オーバーレイ
-│   ├── ResizableWindow.swift     # リサイズ可能ウィンドウ
-│   ├── SettingsWindow.swift      # 設定画面
-│   ├── ToolboxWindow.swift       # 編集ツールボックス（レガシー）
-│   └── WindowPickerView.swift    # ウィンドウ選択UI
+│   ├── ResizableWindow.swift       # リサイズ可能ウィンドウ
+│   ├── SettingsWindow.swift        # 設定画面
+│   └── WindowPickerView.swift      # ウィンドウ選択UI
 │
-├── ScreenshotApp.swift           # メインエントリーポイント
-└── Info.plist                    # アプリケーション設定
+├── ScreenshotApp.swift             # メインエントリーポイント
+└── Info.plist                      # アプリケーション設定
+
+CLI/
+├── mas_cli.swift                   # CLIツール本体
+├── build.sh                        # ビルドスクリプト
+└── install.sh                      # インストールスクリプト
+
+docs/                               # GitHub Pages ドキュメント
 ```
 
 ## 技術スタック
@@ -195,6 +246,8 @@ Mas/
 | AppKit | ネイティブウィンドウ管理 |
 | CoreGraphics | 画像処理・座標計算 |
 | CoreImage | モザイク効果（CIPixellate） |
+| Vision | テキスト認識（OCR） |
+| ImageIO | GIFフレーム操作 |
 | Carbon HIToolbox | グローバルホットキー |
 
 ## 開発
@@ -220,6 +273,12 @@ xcodebuild -scheme ScreenshotApp -configuration Release build
 
 - **画面収録**: スクリーンショットの撮影に必要
   - システム設定 → プライバシーとセキュリティ → 画面収録 で許可
+
+## ドキュメント
+
+- [ユーザーガイド](https://piggest.github.io/Mas/user-guide/) — インストールから基本操作まで
+- [アノテーション詳細ガイド](https://piggest.github.io/Mas/annotations/) — 各描画ツールの使い方
+- [CLI リファレンス](https://piggest.github.io/Mas/cli/) — コマンドラインツールの使い方
 
 ## コントリビューション
 
