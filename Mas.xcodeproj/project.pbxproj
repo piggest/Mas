@@ -46,6 +46,7 @@
 		RECCTRLW01BUILD = {isa = PBXBuildFile; fileRef = RECCTRLW01FILEREF; };
 		GIFPLYST01BUILD = {isa = PBXBuildFile; fileRef = GIFPLYST01FILEREF; };
 		GIFPLTB01BUILD = {isa = PBXBuildFile; fileRef = GIFPLTB01FILEREF; };
+		UPDSVC001BUILD = {isa = PBXBuildFile; fileRef = UPDSVC001FILEREF; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -91,6 +92,7 @@
 		RECCTRLW01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingControlWindow.swift; sourceTree = "<group>"; };
 		GIFPLYST01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifPlayerState.swift; sourceTree = "<group>"; };
 		GIFPLTB01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifPlayerToolbar.swift; sourceTree = "<group>"; };
+		UPDSVC001FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -186,6 +188,7 @@
 				002A68B3D208C945FEA1D830 /* PermissionService.swift */,
 				357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */,
 				TXTRECOG01FILEREF /* TextRecognitionService.swift */,
+				UPDSVC001FILEREF /* UpdateService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -314,6 +317,7 @@
 				RECCTRLW01BUILD /* RecordingControlWindow.swift in Sources */,
 				GIFPLYST01BUILD /* GifPlayerState.swift in Sources */,
 				GIFPLTB01BUILD /* GifPlayerToolbar.swift in Sources */,
+				UPDSVC001BUILD /* UpdateService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

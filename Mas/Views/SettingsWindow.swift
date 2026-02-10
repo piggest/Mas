@@ -127,6 +127,10 @@ struct GeneralSettingsView: View {
                             Toggle("", isOn: $developerMode).labelsHidden()
                         }
                     }
+
+                    Divider()
+
+                    UpdateSettingsSection()
                 }
             }
             .padding()
@@ -596,6 +600,121 @@ struct DeveloperSettingsView: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.system(size: 13, weight: .bold))
+    }
+
+    private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(label)
+                .frame(width: 180, alignment: .leading)
+            content()
+        }
+    }
+}
+
+struct UpdateSettingsSection: View {
+    @AppStorage("autoUpdateEnabled") private var autoUpdateEnabled = false
+    @StateObject private var updateService = UpdateService.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("アップデート")
+                .font(.system(size: 13, weight: .bold))
+
+            settingRow("自動アップデート") {
+                Toggle("", isOn: $autoUpdateEnabled)
+                    .labelsHidden()
+                    .onChange(of: autoUpdateEnabled) { newValue in
+                        if newValue {
+                            updateService.startPeriodicCheck()
+                        } else {
+                            updateService.stopPeriodicCheck()
+                        }
+                    }
+            }
+
+            settingRow("") {
+                HStack(spacing: 8) {
+                    Button("今すぐ確認") {
+                        Task {
+                            await updateService.checkForUpdate()
+                        }
+                    }
+                    .controlSize(.small)
+                    .disabled(isActionInProgress)
+
+                    statusView
+                }
+            }
+        }
+    }
+
+    private var isActionInProgress: Bool {
+        switch updateService.status {
+        case .checking, .downloading, .installing:
+            return true
+        default:
+            return false
+        }
+    }
+
+    @ViewBuilder
+    private var statusView: some View {
+        switch updateService.status {
+        case .idle:
+            EmptyView()
+        case .checking:
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.small)
+                Text("確認中...")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        case .available(let version):
+            HStack(spacing: 8) {
+                Text("v\(version) が利用可能")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                Button("アップデート") {
+                    Task {
+                        await updateService.downloadAndInstall()
+                    }
+                }
+                .controlSize(.small)
+            }
+        case .downloading(let progress):
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.small)
+                Text("ダウンロード中... \(Int(progress * 100))%")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        case .installing:
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.small)
+                Text("インストール中...")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        case .readyToRestart:
+            HStack(spacing: 8) {
+                Text("インストール完了")
+                    .font(.caption)
+                    .foregroundColor(.green)
+                Button("再起動") {
+                    updateService.restart()
+                }
+                .controlSize(.small)
+            }
+        case .upToDate:
+            Text("最新バージョンです")
+                .font(.caption)
+                .foregroundColor(.green)
+        case .error(let message):
+            Text(message)
+                .font(.caption)
+                .foregroundColor(.red)
+                .lineLimit(2)
+        }
     }
 
     private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {

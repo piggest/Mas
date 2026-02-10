@@ -15,6 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupHotkeyHandlers()
         setupStatusItem()
         setupDistributedNotifications()
+        setupAutoUpdate()
     }
 
     private func setupStatusItem() {
@@ -216,6 +217,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ) {
                 NotificationCenter.default.post(name: notificationName, object: nil)
             }
+        }
+    }
+
+    private func setupAutoUpdate() {
+        if UserDefaults.standard.bool(forKey: "autoUpdateEnabled") {
+            UpdateService.shared.startPeriodicCheck()
         }
     }
 }
