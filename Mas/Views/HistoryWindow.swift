@@ -104,9 +104,7 @@ struct HistoryWindow: View {
                 .padding(.vertical, 6)
                 .alert("\(selectedIDs.count)件をライブラリから削除", isPresented: $showBulkDeleteConfirm) {
                     Button("削除", role: .destructive) {
-                        for id in selectedIDs {
-                            viewModel.removeHistoryEntry(id: id)
-                        }
+                        viewModel.removeHistoryEntries(ids: selectedIDs)
                         selectedIDs.removeAll()
                     }
                     Button("キャンセル", role: .cancel) { }
@@ -158,7 +156,7 @@ struct HistoryWindow: View {
                 }
             } else {
                 ScrollView {
-                    VStack(spacing: 10) {
+                    LazyVStack(spacing: 10) {
                         ForEach(filteredEntries) { entry in
                             let windowInfo = viewModel.editorWindows.first { info in
                                 info.screenshot.savedURL?.path == entry.filePath
@@ -236,9 +234,7 @@ struct HistoryWindow: View {
             Button("追加") {
                 let name = newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !name.isEmpty else { return }
-                for id in pendingCategoryTargetIDs {
-                    viewModel.setCategory(id: id, category: name)
-                }
+                viewModel.setCategories(ids: pendingCategoryTargetIDs, category: name)
                 pendingCategoryTargetIDs.removeAll()
             }
             Button("キャンセル", role: .cancel) {
@@ -308,9 +304,7 @@ struct HistoryWindow: View {
             let categories = viewModel.getCategories()
             ForEach(categories, id: \.self) { cat in
                 Button(cat) {
-                    for id in selectedIDs {
-                        viewModel.setCategory(id: id, category: cat)
-                    }
+                    viewModel.setCategories(ids: selectedIDs, category: cat)
                 }
             }
             if !categories.isEmpty {
@@ -323,9 +317,7 @@ struct HistoryWindow: View {
             }
             Divider()
             Button("カテゴリを外す") {
-                for id in selectedIDs {
-                    viewModel.setCategory(id: id, category: nil)
-                }
+                viewModel.setCategories(ids: selectedIDs, category: nil)
             }
         } label: {
             HStack(spacing: 4) {
@@ -393,6 +385,13 @@ struct HistoryWindow: View {
 }
 
 struct HistoryEntryRow: View {
+    static let thumbnailCache = NSCache<NSString, NSImage>()
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy/MM/dd HH:mm"
+        return f
+    }()
+
     let entry: ScreenshotHistoryEntry
     var isOpen: Bool = false
     var isPinned: Bool = false
@@ -599,14 +598,18 @@ struct HistoryEntryRow: View {
     }
 
     private var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy/MM/dd HH:mm"
-        return formatter.string(from: entry.timestamp)
+        Self.dateFormatter.string(from: entry.timestamp)
     }
 
     private func loadThumbnail() {
-        let url = URL(fileURLWithPath: entry.filePath)
+        let cacheKey = entry.filePath as NSString
+        if let cached = Self.thumbnailCache.object(forKey: cacheKey) {
+            thumbnail = cached
+            return
+        }
+        let filePath = entry.filePath
         DispatchQueue.global(qos: .userInitiated).async {
+            let url = URL(fileURLWithPath: filePath)
             guard let image = NSImage(contentsOf: url) else { return }
             let maxSize: CGFloat = 160
             let ratio = min(maxSize / image.size.width, maxSize / image.size.height, 1.0)
@@ -621,6 +624,7 @@ struct HistoryEntryRow: View {
                        operation: .copy,
                        fraction: 1.0)
             resized.unlockFocus()
+            Self.thumbnailCache.setObject(resized, forKey: cacheKey)
             DispatchQueue.main.async {
                 self.thumbnail = resized
             }

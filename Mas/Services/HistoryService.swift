@@ -3,6 +3,7 @@ import Foundation
 class HistoryService {
     private let fileURL: URL
     private let annotationsDir: URL
+    private var cachedEntries: [ScreenshotHistoryEntry]?
 
     init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -22,16 +23,23 @@ class HistoryService {
     }
 
     func load() -> [ScreenshotHistoryEntry] {
+        if let cached = cachedEntries {
+            return cached
+        }
         guard FileManager.default.fileExists(atPath: fileURL.path),
               let data = try? Data(contentsOf: fileURL) else {
+            cachedEntries = []
             return []
         }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return (try? decoder.decode([ScreenshotHistoryEntry].self, from: data)) ?? []
+        let entries = (try? decoder.decode([ScreenshotHistoryEntry].self, from: data)) ?? []
+        cachedEntries = entries
+        return entries
     }
 
     func save(_ entries: [ScreenshotHistoryEntry]) {
+        cachedEntries = entries
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = .prettyPrinted
@@ -46,10 +54,18 @@ class HistoryService {
     }
 
     func removeEntry(id: UUID) {
-        // アノテーションファイルも削除
         removeAnnotationFile(id: id)
         var entries = load()
         entries.removeAll { $0.id == id }
+        save(entries)
+    }
+
+    func removeEntries(ids: Set<UUID>) {
+        for id in ids {
+            removeAnnotationFile(id: id)
+        }
+        var entries = load()
+        entries.removeAll { ids.contains($0.id) }
         save(entries)
     }
 
@@ -74,6 +90,14 @@ class HistoryService {
         var entries = load()
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
         entries[index].category = category
+        save(entries)
+    }
+
+    func setCategories(ids: Set<UUID>, category: String?) {
+        var entries = load()
+        for i in entries.indices where ids.contains(entries[i].id) {
+            entries[i].category = category
+        }
         save(entries)
     }
 

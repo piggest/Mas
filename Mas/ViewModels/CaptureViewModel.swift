@@ -803,6 +803,17 @@ class CaptureViewModel: ObservableObject {
         historyEntries = historyService.load()
     }
 
+    func removeHistoryEntries(ids: Set<UUID>) {
+        for id in ids {
+            if let entry = historyEntries.first(where: { $0.id == id }),
+               let windowInfo = editorWindows.first(where: { $0.screenshot.savedURL?.path == entry.filePath }) {
+                closeEditorWindow(windowInfo)
+            }
+        }
+        historyService.removeEntries(ids: ids)
+        historyEntries = historyService.load()
+    }
+
     func toggleFavorite(id: UUID) {
         historyService.toggleFavorite(id: id)
         historyEntries = historyService.load()
@@ -810,6 +821,11 @@ class CaptureViewModel: ObservableObject {
 
     func setCategory(id: UUID, category: String?) {
         historyService.setCategory(id: id, category: category)
+        historyEntries = historyService.load()
+    }
+
+    func setCategories(ids: Set<UUID>, category: String?) {
+        historyService.setCategories(ids: ids, category: category)
         historyEntries = historyService.load()
     }
 

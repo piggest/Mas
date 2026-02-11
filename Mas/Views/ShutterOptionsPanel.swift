@@ -1,6 +1,26 @@
 import SwiftUI
 import AppKit
 
+// MARK: - VisualEffectBlur Helper
+
+struct VisualEffectBlur: NSViewRepresentable {
+    var material: NSVisualEffectView.Material
+    var blendingMode: NSVisualEffectView.BlendingMode
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
+}
+
 // MARK: - SwiftUI View
 
 struct ShutterOptionsView: View {
@@ -18,191 +38,260 @@ struct ShutterOptionsView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             Text("シャッターオプション")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.primary)
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
-                .padding(.bottom, 6)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [.white, .white.opacity(0.8)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
 
-            Divider().padding(.horizontal, 8)
+            Divider().overlay(Color.white.opacity(0.15)).padding(.horizontal, 12)
 
             // Delayed Capture
-            VStack(alignment: .leading, spacing: 6) {
-                Label("遅延キャプチャ", systemImage: "timer")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.primary)
+            sectionCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    sectionLabel("遅延キャプチャ", icon: "timer", isActive: shutterService.activeMode == .delayed)
 
-                HStack(spacing: 4) {
-                    Slider(value: $selectedDelay, in: 1...30, step: 1)
-                        .controlSize(.small)
-                    Text("\(Int(selectedDelay))秒")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .frame(width: 30, alignment: .trailing)
-                }
-
-                if shutterService.activeMode == .delayed {
-                    HStack(spacing: 4) {
-                        ProgressView()
-                            .scaleEffect(0.6)
-                        Text("\(shutterService.countdown)秒後にキャプチャ")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
+                    HStack(spacing: 6) {
+                        Slider(value: $selectedDelay, in: 1...30, step: 1)
+                            .controlSize(.small)
+                            .tint(.cyan)
+                        Text("\(Int(selectedDelay))秒")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.8))
+                            .frame(width: 30, alignment: .trailing)
                     }
-                }
 
-                Button(action: {
                     if shutterService.activeMode == .delayed {
-                        onStop()
-                    } else {
-                        onStartDelayed(Int(selectedDelay))
+                        progressBadge {
+                            HStack(spacing: 4) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                    .tint(.white)
+                                Text("\(shutterService.countdown)秒後にキャプチャ")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
+                        }
                     }
-                }) {
-                    Text(shutterService.activeMode == .delayed ? "停止" : "開始")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5)
-                                .fill(shutterService.activeMode == .delayed ? Color.red : Color.accentColor)
-                        )
-                }
-                .buttonStyle(NoHighlightButtonStyle())
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
 
-            Divider().padding(.horizontal, 8)
+                    actionButton(
+                        isActive: shutterService.activeMode == .delayed,
+                        startAction: { onStartDelayed(Int(selectedDelay)) },
+                        stopAction: onStop
+                    )
+                }
+            }
+
+            Divider().overlay(Color.white.opacity(0.15)).padding(.horizontal, 12)
 
             // Interval Capture
-            VStack(alignment: .leading, spacing: 6) {
-                Label("インターバル", systemImage: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.primary)
+            sectionCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    sectionLabel("インターバル", icon: "arrow.triangle.2.circlepath", isActive: shutterService.activeMode == .interval)
 
-                HStack(spacing: 4) {
-                    Slider(value: $selectedInterval, in: 0.5...60, step: 0.5)
-                        .controlSize(.small)
-                    Text(intervalLabel(selectedInterval))
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .frame(width: 38, alignment: .trailing)
-                }
-
-                // 回数制限
-                HStack(spacing: 4) {
-                    Text("回数")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                        .frame(width: 24, alignment: .leading)
-                    Slider(value: $maxCaptureCount, in: 0...1000, step: 1)
-                        .controlSize(.small)
-                    TextField("", value: Binding(
-                        get: { Int(self.maxCaptureCount) },
-                        set: { self.maxCaptureCount = Double(max(0, min(1000, $0))) }
-                    ), formatter: Self.countFormatter)
-                        .font(.system(size: 10, design: .monospaced))
-                        .frame(width: 40)
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.trailing)
-                }
-                if maxCaptureCount == 0 {
-                    Text("0 = 無制限")
-                        .font(.system(size: 9))
-                        .foregroundColor(.secondary.opacity(0.7))
-                }
-
-                if shutterService.activeMode == .interval {
-                    if shutterService.maxCaptureCount > 0 {
-                        Text("キャプチャ回数: \(shutterService.captureCount)/\(shutterService.maxCaptureCount)")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("キャプチャ回数: \(shutterService.captureCount)")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
+                    HStack(spacing: 6) {
+                        Slider(value: $selectedInterval, in: 0.5...60, step: 0.5)
+                            .controlSize(.small)
+                            .tint(.cyan)
+                        Text(intervalLabel(selectedInterval))
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.8))
+                            .frame(width: 38, alignment: .trailing)
                     }
-                }
 
-                Button(action: {
+                    // 回数制限
+                    HStack(spacing: 6) {
+                        Text("回数")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(width: 24, alignment: .leading)
+                        Slider(value: $maxCaptureCount, in: 0...1000, step: 1)
+                            .controlSize(.small)
+                            .tint(.cyan)
+                        TextField("", value: Binding(
+                            get: { Int(self.maxCaptureCount) },
+                            set: { self.maxCaptureCount = Double(max(0, min(1000, $0))) }
+                        ), formatter: Self.countFormatter)
+                            .font(.system(size: 10, design: .monospaced))
+                            .frame(width: 40)
+                            .textFieldStyle(.roundedBorder)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    if maxCaptureCount == 0 {
+                        Text("0 = 無制限")
+                            .font(.system(size: 9))
+                            .foregroundColor(.white.opacity(0.4))
+                    }
+
                     if shutterService.activeMode == .interval {
-                        onStop()
-                    } else {
-                        onStartInterval(selectedInterval, Int(maxCaptureCount))
+                        progressBadge {
+                            if shutterService.maxCaptureCount > 0 {
+                                Text("キャプチャ回数: \(shutterService.captureCount)/\(shutterService.maxCaptureCount)")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.white.opacity(0.8))
+                            } else {
+                                Text("キャプチャ回数: \(shutterService.captureCount)")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
+                        }
                     }
-                }) {
-                    Text(shutterService.activeMode == .interval ? "停止" : "開始")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5)
-                                .fill(shutterService.activeMode == .interval ? Color.red : Color.accentColor)
-                        )
-                }
-                .buttonStyle(NoHighlightButtonStyle())
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
 
-            Divider().padding(.horizontal, 8)
+                    actionButton(
+                        isActive: shutterService.activeMode == .interval,
+                        startAction: { onStartInterval(selectedInterval, Int(maxCaptureCount)) },
+                        stopAction: onStop
+                    )
+                }
+            }
+
+            Divider().overlay(Color.white.opacity(0.15)).padding(.horizontal, 12)
 
             // Change Detection
-            VStack(alignment: .leading, spacing: 6) {
-                Label("変化検知", systemImage: "eye")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.primary)
+            sectionCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    sectionLabel("変化検知", icon: "eye", isActive: shutterService.activeMode == .changeDetection)
 
-                HStack(spacing: 4) {
-                    Text("感度")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                    Slider(value: $shutterService.sensitivity, in: 0.01...0.20, step: 0.01)
-                        .controlSize(.small)
-                    Text("\(Int(shutterService.sensitivity * 100))%")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .frame(width: 28)
-                }
-
-                if shutterService.activeMode == .changeDetection {
-                    Text("検知回数: \(shutterService.captureCount)")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-
-                Button(action: {
-                    if shutterService.activeMode == .changeDetection {
-                        onStop()
-                    } else {
-                        onStartChangeDetection()
+                    HStack(spacing: 6) {
+                        Text("感度")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.6))
+                        Slider(value: $shutterService.sensitivity, in: 0.01...0.20, step: 0.01)
+                            .controlSize(.small)
+                            .tint(.cyan)
+                        Text("\(Int(shutterService.sensitivity * 100))%")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.8))
+                            .frame(width: 28)
                     }
-                }) {
-                    Text(shutterService.activeMode == .changeDetection ? "停止" : "開始")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5)
-                                .fill(shutterService.activeMode == .changeDetection ? Color.red : Color.accentColor)
-                        )
+
+                    if shutterService.activeMode == .changeDetection {
+                        progressBadge {
+                            Text("検知回数: \(shutterService.captureCount)")
+                                .font(.system(size: 10))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+
+                    actionButton(
+                        isActive: shutterService.activeMode == .changeDetection,
+                        startAction: onStartChangeDetection,
+                        stopAction: onStop
+                    )
                 }
-                .buttonStyle(NoHighlightButtonStyle())
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
             .padding(.bottom, 4)
         }
-        .frame(width: 220)
+        .frame(width: 240)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(NSColor.windowBackgroundColor).opacity(0.95))
-                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 2)
+            ZStack {
+                VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
+                Color.black.opacity(0.3)
+            }
         )
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [.white.opacity(0.2), .white.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 8)
+        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
     }
+
+    // MARK: - Components
+
+    @ViewBuilder
+    private func sectionCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.white.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
+                    )
+            )
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func sectionLabel(_ title: String, icon: String, isActive: Bool) -> some View {
+        Label {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.white.opacity(0.9))
+        } icon: {
+            Image(systemName: icon)
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(
+                    isActive
+                        ? AnyShapeStyle(LinearGradient(colors: [.cyan, .blue.opacity(0.9)], startPoint: .top, endPoint: .bottom))
+                        : AnyShapeStyle(Color.white.opacity(0.9))
+                )
+        }
+    }
+
+    @ViewBuilder
+    private func progressBadge<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                Capsule()
+                    .fill(Color.cyan.opacity(0.15))
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(Color.cyan.opacity(0.3), lineWidth: 0.5)
+                    )
+            )
+    }
+
+    @ViewBuilder
+    private func actionButton(isActive: Bool, startAction: @escaping () -> Void, stopAction: @escaping () -> Void) -> some View {
+        Button(action: {
+            if isActive {
+                stopAction()
+            } else {
+                startAction()
+            }
+        }) {
+            Text(isActive ? "停止" : "開始")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(
+                            isActive
+                                ? LinearGradient(colors: [.red, .red.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                                : LinearGradient(colors: [.cyan, .blue.opacity(0.9)], startPoint: .top, endPoint: .bottom)
+                        )
+                )
+                .shadow(color: isActive ? .red.opacity(0.4) : .cyan.opacity(0.4), radius: 6, x: 0, y: 2)
+        }
+        .buttonStyle(NoHighlightButtonStyle())
+    }
+
+    // MARK: - Helpers
 
     private static let countFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -277,7 +366,7 @@ class ShutterOptionsPanelController {
 
         let hosting = NSHostingView(rootView: panelView)
         let fittingSize = hosting.fittingSize
-        let width = max(fittingSize.width, 220)
+        let width = max(fittingSize.width, 240)
         let height = max(fittingSize.height, 200)
         cachedSize = CGSize(width: width, height: height)
 
@@ -373,7 +462,7 @@ class ShutterOptionsPanelController {
         guard let parent = parentWindow, let panel = window else { return }
 
         let parentFrame = parent.frame
-        let panelSize = cachedSize ?? CGSize(width: 200, height: 300)
+        let panelSize = cachedSize ?? CGSize(width: 240, height: 300)
 
         // Place to the right of the parent window
         var panelX = parentFrame.maxX + 4
