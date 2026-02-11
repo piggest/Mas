@@ -1593,7 +1593,8 @@ struct EditorWindow: View {
                 gifToolbarController = nil
                 onRecapture?(rect, parentWin, false)
                 // 変化検知モード: 画像を非表示にして背後の変化が見えるようにする
-                if shutterPanelController?.shutterService.activeMode == .changeDetection {
+                if shutterPanelController?.shutterService.activeMode == .changeDetection ||
+                   shutterPanelController?.shutterService.activeMode == .interval {
                     showImage = false
                 } else {
                     showImage = true

@@ -13,6 +13,7 @@ class ShutterService: ObservableObject {
     @Published var activeMode: ShutterMode? = nil
     @Published var countdown: Int = 0
     @Published var captureCount: Int = 0
+    @Published var maxCaptureCount: Int = 0
     @Published var sensitivity: Double = 0.05
 
     var onCapture: (() -> Void)?
@@ -47,23 +48,34 @@ class ShutterService: ObservableObject {
 
     // MARK: - Interval Capture
 
-    func startInterval(seconds: Int) {
+    func startInterval(seconds: Double, maxCount: Int = 0) {
         stopAll()
         activeMode = .interval
         isActive = true
         captureCount = 0
+        maxCaptureCount = maxCount
 
         // 開始時に即1枚キャプチャ
         captureCount += 1
         onCapture?()
 
+        // maxCount == 1 の場合は即停止
+        if maxCaptureCount > 0 && captureCount >= maxCaptureCount {
+            stopAll()
+            return
+        }
+
+        let intervalMs = Int(seconds * 1000)
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now() + .seconds(seconds), repeating: .seconds(seconds))
+        timer.schedule(deadline: .now() + .milliseconds(intervalMs), repeating: .milliseconds(intervalMs))
         timer.setEventHandler { [weak self] in
             Task { @MainActor in
                 guard let self = self else { return }
                 self.captureCount += 1
                 self.onCapture?()
+                if self.maxCaptureCount > 0 && self.captureCount >= self.maxCaptureCount {
+                    self.stopAll()
+                }
             }
         }
         self.timer = timer

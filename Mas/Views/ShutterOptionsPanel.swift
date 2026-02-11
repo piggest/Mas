@@ -6,12 +6,13 @@ import AppKit
 struct ShutterOptionsView: View {
     @ObservedObject var shutterService: ShutterService
     let onStartDelayed: (Int) -> Void
-    let onStartInterval: (Int) -> Void
+    let onStartInterval: (Double, Int) -> Void
     let onStartChangeDetection: () -> Void
     let onStop: () -> Void
 
-    @State private var selectedDelay: Int = 3
-    @State private var selectedInterval: Int = 5
+    @State private var selectedDelay: Double = 3
+    @State private var selectedInterval: Double = 5
+    @State private var maxCaptureCount: Double = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -32,20 +33,12 @@ struct ShutterOptionsView: View {
                     .foregroundColor(.primary)
 
                 HStack(spacing: 4) {
-                    ForEach([1, 3, 5, 10], id: \.self) { sec in
-                        Button("\(sec)秒") {
-                            selectedDelay = sec
-                        }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 10, weight: selectedDelay == sec ? .bold : .regular))
-                        .foregroundColor(selectedDelay == sec ? .white : .primary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(selectedDelay == sec ? Color.accentColor : Color.gray.opacity(0.2))
-                        )
-                    }
+                    Slider(value: $selectedDelay, in: 1...30, step: 1)
+                        .controlSize(.small)
+                    Text("\(Int(selectedDelay))秒")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .frame(width: 30, alignment: .trailing)
                 }
 
                 if shutterService.activeMode == .delayed {
@@ -62,7 +55,7 @@ struct ShutterOptionsView: View {
                     if shutterService.activeMode == .delayed {
                         onStop()
                     } else {
-                        onStartDelayed(selectedDelay)
+                        onStartDelayed(Int(selectedDelay))
                     }
                 }) {
                     Text(shutterService.activeMode == .delayed ? "停止" : "開始")
@@ -89,33 +82,54 @@ struct ShutterOptionsView: View {
                     .foregroundColor(.primary)
 
                 HStack(spacing: 4) {
-                    ForEach([1, 3, 5, 10, 30], id: \.self) { sec in
-                        Button("\(sec)秒") {
-                            selectedInterval = sec
-                        }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 10, weight: selectedInterval == sec ? .bold : .regular))
-                        .foregroundColor(selectedInterval == sec ? .white : .primary)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 3)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(selectedInterval == sec ? Color.accentColor : Color.gray.opacity(0.2))
-                        )
-                    }
+                    Slider(value: $selectedInterval, in: 0.5...60, step: 0.5)
+                        .controlSize(.small)
+                    Text(intervalLabel(selectedInterval))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .frame(width: 38, alignment: .trailing)
+                }
+
+                // 回数制限
+                HStack(spacing: 4) {
+                    Text("回数")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .frame(width: 24, alignment: .leading)
+                    Slider(value: $maxCaptureCount, in: 0...1000, step: 1)
+                        .controlSize(.small)
+                    TextField("", value: Binding(
+                        get: { Int(self.maxCaptureCount) },
+                        set: { self.maxCaptureCount = Double(max(0, min(1000, $0))) }
+                    ), formatter: Self.countFormatter)
+                        .font(.system(size: 10, design: .monospaced))
+                        .frame(width: 40)
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                }
+                if maxCaptureCount == 0 {
+                    Text("0 = 無制限")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary.opacity(0.7))
                 }
 
                 if shutterService.activeMode == .interval {
-                    Text("キャプチャ回数: \(shutterService.captureCount)")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
+                    if shutterService.maxCaptureCount > 0 {
+                        Text("キャプチャ回数: \(shutterService.captureCount)/\(shutterService.maxCaptureCount)")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("キャプチャ回数: \(shutterService.captureCount)")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 Button(action: {
                     if shutterService.activeMode == .interval {
                         onStop()
                     } else {
-                        onStartInterval(selectedInterval)
+                        onStartInterval(selectedInterval, Int(maxCaptureCount))
                     }
                 }) {
                     Text(shutterService.activeMode == .interval ? "停止" : "開始")
@@ -182,12 +196,31 @@ struct ShutterOptionsView: View {
             .padding(.vertical, 8)
             .padding(.bottom, 4)
         }
-        .frame(width: 200)
+        .frame(width: 220)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color(NSColor.windowBackgroundColor).opacity(0.95))
                 .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 2)
         )
+    }
+
+    private static let countFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .none
+        f.minimum = 0
+        f.maximum = 1000
+        f.allowsFloats = false
+        return f
+    }()
+
+    private func intervalLabel(_ seconds: Double) -> String {
+        if seconds >= 60 {
+            return "\(Int(seconds / 60))分"
+        } else if seconds == floor(seconds) {
+            return "\(Int(seconds))秒"
+        } else {
+            return String(format: "%.1f秒", seconds)
+        }
     }
 }
 
@@ -226,8 +259,8 @@ class ShutterOptionsPanelController {
             onStartDelayed: { [weak self] seconds in
                 self?.shutterService.startDelayed(seconds: seconds)
             },
-            onStartInterval: { [weak self] seconds in
-                self?.shutterService.startInterval(seconds: seconds)
+            onStartInterval: { [weak self] seconds, maxCount in
+                self?.shutterService.startInterval(seconds: seconds, maxCount: maxCount)
             },
             onStartChangeDetection: { [weak self] in
                 guard let self = self else { return }
@@ -244,7 +277,7 @@ class ShutterOptionsPanelController {
 
         let hosting = NSHostingView(rootView: panelView)
         let fittingSize = hosting.fittingSize
-        let width = max(fittingSize.width, 200)
+        let width = max(fittingSize.width, 220)
         let height = max(fittingSize.height, 200)
         cachedSize = CGSize(width: width, height: height)
 
