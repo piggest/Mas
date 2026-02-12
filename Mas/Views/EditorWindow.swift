@@ -159,6 +159,15 @@ extension DragSourceView: NSDraggingSource {
         if !operation.isEmpty {
             let closeOnDragSuccess = UserDefaults.standard.object(forKey: "closeOnDragSuccess") as? Bool ?? true
             if closeOnDragSuccess {
+                if let frame = window?.frame {
+                    let screenHeight = NSScreen.screens.first?.frame.height ?? 0
+                    let rectDict: [String: CGFloat] = [
+                        "x": frame.origin.x,
+                        "y": screenHeight - frame.origin.y - frame.height,
+                        "width": frame.width, "height": frame.height
+                    ]
+                    UserDefaults.standard.set(rectDict, forKey: "lastCaptureRect")
+                }
                 window?.close()
                 NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
                 return
@@ -1578,12 +1587,24 @@ struct EditorWindow: View {
         if editMode && !toolboxState.annotations.isEmpty {
             applyAnnotations()
         }
+        // ウィンドウ位置を保存（次回同じ場所に表示するため）
+        saveCurrentWindowRect()
         toolboxState.annotations.removeAll()
         toolbarController?.close()
         shutterPanelController?.close()
         shutterPanelController = nil
         parentWindow?.close()
         NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
+    }
+
+    private func saveCurrentWindowRect() {
+        let rect = getCurrentWindowRect()
+        guard rect.width > 0, rect.height > 0 else { return }
+        let rectDict: [String: CGFloat] = [
+            "x": rect.origin.x, "y": rect.origin.y,
+            "width": rect.width, "height": rect.height
+        ]
+        UserDefaults.standard.set(rectDict, forKey: "lastCaptureRect")
     }
 
     private func openShutterMode(_ mode: ShutterTab) {

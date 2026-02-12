@@ -53,6 +53,7 @@ struct ShutterOptionsView: View {
     var onSelectMonitorRegion: (() -> Void)?
     var onResetMonitorRegion: (() -> Void)?
     var onSelectStepMonitorRegion: ((_ completion: @escaping (CGRect?) -> Void) -> Void)?
+    var onUpdateStepRegions: ((_ regions: [(rect: CGRect, highlighted: Bool)]) -> Void)?
     var onSizeChange: ((CGSize) -> Void)?
     let initialMode: ShutterTab
 
@@ -64,6 +65,8 @@ struct ShutterOptionsView: View {
     @State private var showSavePopover = false
     @State private var saveName = ""
     @State private var savedPrograms: [String: [ProgramStep]] = ProgramStepStore.loadAllPrograms()
+    @State private var showRegionOverlays = true
+    @State private var highlightedStepId: UUID?
 
     private static let compactWidth: CGFloat = 44
 
@@ -153,6 +156,15 @@ struct ShutterOptionsView: View {
                     }
                     .menuStyle(.borderlessButton)
                     .frame(width: 16)
+
+                    // 監視範囲の表示/非表示トグル
+                    Button(action: { showRegionOverlays.toggle() }) {
+                        Image(systemName: showRegionOverlays ? "eye" : "eye.slash")
+                            .font(.system(size: 10))
+                            .foregroundColor(showRegionOverlays ? .cyan.opacity(0.8) : .white.opacity(0.4))
+                            .frame(width: 16, height: 16)
+                    }
+                    .buttonStyle(NoHighlightButtonStyle())
 
                     Button(action: { onClose?() }) {
                         Image(systemName: "xmark")
@@ -373,7 +385,13 @@ struct ShutterOptionsView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .onChange(of: programSteps) { _ in autoSave() }
+        .onChange(of: programSteps) { _ in
+            autoSave()
+            updateRegionOverlays()
+        }
+        .onChange(of: highlightedStepId) { _ in updateRegionOverlays() }
+        .onChange(of: showRegionOverlays) { _ in updateRegionOverlays() }
+        .onAppear { updateRegionOverlays() }
     }
 
     // MARK: - Save Popover
@@ -619,29 +637,8 @@ struct ShutterOptionsView: View {
                     .foregroundColor(.white.opacity(0.7))
                     .frame(width: 32, alignment: .trailing)
 
-                // 監視範囲ボタン
-                Button(action: {
-                    if steps.wrappedValue[safe: index]?.monitorSubRect != nil {
-                        // リセット
-                        if index < steps.wrappedValue.count {
-                            steps.wrappedValue[index].monitorSubRect = nil
-                        }
-                    } else {
-                        // 領域選択
-                        onSelectStepMonitorRegion? { rect in
-                            if index < steps.wrappedValue.count {
-                                steps.wrappedValue[index].monitorSubRect = rect
-                            }
-                        }
-                    }
-                }) {
-                    Image(systemName: step.monitorSubRect != nil ? "viewfinder.circle.fill" : "viewfinder")
-                        .font(.system(size: 11))
-                        .foregroundColor(step.monitorSubRect != nil ? .cyan : .white.opacity(0.6))
-                        .frame(width: 16, height: 16)
-                }
-                .buttonStyle(NoHighlightButtonStyle())
-                .disabled(shutterService.activeMode == .programmable)
+                // 監視範囲ボタン（タップ: 表示/選択、メニュー: 変更/リセット）
+                stepMonitorButton(step: step, index: index, steps: steps)
             case .waitForStable:
                 Slider(value: Binding(
                     get: { (steps.wrappedValue[safe: index]?.sensitivity ?? 0.05) * 100 },
@@ -654,27 +651,8 @@ struct ShutterOptionsView: View {
                     .foregroundColor(.white.opacity(0.7))
                     .frame(width: 32, alignment: .trailing)
 
-                // 監視範囲ボタン
-                Button(action: {
-                    if steps.wrappedValue[safe: index]?.monitorSubRect != nil {
-                        if index < steps.wrappedValue.count {
-                            steps.wrappedValue[index].monitorSubRect = nil
-                        }
-                    } else {
-                        onSelectStepMonitorRegion? { rect in
-                            if index < steps.wrappedValue.count {
-                                steps.wrappedValue[index].monitorSubRect = rect
-                            }
-                        }
-                    }
-                }) {
-                    Image(systemName: step.monitorSubRect != nil ? "viewfinder.circle.fill" : "viewfinder")
-                        .font(.system(size: 11))
-                        .foregroundColor(step.monitorSubRect != nil ? .cyan : .white.opacity(0.6))
-                        .frame(width: 16, height: 16)
-                }
-                .buttonStyle(NoHighlightButtonStyle())
-                .disabled(shutterService.activeMode == .programmable)
+                // 監視範囲ボタン（タップ: 表示/選択、メニュー: 変更/リセット）
+                stepMonitorButton(step: step, index: index, steps: steps)
             default:
                 EmptyView()
             }
@@ -808,11 +786,76 @@ struct ShutterOptionsView: View {
         }
     }
 
+    /// 監視範囲ボタン（タップ: 表示/新規選択、メニュー: 変更/リセット）
+    @ViewBuilder
+    private func stepMonitorButton(step: ProgramStep, index: Int, steps: Binding<[ProgramStep]>) -> some View {
+        if step.monitorSubRect != nil {
+            // 範囲設定済み: タップでハイライト切替、メニューで変更/リセット
+            Image(systemName: highlightedStepId == step.id ? "viewfinder.circle.fill" : "viewfinder.circle")
+                .font(.system(size: 11))
+                .foregroundColor(.cyan)
+                .frame(width: 16, height: 16)
+                .onTapGesture {
+                    highlightedStepId = (highlightedStepId == step.id) ? nil : step.id
+                }
+                .contextMenu {
+                    Button("範囲を変更") {
+                        onSelectStepMonitorRegion? { rect in
+                            if index < steps.wrappedValue.count {
+                                steps.wrappedValue[index].monitorSubRect = rect
+                            }
+                        }
+                    }
+                    Button("リセット（全体監視）") {
+                        if index < steps.wrappedValue.count {
+                            steps.wrappedValue[index].monitorSubRect = nil
+                        }
+                    }
+                }
+        } else {
+            // 未設定: タップで新規選択
+            Button(action: {
+                onSelectStepMonitorRegion? { rect in
+                    if index < steps.wrappedValue.count {
+                        steps.wrappedValue[index].monitorSubRect = rect
+                    }
+                }
+            }) {
+                Image(systemName: "viewfinder")
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(NoHighlightButtonStyle())
+            .disabled(shutterService.activeMode == .programmable)
+        }
+    }
+
     /// 全ステップのIDをフラットに収集（アニメーション監視用）
     private func allStepIds(_ steps: [ProgramStep]) -> [UUID] {
         steps.flatMap { step in
             [step.id] + allStepIds(step.children)
         }
+    }
+
+    /// 全ステップから monitorSubRect を持つものを再帰的に収集
+    private func collectStepRegions(_ steps: [ProgramStep]) -> [(id: UUID, rect: CGRect)] {
+        steps.flatMap { step -> [(id: UUID, rect: CGRect)] in
+            let own: [(id: UUID, rect: CGRect)] = step.monitorSubRect.map { [( id: step.id, rect: $0 )] } ?? []
+            return own + collectStepRegions(step.children)
+        }
+    }
+
+    /// オーバーレイに現在の監視範囲リストを送る
+    private func updateRegionOverlays() {
+        guard showRegionOverlays else {
+            onUpdateStepRegions?([])
+            return
+        }
+        let regions = collectStepRegions(programSteps).map { info in
+            (rect: info.rect, highlighted: info.id == highlightedStepId)
+        }
+        onUpdateStepRegions?(regions)
     }
 
     // MARK: - Components
@@ -1031,6 +1074,7 @@ class ShutterOptionsPanelController {
     private var captureRegion: CGRect = .zero
     private let monitorRegionOverlay = MonitorRegionOverlay()
     private let monitorRegionIndicator = MonitorRegionIndicator()
+    private let stepRegionsOverlay = StepRegionsOverlay()
     private var changeDetectionObserver: NSObjectProtocol?
 
     func show(attachedTo parent: NSWindow, screenshot: Screenshot, mode: ShutterTab, onRecapture: @escaping (CGRect, NSWindow?) -> Void) {
@@ -1087,6 +1131,14 @@ class ShutterOptionsPanelController {
             },
             onSelectStepMonitorRegion: { [weak self] completion in
                 self?.startStepMonitorRegionSelection(completion: completion)
+            },
+            onUpdateStepRegions: { [weak self] regions in
+                guard let self = self, let parent = self.parentWindow else { return }
+                if regions.isEmpty {
+                    self.stepRegionsOverlay.dismiss()
+                } else {
+                    self.stepRegionsOverlay.update(on: parent, regions: regions)
+                }
             },
             onSizeChange: { [weak self] newSize in
                 self?.updatePanelSize(newSize)
@@ -1163,6 +1215,7 @@ class ShutterOptionsPanelController {
         shutterService.stopAll()
         monitorRegionOverlay.dismiss()
         monitorRegionIndicator.dismiss()
+        stepRegionsOverlay.dismiss()
 
         if let observer = frameObserver {
             NotificationCenter.default.removeObserver(observer)
@@ -1567,6 +1620,100 @@ private class MonitorRegionBorderView: NSView {
         NSColor.cyan.withAlphaComponent(0.8).setStroke()
         path.setLineDash([6, 4], count: 2, phase: 0)
         path.stroke()
+    }
+}
+
+// MARK: - Step Regions Overlay (複数の監視範囲を同時表示)
+
+@MainActor
+class StepRegionsOverlay {
+    private var overlayWindow: NSWindow?
+    private weak var parentWindow: NSWindow?
+    private var regionsView: StepRegionsView?
+
+    func update(on parentWindow: NSWindow, regions: [(rect: CGRect, highlighted: Bool)]) {
+        self.parentWindow = parentWindow
+
+        if regions.isEmpty {
+            dismiss()
+            return
+        }
+
+        let parentFrame = parentWindow.frame
+
+        if overlayWindow == nil {
+            let window = NSWindow(
+                contentRect: parentFrame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.level = .floating
+            window.backgroundColor = .clear
+            window.isOpaque = false
+            window.hasShadow = false
+            window.ignoresMouseEvents = true
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.sharingType = .none
+
+            let view = StepRegionsView(frame: NSRect(origin: .zero, size: parentFrame.size))
+            window.contentView = view
+            self.regionsView = view
+
+            parentWindow.addChildWindow(window, ordered: .above)
+            window.orderFront(nil)
+            self.overlayWindow = window
+        }
+
+        // ウィンドウをparentに合わせてリサイズ
+        overlayWindow?.setFrame(parentFrame, display: false)
+        regionsView?.frame = NSRect(origin: .zero, size: parentFrame.size)
+        regionsView?.regions = regions
+        regionsView?.needsDisplay = true
+    }
+
+    func dismiss() {
+        if let w = overlayWindow {
+            w.parent?.removeChildWindow(w)
+            w.orderOut(nil)
+        }
+        overlayWindow = nil
+        regionsView = nil
+        parentWindow = nil
+    }
+}
+
+private class StepRegionsView: NSView {
+    var regions: [(rect: CGRect, highlighted: Bool)] = []
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        for region in regions {
+            // 正規化座標 → ビューローカル座標（NSViewは左下原点）
+            let x = bounds.width * region.rect.origin.x
+            let y = bounds.height * (1 - region.rect.origin.y - region.rect.height)
+            let w = bounds.width * region.rect.width
+            let h = bounds.height * region.rect.height
+            let rect = NSRect(x: x, y: y, width: w, height: h)
+
+            if region.highlighted {
+                // ハイライト: 太い実線 + 薄い塗りつぶし
+                NSColor.cyan.withAlphaComponent(0.08).setFill()
+                NSBezierPath(rect: rect).fill()
+                let path = NSBezierPath(rect: rect.insetBy(dx: 1, dy: 1))
+                path.lineWidth = 3
+                NSColor.cyan.withAlphaComponent(0.9).setStroke()
+                path.stroke()
+            } else {
+                // 通常: 細い破線
+                let path = NSBezierPath(rect: rect.insetBy(dx: 0.5, dy: 0.5))
+                path.lineWidth = 1
+                NSColor.cyan.withAlphaComponent(0.5).setStroke()
+                path.setLineDash([4, 3], count: 2, phase: 0)
+                path.stroke()
+            }
+        }
     }
 }
 
