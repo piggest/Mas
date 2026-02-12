@@ -15,6 +15,8 @@ class ShutterService: ObservableObject {
     @Published var captureCount: Int = 0
     @Published var maxCaptureCount: Int = 0
     @Published var sensitivity: Double = 0.05
+    @Published var currentDiff: Double = 0
+    @Published var monitorSubRect: CGRect?  // 正規化座標(0〜1)のサブ領域。nilなら全体監視
 
     var onCapture: (() -> Void)?
     private var timer: DispatchSourceTimer?
@@ -99,7 +101,8 @@ class ShutterService: ObservableObject {
 
         // Capture initial reference image
         Task {
-            let region = regionProvider()
+            let fullRegion = regionProvider()
+            let region = self.monitorRegion(from: fullRegion)
             guard region.width > 0, region.height > 0 else {
                 print("[ShutterService] Invalid region: \(region)")
                 stopAll()
@@ -141,6 +144,17 @@ class ShutterService: ObservableObject {
 
     // MARK: - Private
 
+    /// 正規化座標のサブ領域を絶対CG座標に変換。monitorSubRect が nil なら fullRegion をそのまま返す
+    private func monitorRegion(from fullRegion: CGRect) -> CGRect {
+        guard let sub = monitorSubRect else { return fullRegion }
+        return CGRect(
+            x: fullRegion.origin.x + fullRegion.width * sub.origin.x,
+            y: fullRegion.origin.y + fullRegion.height * sub.origin.y,
+            width: fullRegion.width * sub.width,
+            height: fullRegion.height * sub.height
+        )
+    }
+
     private func captureRegionImage(_ region: CGRect) async -> CGImage? {
         guard let screen = NSScreen.screenContaining(cgRect: region) else { return nil }
         do {
@@ -167,11 +181,13 @@ class ShutterService: ObservableObject {
         guard let reference = referenceImage else { return }
         guard let provider = regionProvider else { return }
 
-        let region = provider()
+        let fullRegion = provider()
+        let region = monitorRegion(from: fullRegion)
         guard region.width > 0, region.height > 0 else { return }
         guard let current = await captureRegionImage(region) else { return }
 
         let diff = imageDifference(reference, current)
+        currentDiff = diff
         if diff > sensitivity {
             captureCount += 1
             referenceImage = current

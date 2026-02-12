@@ -1604,6 +1604,10 @@ struct EditorWindow: View {
                     updatePassThrough()
                 }
             }
+            controller.onCloseRequested = { [self] in
+                shutterPanelController?.close()
+                shutterPanelController = nil
+            }
             shutterPanelController = controller
         }
     }

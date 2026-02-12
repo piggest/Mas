@@ -21,6 +21,22 @@ struct VisualEffectBlur: NSViewRepresentable {
     }
 }
 
+// MARK: - Shutter Mode Tab
+
+enum ShutterTab: String, CaseIterable {
+    case delayed = "時限"
+    case interval = "インターバル"
+    case changeDetection = "変化検知"
+
+    var icon: String {
+        switch self {
+        case .delayed: return "timer"
+        case .interval: return "arrow.triangle.2.circlepath"
+        case .changeDetection: return "eye"
+        }
+    }
+}
+
 // MARK: - SwiftUI View
 
 struct ShutterOptionsView: View {
@@ -29,164 +45,49 @@ struct ShutterOptionsView: View {
     let onStartInterval: (Double, Int) -> Void
     let onStartChangeDetection: () -> Void
     let onStop: () -> Void
+    var onClose: (() -> Void)?
+    var onSelectMonitorRegion: (() -> Void)?
+    var onResetMonitorRegion: (() -> Void)?
 
+    @State private var selectedTab: ShutterTab = .delayed
     @State private var selectedDelay: Double = 3
     @State private var selectedInterval: Double = 5
     @State private var maxCaptureCount: Double = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
-            Text("シャッターオプション")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.white, .white.opacity(0.8)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 8)
+            // Tab Bar + Close
+            HStack(spacing: 4) {
+                ForEach(ShutterTab.allCases, id: \.self) { tab in
+                    tabButton(tab)
+                }
+                Button(action: { onClose?() }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.white.opacity(0.5))
+                        .frame(width: 18, height: 18)
+                        .background(Circle().fill(Color.white.opacity(0.1)))
+                }
+                .buttonStyle(NoHighlightButtonStyle())
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
 
             Divider().overlay(Color.white.opacity(0.15)).padding(.horizontal, 12)
 
-            // Delayed Capture
-            sectionCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    sectionLabel("遅延キャプチャ", icon: "timer", isActive: shutterService.activeMode == .delayed)
-
-                    HStack(spacing: 6) {
-                        Slider(value: $selectedDelay, in: 1...30, step: 1)
-                            .controlSize(.small)
-                            .tint(.cyan)
-                        Text("\(Int(selectedDelay))秒")
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(width: 30, alignment: .trailing)
-                    }
-
-                    if shutterService.activeMode == .delayed {
-                        progressBadge {
-                            HStack(spacing: 4) {
-                                ProgressView()
-                                    .scaleEffect(0.6)
-                                    .tint(.white)
-                                Text("\(shutterService.countdown)秒後にキャプチャ")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.white.opacity(0.8))
-                            }
-                        }
-                    }
-
-                    actionButton(
-                        isActive: shutterService.activeMode == .delayed,
-                        startAction: { onStartDelayed(Int(selectedDelay)) },
-                        stopAction: onStop
-                    )
+            // Content
+            Group {
+                switch selectedTab {
+                case .delayed:
+                    delayedContent
+                case .interval:
+                    intervalContent
+                case .changeDetection:
+                    changeDetectionContent
                 }
             }
-
-            Divider().overlay(Color.white.opacity(0.15)).padding(.horizontal, 12)
-
-            // Interval Capture
-            sectionCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    sectionLabel("インターバル", icon: "arrow.triangle.2.circlepath", isActive: shutterService.activeMode == .interval)
-
-                    HStack(spacing: 6) {
-                        Slider(value: $selectedInterval, in: 0.5...60, step: 0.5)
-                            .controlSize(.small)
-                            .tint(.cyan)
-                        Text(intervalLabel(selectedInterval))
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(width: 38, alignment: .trailing)
-                    }
-
-                    // 回数制限
-                    HStack(spacing: 6) {
-                        Text("回数")
-                            .font(.system(size: 10))
-                            .foregroundColor(.white.opacity(0.6))
-                            .frame(width: 24, alignment: .leading)
-                        Slider(value: $maxCaptureCount, in: 0...1000, step: 1)
-                            .controlSize(.small)
-                            .tint(.cyan)
-                        TextField("", value: Binding(
-                            get: { Int(self.maxCaptureCount) },
-                            set: { self.maxCaptureCount = Double(max(0, min(1000, $0))) }
-                        ), formatter: Self.countFormatter)
-                            .font(.system(size: 10, design: .monospaced))
-                            .frame(width: 40)
-                            .textFieldStyle(.roundedBorder)
-                            .multilineTextAlignment(.trailing)
-                    }
-                    if maxCaptureCount == 0 {
-                        Text("0 = 無制限")
-                            .font(.system(size: 9))
-                            .foregroundColor(.white.opacity(0.4))
-                    }
-
-                    if shutterService.activeMode == .interval {
-                        progressBadge {
-                            if shutterService.maxCaptureCount > 0 {
-                                Text("キャプチャ回数: \(shutterService.captureCount)/\(shutterService.maxCaptureCount)")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.white.opacity(0.8))
-                            } else {
-                                Text("キャプチャ回数: \(shutterService.captureCount)")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.white.opacity(0.8))
-                            }
-                        }
-                    }
-
-                    actionButton(
-                        isActive: shutterService.activeMode == .interval,
-                        startAction: { onStartInterval(selectedInterval, Int(maxCaptureCount)) },
-                        stopAction: onStop
-                    )
-                }
-            }
-
-            Divider().overlay(Color.white.opacity(0.15)).padding(.horizontal, 12)
-
-            // Change Detection
-            sectionCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    sectionLabel("変化検知", icon: "eye", isActive: shutterService.activeMode == .changeDetection)
-
-                    HStack(spacing: 6) {
-                        Text("感度")
-                            .font(.system(size: 10))
-                            .foregroundColor(.white.opacity(0.6))
-                        Slider(value: $shutterService.sensitivity, in: 0.01...0.20, step: 0.01)
-                            .controlSize(.small)
-                            .tint(.cyan)
-                        Text("\(Int(shutterService.sensitivity * 100))%")
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(width: 28)
-                    }
-
-                    if shutterService.activeMode == .changeDetection {
-                        progressBadge {
-                            Text("検知回数: \(shutterService.captureCount)")
-                                .font(.system(size: 10))
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                    }
-
-                    actionButton(
-                        isActive: shutterService.activeMode == .changeDetection,
-                        startAction: onStartChangeDetection,
-                        stopAction: onStop
-                    )
-                }
-            }
-            .padding(.bottom, 4)
+            .transaction { $0.animation = nil }
         }
         .frame(width: 240)
         .background(
@@ -209,6 +110,252 @@ struct ShutterOptionsView: View {
         )
         .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 8)
         .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+    }
+
+    // MARK: - Tab Button
+
+    @ViewBuilder
+    private func tabButton(_ tab: ShutterTab) -> some View {
+        let isSelected = selectedTab == tab
+        let isActive = (tab == .delayed && shutterService.activeMode == .delayed)
+            || (tab == .interval && shutterService.activeMode == .interval)
+            || (tab == .changeDetection && shutterService.activeMode == .changeDetection)
+
+        Button(action: { selectedTab = tab }) {
+            HStack(spacing: 3) {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 9))
+                Text(tab.rawValue)
+                    .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+            }
+            .foregroundColor(
+                isActive ? .cyan :
+                isSelected ? .white :
+                .white.opacity(0.5)
+            )
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.white.opacity(0.12) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(
+                        isActive ? Color.cyan.opacity(0.5) :
+                        isSelected ? Color.white.opacity(0.1) :
+                        Color.clear,
+                        lineWidth: 0.5
+                    )
+            )
+        }
+        .buttonStyle(NoHighlightButtonStyle())
+    }
+
+    // MARK: - Delayed Content
+
+    private var delayedContent: some View {
+        sectionCard {
+            VStack(alignment: .leading, spacing: 8) {
+                sectionLabel("時限シャッター", icon: "timer", isActive: shutterService.activeMode == .delayed)
+
+                HStack(spacing: 6) {
+                    Slider(value: $selectedDelay, in: 1...30, step: 1)
+                        .controlSize(.small)
+                        .tint(.cyan)
+                    Text("\(Int(selectedDelay))秒")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 30, alignment: .trailing)
+                }
+
+                if shutterService.activeMode == .delayed {
+                    progressBadge {
+                        HStack(spacing: 4) {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .tint(.white)
+                            Text("\(shutterService.countdown)秒後にキャプチャ")
+                                .font(.system(size: 10))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+                }
+
+                actionButton(
+                    isActive: shutterService.activeMode == .delayed,
+                    startAction: { onStartDelayed(Int(selectedDelay)) },
+                    stopAction: onStop
+                )
+            }
+        }
+        .padding(.bottom, 4)
+    }
+
+    // MARK: - Interval Content
+
+    private var intervalContent: some View {
+        sectionCard {
+            VStack(alignment: .leading, spacing: 8) {
+                sectionLabel("インターバルシャッター", icon: "arrow.triangle.2.circlepath", isActive: shutterService.activeMode == .interval)
+
+                HStack(spacing: 6) {
+                    Slider(value: $selectedInterval, in: 0.5...60, step: 0.5)
+                        .controlSize(.small)
+                        .tint(.cyan)
+                    Text(intervalLabel(selectedInterval))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 38, alignment: .trailing)
+                }
+
+                HStack(spacing: 6) {
+                    Text("回数")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(width: 24, alignment: .leading)
+                    Slider(value: $maxCaptureCount, in: 0...100, step: 1)
+                        .controlSize(.small)
+                        .tint(.cyan)
+                    Text(maxCaptureCount == 0 ? "∞" : "\(Int(maxCaptureCount))")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 30, alignment: .trailing)
+                }
+
+                if shutterService.activeMode == .interval {
+                    progressBadge {
+                        if shutterService.maxCaptureCount > 0 {
+                            Text("キャプチャ回数: \(shutterService.captureCount)/\(shutterService.maxCaptureCount)")
+                                .font(.system(size: 10))
+                                .foregroundColor(.white.opacity(0.8))
+                        } else {
+                            Text("キャプチャ回数: \(shutterService.captureCount)")
+                                .font(.system(size: 10))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+                }
+
+                actionButton(
+                    isActive: shutterService.activeMode == .interval,
+                    startAction: { onStartInterval(selectedInterval, Int(maxCaptureCount)) },
+                    stopAction: onStop
+                )
+            }
+        }
+        .padding(.bottom, 4)
+    }
+
+    // MARK: - Change Detection Content
+
+    private var changeDetectionContent: some View {
+        sectionCard {
+            VStack(alignment: .leading, spacing: 8) {
+                sectionLabel("変化検知シャッター", icon: "eye", isActive: shutterService.activeMode == .changeDetection)
+
+                HStack(spacing: 6) {
+                    Text("感度")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
+                    Slider(value: $shutterService.sensitivity, in: 0.01...0.20, step: 0.01)
+                        .controlSize(.small)
+                        .tint(.cyan)
+                    Text("\(Int(shutterService.sensitivity * 100))%")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 28)
+                }
+
+                // 監視範囲指定
+                HStack(spacing: 6) {
+                    if shutterService.monitorSubRect != nil {
+                        Button(action: { onSelectMonitorRegion?() }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "viewfinder")
+                                    .font(.system(size: 9))
+                                Text("範囲指定中")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundColor(.cyan)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(Color.cyan.opacity(0.15))
+                                    .overlay(Capsule().strokeBorder(Color.cyan.opacity(0.4), lineWidth: 0.5))
+                            )
+                        }
+                        .buttonStyle(NoHighlightButtonStyle())
+
+                        Button(action: { onResetMonitorRegion?() }) {
+                            Text("リセット")
+                                .font(.system(size: 10))
+                                .foregroundColor(.white.opacity(0.6))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.white.opacity(0.08))
+                                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5))
+                                )
+                        }
+                        .buttonStyle(NoHighlightButtonStyle())
+                    } else {
+                        Button(action: { onSelectMonitorRegion?() }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "viewfinder")
+                                    .font(.system(size: 9))
+                                Text("監視範囲")
+                                    .font(.system(size: 10))
+                            }
+                            .foregroundColor(.white.opacity(0.7))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(Color.white.opacity(0.08))
+                                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5))
+                            )
+                        }
+                        .buttonStyle(NoHighlightButtonStyle())
+                    }
+                    Spacer()
+                }
+
+                if shutterService.activeMode == .changeDetection {
+                    progressBadge {
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 4) {
+                                Text("変化率:")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.white.opacity(0.6))
+                                Text(String(format: "%.1f%%", shutterService.currentDiff * 100))
+                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                    .foregroundColor(shutterService.currentDiff > shutterService.sensitivity ? .orange : .cyan)
+                                Text("/")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.white.opacity(0.4))
+                                Text(String(format: "%.0f%%", shutterService.sensitivity * 100))
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.6))
+                            }
+                            Text("検知回数: \(shutterService.captureCount)")
+                                .font(.system(size: 10))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+                }
+
+                actionButton(
+                    isActive: shutterService.activeMode == .changeDetection,
+                    startAction: onStartChangeDetection,
+                    stopAction: onStop
+                )
+            }
+        }
+        .padding(.bottom, 4)
     }
 
     // MARK: - Components
@@ -293,15 +440,6 @@ struct ShutterOptionsView: View {
 
     // MARK: - Helpers
 
-    private static let countFormatter: NumberFormatter = {
-        let f = NumberFormatter()
-        f.numberStyle = .none
-        f.minimum = 0
-        f.maximum = 1000
-        f.allowsFloats = false
-        return f
-    }()
-
     private func intervalLabel(_ seconds: Double) -> String {
         if seconds >= 60 {
             return "\(Int(seconds / 60))分"
@@ -318,12 +456,16 @@ struct ShutterOptionsView: View {
 @MainActor
 class ShutterOptionsPanelController {
     let shutterService = ShutterService()
+    var onCloseRequested: (() -> Void)?
     private var window: NSWindow?
     private var parentWindow: NSWindow?
     private var frameObserver: NSObjectProtocol?
     private var resizeObserver: NSObjectProtocol?
     private var cachedSize: CGSize?
     private var captureRegion: CGRect = .zero
+    private let monitorRegionOverlay = MonitorRegionOverlay()
+    private let monitorRegionIndicator = MonitorRegionIndicator()
+    private var changeDetectionObserver: NSObjectProtocol?
 
     func show(attachedTo parent: NSWindow, screenshot: Screenshot, onRecapture: @escaping (CGRect, NSWindow?) -> Void) {
         parentWindow = parent
@@ -358,17 +500,29 @@ class ShutterOptionsPanelController {
                         self?.currentCGRegion() ?? .zero
                     }
                 )
+                self.showIndicatorIfNeeded()
             },
             onStop: { [weak self] in
                 self?.shutterService.stopAll()
+                self?.monitorRegionIndicator.dismiss()
+            },
+            onClose: { [weak self] in
+                self?.onCloseRequested?()
+            },
+            onSelectMonitorRegion: { [weak self] in
+                self?.startMonitorRegionSelection()
+            },
+            onResetMonitorRegion: { [weak self] in
+                self?.shutterService.monitorSubRect = nil
+                self?.monitorRegionIndicator.dismiss()
             }
         )
 
-        let hosting = NSHostingView(rootView: panelView)
-        let fittingSize = hosting.fittingSize
-        let width = max(fittingSize.width, 240)
-        let height = max(fittingSize.height, 200)
+        let width: CGFloat = 240
+        let height: CGFloat = 260
         cachedSize = CGSize(width: width, height: height)
+        let hosting = NSHostingView(rootView: panelView)
+        hosting.layer?.isOpaque = false
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
@@ -419,6 +573,8 @@ class ShutterOptionsPanelController {
 
     func close() {
         shutterService.stopAll()
+        monitorRegionOverlay.dismiss()
+        monitorRegionIndicator.dismiss()
 
         if let observer = frameObserver {
             NotificationCenter.default.removeObserver(observer)
@@ -427,6 +583,10 @@ class ShutterOptionsPanelController {
         if let observer = resizeObserver {
             NotificationCenter.default.removeObserver(observer)
             resizeObserver = nil
+        }
+        if let observer = changeDetectionObserver {
+            NotificationCenter.default.removeObserver(observer)
+            changeDetectionObserver = nil
         }
         if let panelWindow = window, let parent = parentWindow {
             parent.removeChildWindow(panelWindow)
@@ -492,5 +652,285 @@ class ShutterOptionsPanelController {
             NSRect(x: panelX, y: panelY, width: panelSize.width, height: panelSize.height),
             display: false
         )
+    }
+
+    private func startMonitorRegionSelection() {
+        guard let parent = parentWindow else { return }
+        // SwiftUIのボタンコールバック内からウィンドウ生成すると不安定なので遅延実行
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.monitorRegionOverlay.show(on: parent) { [weak self] normalizedRect in
+                guard let self = self else { return }
+                if let rect = normalizedRect {
+                    self.shutterService.monitorSubRect = rect
+                    self.showIndicatorIfNeeded()
+                }
+            }
+        }
+    }
+
+    private func showIndicatorIfNeeded() {
+        guard let parent = parentWindow,
+              let subRect = shutterService.monitorSubRect else {
+            monitorRegionIndicator.dismiss()
+            return
+        }
+        monitorRegionIndicator.show(on: parent, normalizedRect: subRect)
+    }
+}
+
+// MARK: - Monitor Region Overlay (ドラッグで監視サブ領域を選択)
+
+private class MonitorRegionKeyableWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+}
+
+@MainActor
+class MonitorRegionOverlay {
+    private var overlayWindow: NSWindow?
+    private weak var parentWindow: NSWindow?
+    private var selectionView: MonitorRegionSelectionView?
+    private var cursorPushed = false
+
+    func show(on parentWindow: NSWindow, completion: @escaping (CGRect?) -> Void) {
+        dismiss()
+        self.parentWindow = parentWindow
+        let parentFrame = parentWindow.frame
+
+        let window = MonitorRegionKeyableWindow(
+            contentRect: parentFrame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.level = .floating + 1
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = false
+        window.ignoresMouseEvents = false
+        window.acceptsMouseMovedEvents = true
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        let view = MonitorRegionSelectionView(
+            frame: NSRect(origin: .zero, size: parentFrame.size)
+        ) { [weak self] rect in
+            guard let self = self else { return }
+            let normalized = CGRect(
+                x: rect.origin.x / parentFrame.width,
+                y: rect.origin.y / parentFrame.height,
+                width: rect.width / parentFrame.width,
+                height: rect.height / parentFrame.height
+            )
+            // dismiss後にcompletionを呼ぶ（ウィンドウ解放とコールバックを分離）
+            self.dismiss()
+            DispatchQueue.main.async {
+                completion(normalized)
+            }
+        } onCancel: { [weak self] in
+            self?.dismiss()
+            DispatchQueue.main.async {
+                completion(nil)
+            }
+        }
+        self.selectionView = view
+
+        window.contentView = view
+        self.overlayWindow = window
+
+        // 親の子ウィンドウとして追加（親のキー状態を維持）
+        parentWindow.addChildWindow(window, ordered: .above)
+        window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(view)
+
+        cursorPushed = true
+        NSCursor.crosshair.push()
+    }
+
+    func dismiss() {
+        if cursorPushed {
+            NSCursor.pop()
+            cursorPushed = false
+        }
+        if let w = overlayWindow, let parent = parentWindow {
+            parent.removeChildWindow(w)
+        }
+        overlayWindow?.orderOut(nil)
+        overlayWindow = nil
+        selectionView = nil
+    }
+}
+
+private class MonitorRegionSelectionView: NSView {
+    private var startPoint: CGPoint?
+    private var currentPoint: CGPoint?
+    private var selectionRect: CGRect?
+    private let onComplete: (CGRect) -> Void
+    private let onCancel: () -> Void
+
+    override var isFlipped: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
+
+    init(frame: NSRect, onComplete: @escaping (CGRect) -> Void, onCancel: @escaping () -> Void) {
+        self.onComplete = onComplete
+        self.onCancel = onCancel
+        super.init(frame: frame)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        startPoint = point
+        currentPoint = point
+        selectionRect = nil
+        needsDisplay = true
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        currentPoint = convert(event.locationInWindow, from: nil)
+        updateSelectionRect()
+        needsDisplay = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if let rect = selectionRect, rect.width > 10, rect.height > 10 {
+            onComplete(rect)
+        } else {
+            onCancel()
+        }
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { // ESC
+            onCancel()
+        }
+    }
+
+    private func updateSelectionRect() {
+        guard let start = startPoint, let current = currentPoint else { return }
+        selectionRect = CGRect(
+            x: min(start.x, current.x),
+            y: min(start.y, current.y),
+            width: abs(current.x - start.x),
+            height: abs(current.y - start.y)
+        )
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        // 半透明オーバーレイ
+        NSColor.black.withAlphaComponent(0.3).setFill()
+        bounds.fill()
+
+        guard let rect = selectionRect else { return }
+
+        // 選択領域をくり抜き
+        NSColor.clear.set()
+        rect.fill(using: .copy)
+
+        // シアンの枠線
+        NSColor.cyan.setStroke()
+        let borderPath = NSBezierPath(rect: rect)
+        borderPath.lineWidth = 2
+        borderPath.stroke()
+
+        // サイズ表示
+        let text = "\(Int(rect.width)) × \(Int(rect.height))"
+        let font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.white
+        ]
+        let size = (text as NSString).size(withAttributes: attributes)
+        let padding: CGFloat = 4
+        var labelRect = CGRect(
+            x: rect.midX - size.width / 2 - padding,
+            y: rect.maxY + 6,
+            width: size.width + padding * 2,
+            height: size.height + padding
+        )
+        if labelRect.maxY > bounds.maxY - 10 {
+            labelRect.origin.y = rect.minY - labelRect.height - 6
+        }
+        NSColor.black.withAlphaComponent(0.8).setFill()
+        NSBezierPath(roundedRect: labelRect, xRadius: 4, yRadius: 4).fill()
+        (text as NSString).draw(
+            at: CGPoint(x: labelRect.minX + padding, y: labelRect.minY + padding / 2),
+            withAttributes: attributes
+        )
+    }
+}
+
+// MARK: - Monitor Region Indicator (監視中のサブ領域枠線表示)
+
+@MainActor
+class MonitorRegionIndicator {
+    private var indicatorWindow: NSWindow?
+
+    func show(on parentWindow: NSWindow, normalizedRect: CGRect) {
+        dismiss()
+
+        let parentFrame = parentWindow.frame
+        // 正規化座標→NS座標に変換（NSWindowは左下原点）
+        let subX = parentFrame.origin.x + parentFrame.width * normalizedRect.origin.x
+        let subY = parentFrame.origin.y + parentFrame.height * (1 - normalizedRect.origin.y - normalizedRect.height)
+        let subW = parentFrame.width * normalizedRect.width
+        let subH = parentFrame.height * normalizedRect.height
+
+        let frame = NSRect(x: subX, y: subY, width: subW, height: subH)
+
+        let window = NSWindow(
+            contentRect: frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.level = .floating
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = false
+        window.ignoresMouseEvents = true
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        let borderView = MonitorRegionBorderView(frame: NSRect(origin: .zero, size: frame.size))
+        window.contentView = borderView
+
+        parentWindow.addChildWindow(window, ordered: .above)
+        window.orderFront(nil)
+        self.indicatorWindow = window
+    }
+
+    func dismiss() {
+        if let w = indicatorWindow {
+            w.parent?.removeChildWindow(w)
+            w.orderOut(nil)
+        }
+        indicatorWindow = nil
+    }
+
+    func updatePosition(on parentWindow: NSWindow, normalizedRect: CGRect) {
+        guard let window = indicatorWindow else { return }
+        let parentFrame = parentWindow.frame
+        let subX = parentFrame.origin.x + parentFrame.width * normalizedRect.origin.x
+        let subY = parentFrame.origin.y + parentFrame.height * (1 - normalizedRect.origin.y - normalizedRect.height)
+        let subW = parentFrame.width * normalizedRect.width
+        let subH = parentFrame.height * normalizedRect.height
+        window.setFrame(NSRect(x: subX, y: subY, width: subW, height: subH), display: true)
+    }
+}
+
+private class MonitorRegionBorderView: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        let path = NSBezierPath(rect: bounds.insetBy(dx: 1, dy: 1))
+        path.lineWidth = 2
+        NSColor.cyan.withAlphaComponent(0.8).setStroke()
+        path.setLineDash([6, 4], count: 2, phase: 0)
+        path.stroke()
     }
 }
