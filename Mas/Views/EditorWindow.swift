@@ -308,7 +308,15 @@ struct EditorWindow: View {
             Button("クリップボードにコピー") { copyToClipboard() }
             if screenshot.captureRegion != nil {
                 Divider()
-                Button("シャッターオプション") { toggleShutterPanel() }
+                Menu("シャッター") {
+                    ForEach(ShutterTab.allCases, id: \.self) { mode in
+                        Button {
+                            openShutterMode(mode)
+                        } label: {
+                            Label(mode.rawValue, systemImage: mode.icon)
+                        }
+                    }
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .windowPinChanged)) { notification in
@@ -1578,14 +1586,15 @@ struct EditorWindow: View {
         NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
     }
 
-    private func toggleShutterPanel() {
+    private func openShutterMode(_ mode: ShutterTab) {
         guard let window = parentWindow else { return }
+        // 既に開いている場合は一度閉じる
         if let controller = shutterPanelController {
             controller.close()
             shutterPanelController = nil
-        } else {
-            let controller = ShutterOptionsPanelController()
-            controller.show(attachedTo: window, screenshot: screenshot) { [self] rect, parentWin in
+        }
+        let controller = ShutterOptionsPanelController()
+        controller.show(attachedTo: window, screenshot: screenshot, mode: mode) { [self] rect, parentWin in
                 // GIFプレーヤーをクリア
                 gifPlayerState?.pause()
                 gifPlayerState = nil
@@ -1610,7 +1619,6 @@ struct EditorWindow: View {
                 shutterPanelController = nil
             }
             shutterPanelController = controller
-        }
     }
 
     // MARK: - テキスト選択（OCR）

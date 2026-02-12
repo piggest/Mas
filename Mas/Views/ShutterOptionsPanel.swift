@@ -52,343 +52,239 @@ struct ShutterOptionsView: View {
     var onClose: (() -> Void)?
     var onSelectMonitorRegion: (() -> Void)?
     var onResetMonitorRegion: (() -> Void)?
+    var onSizeChange: ((CGSize) -> Void)?
+    let initialMode: ShutterTab
 
-    @State private var selectedTab: ShutterTab = .delayed
     @State private var selectedDelay: Double = 3
     @State private var selectedInterval: Double = 5
     @State private var maxCaptureCount: Double = 0
     @State private var programSteps: [ProgramStep] = []
     @State private var draggingStepId: UUID?
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Tab Bar + Close
-            HStack(spacing: 4) {
-                ForEach(ShutterTab.allCases, id: \.self) { tab in
-                    tabButton(tab)
-                }
-                Button(action: { onClose?() }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(.white.opacity(0.5))
-                        .frame(width: 18, height: 18)
-                        .background(Circle().fill(Color.white.opacity(0.1)))
-                }
-                .buttonStyle(NoHighlightButtonStyle())
-            }
-            .padding(.horizontal, 10)
-            .padding(.top, 10)
-            .padding(.bottom, 6)
+    private static let compactWidth: CGFloat = 44
 
-            Divider().overlay(Color.white.opacity(0.15)).padding(.horizontal, 12)
-
-            // Content
-            Group {
-                switch selectedTab {
-                case .delayed:
-                    delayedContent
-                case .interval:
-                    intervalContent
-                case .changeDetection:
-                    changeDetectionContent
-                case .programmable:
-                    programmableContent
-                }
-            }
-            .transaction { $0.animation = nil }
+    private var panelWidth: CGFloat {
+        switch initialMode {
+        case .delayed, .interval, .changeDetection: return Self.compactWidth
+        case .programmable: return 300
         }
-        .frame(width: 360)
-        .background(
-            ZStack {
-                VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
-                Color.black.opacity(0.3)
-            }
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [.white.opacity(0.2), .white.opacity(0.05)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 8)
-        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
     }
 
-    // MARK: - Tab Button
-
-    @ViewBuilder
-    private func tabButton(_ tab: ShutterTab) -> some View {
-        let isSelected = selectedTab == tab
-        let isActive = (tab == .delayed && shutterService.activeMode == .delayed)
-            || (tab == .interval && shutterService.activeMode == .interval)
-            || (tab == .changeDetection && shutterService.activeMode == .changeDetection)
-            || (tab == .programmable && shutterService.activeMode == .programmable)
-
-        Button(action: { selectedTab = tab }) {
-            HStack(spacing: 3) {
-                Image(systemName: tab.icon)
-                    .font(.system(size: 10))
-                Text(tab.rawValue)
-                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-            }
-            .foregroundColor(
-                isActive ? .cyan :
-                isSelected ? .white :
-                .white.opacity(0.5)
-            )
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.white.opacity(0.12) : Color.clear)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(
-                        isActive ? Color.cyan.opacity(0.5) :
-                        isSelected ? Color.white.opacity(0.1) :
-                        Color.clear,
-                        lineWidth: 0.5
-                    )
-            )
+    static func panelSize(for mode: ShutterTab) -> CGSize {
+        switch mode {
+        case .delayed:         return CGSize(width: compactWidth, height: 140)
+        case .interval:        return CGSize(width: compactWidth, height: 190)
+        case .changeDetection: return CGSize(width: compactWidth, height: 260)
+        case .programmable:    return CGSize(width: 300, height: 130)
         }
-        .buttonStyle(NoHighlightButtonStyle())
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if initialMode == .programmable {
+                // プログラマブルはワイドレイアウト
+                HStack(spacing: 5) {
+                    Image(systemName: initialMode.icon)
+                        .font(.system(size: 10))
+                        .foregroundColor(isActiveMode(initialMode) ? .cyan : .white.opacity(0.8))
+                    Text(initialMode.rawValue)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.9))
+                    Spacer()
+                    Button(action: { onClose?() }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundColor(.white.opacity(0.5))
+                            .frame(width: 16, height: 16)
+                            .background(Circle().fill(Color.white.opacity(0.1)))
+                    }
+                    .buttonStyle(NoHighlightButtonStyle())
+                }
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+                Divider().overlay(Color.white.opacity(0.15)).padding(.horizontal, 8)
+
+                programmableContent
+            } else {
+                // 縦長コンパクトレイアウト
+                Button(action: { onClose?() }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundColor(.white.opacity(0.5))
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(NoHighlightButtonStyle())
+                .padding(.top, 6)
+
+                switch initialMode {
+                case .delayed: delayedContent
+                case .interval: intervalContent
+                case .changeDetection: changeDetectionContent
+                default: EmptyView()
+                }
+            }
+        }
+        .frame(width: panelWidth)
+        .background(Color.black.opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func isActiveMode(_ mode: ShutterTab) -> Bool {
+        switch mode {
+        case .delayed: return shutterService.activeMode == .delayed
+        case .interval: return shutterService.activeMode == .interval
+        case .changeDetection: return shutterService.activeMode == .changeDetection
+        case .programmable: return shutterService.activeMode == .programmable
+        }
     }
 
     // MARK: - Delayed Content
 
     private var delayedContent: some View {
-        sectionCard {
-            VStack(alignment: .leading, spacing: 8) {
-                sectionLabel("時限シャッター", icon: "timer", isActive: shutterService.activeMode == .delayed)
+        VStack(spacing: 4) {
+            Image(systemName: "timer")
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.7))
 
-                HStack(spacing: 6) {
-                    Slider(value: $selectedDelay, in: 1...30, step: 1)
-                        .controlSize(.small)
-                        .tint(.cyan)
-                    Text("\(Int(selectedDelay))秒")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 30, alignment: .trailing)
-                }
+            verticalStepper(value: $selectedDelay, range: 1...30, step: 1, format: { "\(Int($0))" }, unit: "秒")
 
-                if shutterService.activeMode == .delayed {
-                    progressBadge {
-                        HStack(spacing: 4) {
-                            ProgressView()
-                                .scaleEffect(0.6)
-                                .tint(.white)
-                            Text("\(shutterService.countdown)秒後にキャプチャ")
-                                .font(.system(size: 10))
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                    }
-                }
-
-                actionButton(
-                    isActive: shutterService.activeMode == .delayed,
-                    startAction: { onStartDelayed(Int(selectedDelay)) },
-                    stopAction: onStop
-                )
+            if shutterService.activeMode == .delayed {
+                Text("\(shutterService.countdown)")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(.cyan)
             }
+
+            captureButton(
+                isActive: shutterService.activeMode == .delayed,
+                startAction: { onStartDelayed(Int(selectedDelay)) },
+                stopAction: onStop
+            )
         }
-        .padding(.bottom, 4)
+        .padding(.vertical, 4)
     }
 
     // MARK: - Interval Content
 
     private var intervalContent: some View {
-        sectionCard {
-            VStack(alignment: .leading, spacing: 8) {
-                sectionLabel("インターバルシャッター", icon: "arrow.triangle.2.circlepath", isActive: shutterService.activeMode == .interval)
+        VStack(spacing: 4) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.7))
 
-                HStack(spacing: 6) {
-                    Slider(value: $selectedInterval, in: 0.5...60, step: 0.5)
-                        .controlSize(.small)
-                        .tint(.cyan)
-                    Text(intervalLabel(selectedInterval))
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 38, alignment: .trailing)
-                }
+            verticalStepper(value: $selectedInterval, range: 0.5...60, step: 0.5, format: { intervalLabel($0) }, unit: nil)
 
-                HStack(spacing: 6) {
-                    Text("回数")
-                        .font(.system(size: 10))
-                        .foregroundColor(.white.opacity(0.6))
-                        .frame(width: 24, alignment: .leading)
-                    Slider(value: $maxCaptureCount, in: 0...100, step: 1)
-                        .controlSize(.small)
-                        .tint(.cyan)
-                    Text(maxCaptureCount == 0 ? "∞" : "\(Int(maxCaptureCount))")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 30, alignment: .trailing)
-                }
+            Divider().overlay(Color.white.opacity(0.1)).padding(.horizontal, 8)
 
-                if shutterService.activeMode == .interval {
-                    progressBadge {
-                        if shutterService.maxCaptureCount > 0 {
-                            Text("キャプチャ回数: \(shutterService.captureCount)/\(shutterService.maxCaptureCount)")
-                                .font(.system(size: 10))
-                                .foregroundColor(.white.opacity(0.8))
-                        } else {
-                            Text("キャプチャ回数: \(shutterService.captureCount)")
-                                .font(.system(size: 10))
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                    }
-                }
+            verticalStepper(value: $maxCaptureCount, range: 0...100, step: 1, format: { $0 == 0 ? "∞" : "\(Int($0))" }, unit: "回")
 
-                actionButton(
-                    isActive: shutterService.activeMode == .interval,
-                    startAction: { onStartInterval(selectedInterval, Int(maxCaptureCount)) },
-                    stopAction: onStop
-                )
+            if shutterService.activeMode == .interval {
+                Text("\(shutterService.captureCount)")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(.cyan)
             }
+
+            captureButton(
+                isActive: shutterService.activeMode == .interval,
+                startAction: { onStartInterval(selectedInterval, Int(maxCaptureCount)) },
+                stopAction: onStop
+            )
         }
-        .padding(.bottom, 4)
+        .padding(.vertical, 4)
     }
 
     // MARK: - Change Detection Content
 
     private var changeDetectionContent: some View {
-        sectionCard {
-            VStack(alignment: .leading, spacing: 8) {
-                sectionLabel("変化検知シャッター", icon: "eye", isActive: shutterService.activeMode == .changeDetection)
+        VStack(spacing: 3) {
+            Image(systemName: "eye")
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.7))
 
-                HStack(spacing: 6) {
-                    Text("感度")
-                        .font(.system(size: 10))
-                        .foregroundColor(.white.opacity(0.6))
-                    Slider(value: $shutterService.sensitivity, in: 0.01...0.20, step: 0.01)
-                        .controlSize(.small)
-                        .tint(.cyan)
-                    Text("\(Int(shutterService.sensitivity * 100))%")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 28)
+            // 感度 縦スライダー
+            Text("\(Int(shutterService.sensitivity * 100))%")
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.7))
+            verticalSlider(value: $shutterService.sensitivity, range: 0.01...0.20)
+                .frame(height: 60)
+
+            // 監視範囲ボタン
+            Button(action: {
+                if shutterService.monitorSubRect != nil {
+                    onResetMonitorRegion?()
+                } else {
+                    onSelectMonitorRegion?()
                 }
-
-                // 監視範囲指定
-                HStack(spacing: 6) {
-                    if shutterService.monitorSubRect != nil {
-                        Button(action: { onSelectMonitorRegion?() }) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "viewfinder")
-                                    .font(.system(size: 9))
-                                Text("範囲指定中")
-                                    .font(.system(size: 10, weight: .medium))
-                            }
-                            .foregroundColor(.cyan)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(
-                                Capsule()
-                                    .fill(Color.cyan.opacity(0.15))
-                                    .overlay(Capsule().strokeBorder(Color.cyan.opacity(0.4), lineWidth: 0.5))
-                            )
-                        }
-                        .buttonStyle(NoHighlightButtonStyle())
-
-                        Button(action: { onResetMonitorRegion?() }) {
-                            Text("リセット")
-                                .font(.system(size: 10))
-                                .foregroundColor(.white.opacity(0.6))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 4)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.white.opacity(0.08))
-                                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5))
-                                )
-                        }
-                        .buttonStyle(NoHighlightButtonStyle())
-                    } else {
-                        Button(action: { onSelectMonitorRegion?() }) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "viewfinder")
-                                    .font(.system(size: 9))
-                                Text("監視範囲")
-                                    .font(.system(size: 10))
-                            }
-                            .foregroundColor(.white.opacity(0.7))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(
-                                Capsule()
-                                    .fill(Color.white.opacity(0.08))
-                                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5))
-                            )
-                        }
-                        .buttonStyle(NoHighlightButtonStyle())
-                    }
-                    Spacer()
-                }
-
-                if shutterService.activeMode == .changeDetection {
-                    progressBadge {
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 4) {
-                                Text("変化率:")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.white.opacity(0.6))
-                                Text(String(format: "%.1f%%", shutterService.currentDiff * 100))
-                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                    .foregroundColor(shutterService.currentDiff > shutterService.sensitivity ? .orange : .cyan)
-                                Text("/")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.white.opacity(0.4))
-                                Text(String(format: "%.0f%%", shutterService.sensitivity * 100))
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.white.opacity(0.6))
-                            }
-                            Text("検知回数: \(shutterService.captureCount)")
-                                .font(.system(size: 10))
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                    }
-                }
-
-                actionButton(
-                    isActive: shutterService.activeMode == .changeDetection,
-                    startAction: onStartChangeDetection,
-                    stopAction: onStop
-                )
+            }) {
+                Image(systemName: shutterService.monitorSubRect != nil ? "viewfinder.circle.fill" : "viewfinder")
+                    .font(.system(size: 14))
+                    .foregroundColor(shutterService.monitorSubRect != nil ? .cyan : .white.opacity(0.6))
             }
+            .buttonStyle(NoHighlightButtonStyle())
+
+            if shutterService.activeMode == .changeDetection {
+                Text(String(format: "%.0f%%", shutterService.currentDiff * 100))
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(shutterService.currentDiff > shutterService.sensitivity ? .orange : .cyan)
+                Text("\(shutterService.captureCount)")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            captureButton(
+                isActive: shutterService.activeMode == .changeDetection,
+                startAction: onStartChangeDetection,
+                stopAction: onStop
+            )
         }
-        .padding(.bottom, 4)
+        .padding(.vertical, 4)
     }
 
     // MARK: - Programmable Content
 
-    private var programmableContent: some View {
-        sectionCard {
-            VStack(alignment: .leading, spacing: 10) {
-                sectionLabel("プログラマブルシャッター", icon: "list.bullet.rectangle", isActive: shutterService.activeMode == .programmable)
+    /// ステップ数に応じたプログラマブルパネルの高さを計算
+    private func programmableHeight() -> CGFloat {
+        // ヘッダー(~30) + パディング(12) + パレット(28) + ボタン(30) + 余白
+        let baseHeight: CGFloat = 110
+        let stepsHeight = estimateStepsHeight(programSteps)
+        let maxHeight: CGFloat = 500
+        return min(baseHeight + stepsHeight, maxHeight)
+    }
 
+    private func estimateStepsHeight(_ steps: [ProgramStep]) -> CGFloat {
+        var h: CGFloat = 0
+        for step in steps {
+            if step.type == .loop {
+                // ループヘッダー + 子要素 + パレット + パディング
+                h += 32 + estimateStepsHeight(step.children) + 28 + 12
+            } else {
+                h += 28
+            }
+            h += 4 // spacing
+        }
+        // 末尾ドロップゾーン
+        if !steps.isEmpty { h += 20 }
+        return h
+    }
+
+    private var programmableContent: some View {
+        VStack(alignment: .leading, spacing: 6) {
                 // ステップリスト
                 if !programSteps.isEmpty {
                     ScrollView {
-                        VStack(spacing: 6) {
+                        VStack(spacing: 4) {
                             stepListView(steps: $programSteps)
                         }
                         .animation(.easeInOut(duration: 0.25), value: allStepIds(programSteps))
                     }
-                    .frame(maxHeight: 260)
+                    .frame(maxHeight: 360)
                 } else {
                     Text("ブロックを追加してください")
-                        .font(.system(size: 11))
+                        .font(.system(size: 10))
                         .foregroundColor(.white.opacity(0.4))
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 6)
                 }
 
                 // トップレベルパレット（4種すべて）
@@ -397,15 +293,13 @@ struct ShutterOptionsView: View {
                 // 実行中ステータス
                 if shutterService.activeMode == .programmable {
                     progressBadge {
-                        HStack(spacing: 6) {
-                            Text("キャプチャ: \(shutterService.captureCount)")
-                                .font(.system(size: 11))
-                                .foregroundColor(.white.opacity(0.8))
-                        }
+                        Text("キャプチャ: \(shutterService.captureCount)")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.8))
                     }
                 }
 
-                actionButton(
+                wideActionButton(
                     isActive: shutterService.activeMode == .programmable,
                     startAction: {
                         guard !programSteps.isEmpty else { return }
@@ -413,9 +307,11 @@ struct ShutterOptionsView: View {
                     },
                     stopAction: onStop
                 )
-            }
         }
-        .padding(.bottom, 4)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+
+
     }
 
     // MARK: - Recursive Step List
@@ -457,7 +353,7 @@ struct ShutterOptionsView: View {
         // 末尾ドロップゾーン
         Color.clear
             .frame(maxWidth: .infinity)
-            .frame(height: 28)
+            .frame(height: 20)
             .contentShape(Rectangle())
             .onDrop(of: [.text], delegate: EndOfListDropDelegate(
                 targetSteps: steps,
@@ -473,20 +369,20 @@ struct ShutterOptionsView: View {
 
         VStack(alignment: .leading, spacing: 0) {
             // ループヘッダー行（ドラッグはここだけで開始）
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 9))
+                    .font(.system(size: 8))
                     .foregroundColor(.white.opacity(0.25))
-                    .frame(width: 12)
+                    .frame(width: 10)
 
                 Image(systemName: "arrow.counterclockwise")
-                    .font(.system(size: 11))
-                    .foregroundColor(isCurrentStep ? .cyan : .cyan.opacity(0.8))
-                    .frame(width: 16)
+                    .font(.system(size: 10))
+                    .foregroundColor(.white)
+                    .frame(width: 14)
 
                 Text("繰り返し")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.cyan.opacity(0.9))
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white)
 
                 Spacer()
 
@@ -494,14 +390,14 @@ struct ShutterOptionsView: View {
                     get: { Double(steps.wrappedValue[safe: index]?.loopCount ?? 0) },
                     set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].loopCount = Int($0) } }
                 ), in: 0...50, step: 1)
-                    .controlSize(.small)
-                    .tint(.cyan)
-                    .frame(maxWidth: 80)
+                    .controlSize(.mini)
+                    .tint(.purple)
+                    .frame(maxWidth: 60)
 
-                Text(step.loopCount == 0 ? "∞回" : "\(step.loopCount)回")
-                    .font(.system(size: 11, design: .monospaced))
+                Text(step.loopCount == 0 ? "∞" : "\(step.loopCount)回")
+                    .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 30, alignment: .trailing)
+                    .frame(width: 24, alignment: .trailing)
 
                 // 削除ボタン
                 Button(action: {
@@ -509,25 +405,28 @@ struct ShutterOptionsView: View {
                         withAnimation(.easeInOut(duration: 0.25)) {
                             steps.wrappedValue.remove(at: index)
                         }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            onSizeChange?(CGSize(width: 300, height: programmableHeight()))
+                        }
                     }
                 }) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 7, weight: .bold))
                         .foregroundColor(.white.opacity(0.4))
-                        .frame(width: 16, height: 16)
+                        .frame(width: 14, height: 14)
                 }
                 .buttonStyle(NoHighlightButtonStyle())
                 .disabled(shutterService.activeMode == .programmable)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
             .onDrag {
                 draggingStepId = step.id
                 return NSItemProvider(object: step.id.uuidString as NSString)
             }
 
             // 子要素エリア
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 let childrenBinding = Binding<[ProgramStep]>(
                     get: { steps.wrappedValue[safe: index]?.children ?? [] },
                     set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].children = $0 } }
@@ -535,10 +434,10 @@ struct ShutterOptionsView: View {
 
                 if steps.wrappedValue[index].children.isEmpty {
                     Text("ブロックを追加")
-                        .font(.system(size: 10))
+                        .font(.system(size: 9))
                         .foregroundColor(.white.opacity(0.3))
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 3)
                 } else {
                     stepListView(steps: childrenBinding)
                 }
@@ -546,11 +445,11 @@ struct ShutterOptionsView: View {
                 // ループ内パレット（繰返含む4種）
                 stepPalette(steps: childrenBinding, includeLoop: true)
             }
-            .padding(.horizontal, 8)
-            .padding(.bottom, 6)
+            .padding(.horizontal, 6)
+            .padding(.bottom, 4)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.cyan.opacity(0.05))
+                    .fill(Color.purple.opacity(0.5))
             )
             .padding(.horizontal, 4)
             .padding(.bottom, 2)
@@ -562,11 +461,11 @@ struct ShutterOptionsView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isCurrentStep ? Color.cyan.opacity(0.15) : Color.white.opacity(0.05))
+                .fill(isCurrentStep ? Color.purple.opacity(0.85) : Color.purple.opacity(0.7))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(isCurrentStep ? Color.cyan.opacity(0.5) : Color.cyan.opacity(0.15), lineWidth: 1)
+                .strokeBorder(isCurrentStep ? Color.purple : Color.purple.opacity(0.85), lineWidth: 1)
         )
     }
 
@@ -574,21 +473,21 @@ struct ShutterOptionsView: View {
     private func stepRowView(steps: Binding<[ProgramStep]>, index: Int, step: ProgramStep) -> some View {
         let isCurrentStep = shutterService.activeMode == .programmable && shutterService.currentStepId == step.id
 
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             Image(systemName: "line.3.horizontal")
-                .font(.system(size: 9))
+                .font(.system(size: 8))
                 .foregroundColor(.white.opacity(0.25))
-                .frame(width: 12)
+                .frame(width: 10)
 
             Image(systemName: stepIcon(step.type))
-                .font(.system(size: 11))
-                .foregroundColor(isCurrentStep ? .cyan : .white.opacity(0.7))
-                .frame(width: 16)
+                .font(.system(size: 10))
+                .foregroundColor(.white)
+                .frame(width: 14)
 
             Text(step.type.rawValue)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.white.opacity(0.9))
-                .frame(width: 46, alignment: .leading)
+                .frame(width: 40, alignment: .leading)
 
             // パラメータ
             switch step.type {
@@ -599,23 +498,23 @@ struct ShutterOptionsView: View {
                     get: { steps.wrappedValue[safe: index]?.waitSeconds ?? 3.0 },
                     set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].waitSeconds = $0 } }
                 ), in: 0.5...60, step: 0.5)
-                    .controlSize(.small)
-                    .tint(.cyan)
+                    .controlSize(.mini)
+                    .tint(.orange)
                 Text(waitLabel(step.waitSeconds))
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 36, alignment: .trailing)
+                    .frame(width: 32, alignment: .trailing)
             case .waitForChange:
                 Slider(value: Binding(
                     get: { (steps.wrappedValue[safe: index]?.sensitivity ?? 0.05) * 100 },
                     set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].sensitivity = $0 / 100 } }
                 ), in: 1...20, step: 1)
-                    .controlSize(.small)
-                    .tint(.cyan)
+                    .controlSize(.mini)
+                    .tint(.green)
                 Text("\(Int(step.sensitivity * 100))%")
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 28, alignment: .trailing)
+                    .frame(width: 24, alignment: .trailing)
             default:
                 EmptyView()
             }
@@ -623,26 +522,31 @@ struct ShutterOptionsView: View {
             // 削除ボタン
             Button(action: {
                 if index < steps.wrappedValue.count {
-                    steps.wrappedValue.remove(at: index)
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        steps.wrappedValue.remove(at: index)
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        onSizeChange?(CGSize(width: 300, height: programmableHeight()))
+                    }
                 }
             }) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.system(size: 7, weight: .bold))
                     .foregroundColor(.white.opacity(0.4))
-                    .frame(width: 16, height: 16)
+                    .frame(width: 14, height: 14)
             }
             .buttonStyle(NoHighlightButtonStyle())
             .disabled(shutterService.activeMode == .programmable)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isCurrentStep ? Color.cyan.opacity(0.15) : Color.white.opacity(0.05))
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isCurrentStep ? stepColor(step.type).opacity(0.85) : stepColor(step.type).opacity(0.7))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(isCurrentStep ? Color.cyan.opacity(0.5) : Color.clear, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(isCurrentStep ? stepColor(step.type) : stepColor(step.type).opacity(0.85), lineWidth: 1)
         )
     }
 
@@ -650,7 +554,7 @@ struct ShutterOptionsView: View {
 
     @ViewBuilder
     private func stepPalette(steps: Binding<[ProgramStep]>, includeLoop: Bool) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             paletteButton(steps: steps, type: .capture, icon: "camera.fill", label: "撮影")
             paletteButton(steps: steps, type: .wait, icon: "clock", label: "待機")
             paletteButton(steps: steps, type: .waitForChange, icon: "eye", label: "変化")
@@ -667,23 +571,26 @@ struct ShutterOptionsView: View {
             withAnimation(.easeInOut(duration: 0.25)) {
                 steps.wrappedValue.append(ProgramStep(type: type))
             }
-        }) {
-            HStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.system(size: 10))
-                Text(label)
-                    .font(.system(size: 11, weight: .medium))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                onSizeChange?(CGSize(width: 300, height: programmableHeight()))
             }
-            .foregroundColor(.white.opacity(0.8))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+        }) {
+            HStack(spacing: 2) {
+                Image(systemName: icon)
+                    .font(.system(size: 8))
+                Text(label)
+                    .font(.system(size: 9, weight: .medium))
+            }
+            .foregroundColor(.white.opacity(0.9))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 4)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.white.opacity(0.08))
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(Color.white.opacity(0.12))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: 5)
+                            .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
                     )
             )
         }
@@ -696,6 +603,15 @@ struct ShutterOptionsView: View {
         case .wait: return "clock"
         case .waitForChange: return "eye"
         case .loop: return "arrow.counterclockwise"
+        }
+    }
+
+    private func stepColor(_ type: ProgramStepType) -> Color {
+        switch type {
+        case .capture:       return .cyan
+        case .wait:          return .orange
+        case .waitForChange: return .green
+        case .loop:          return .purple
         }
     }
 
@@ -719,41 +635,6 @@ struct ShutterOptionsView: View {
     // MARK: - Components
 
     @ViewBuilder
-    private func sectionCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(0.08))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
-                    )
-            )
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-    }
-
-    @ViewBuilder
-    private func sectionLabel(_ title: String, icon: String, isActive: Bool) -> some View {
-        Label {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.white.opacity(0.9))
-        } icon: {
-            Image(systemName: icon)
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(
-                    isActive
-                        ? AnyShapeStyle(LinearGradient(colors: [.cyan, .blue.opacity(0.9)], startPoint: .top, endPoint: .bottom))
-                        : AnyShapeStyle(Color.white.opacity(0.9))
-                )
-        }
-    }
-
-    @ViewBuilder
     private func progressBadge<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
             .padding(.horizontal, 8)
@@ -770,30 +651,170 @@ struct ShutterOptionsView: View {
     }
 
     @ViewBuilder
-    private func actionButton(isActive: Bool, startAction: @escaping () -> Void, stopAction: @escaping () -> Void) -> some View {
+    private func captureButton(isActive: Bool, startAction: @escaping () -> Void, stopAction: @escaping () -> Void) -> some View {
         Button(action: {
-            if isActive {
-                stopAction()
-            } else {
-                startAction()
+            if isActive { stopAction() } else { startAction() }
+        }) {
+            ZStack {
+                Circle()
+                    .strokeBorder(isActive ? Color.red : Color.white.opacity(0.8), lineWidth: 2)
+                    .frame(width: 28, height: 28)
+
+                if isActive {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.red)
+                        .frame(width: 10, height: 10)
+                        .shadow(color: .red.opacity(0.5), radius: 4, x: 0, y: 1)
+                } else {
+                    Circle()
+                        .fill(LinearGradient(colors: [.cyan, .blue.opacity(0.9)], startPoint: .top, endPoint: .bottom))
+                        .frame(width: 22, height: 22)
+                        .shadow(color: .cyan.opacity(0.5), radius: 4, x: 0, y: 1)
+                }
             }
+        }
+        .buttonStyle(NoHighlightButtonStyle())
+    }
+
+    @ViewBuilder
+    private func wideActionButton(isActive: Bool, startAction: @escaping () -> Void, stopAction: @escaping () -> Void) -> some View {
+        Button(action: {
+            if isActive { stopAction() } else { startAction() }
         }) {
             Text(isActive ? "停止" : "開始")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+                .padding(.vertical, 5)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: 6)
                         .fill(
                             isActive
                                 ? LinearGradient(colors: [.red, .red.opacity(0.8)], startPoint: .top, endPoint: .bottom)
                                 : LinearGradient(colors: [.cyan, .blue.opacity(0.9)], startPoint: .top, endPoint: .bottom)
                         )
                 )
-                .shadow(color: isActive ? .red.opacity(0.4) : .cyan.opacity(0.4), radius: 6, x: 0, y: 2)
+                .shadow(color: isActive ? .red.opacity(0.4) : .cyan.opacity(0.4), radius: 4, x: 0, y: 2)
         }
         .buttonStyle(NoHighlightButtonStyle())
+    }
+
+    @ViewBuilder
+    private func verticalStepper(value: Binding<Double>, range: ClosedRange<Double>, step: Double, format: @escaping (Double) -> String, unit: String?) -> some View {
+        VStack(spacing: 1) {
+            Button(action: {
+                let newVal = value.wrappedValue + step
+                if newVal <= range.upperBound { value.wrappedValue = newVal }
+            }) {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(width: 28, height: 14)
+            }
+            .buttonStyle(NoHighlightButtonStyle())
+
+            Text(format(value.wrappedValue))
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundColor(.white.opacity(0.9))
+
+            if let unit = unit {
+                Text(unit)
+                    .font(.system(size: 8))
+                    .foregroundColor(.white.opacity(0.4))
+            }
+
+            Button(action: {
+                let newVal = value.wrappedValue - step
+                if newVal >= range.lowerBound { value.wrappedValue = newVal }
+            }) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(width: 28, height: 14)
+            }
+            .buttonStyle(NoHighlightButtonStyle())
+        }
+    }
+
+    @ViewBuilder
+    private func verticalSlider(value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        GeometryReader { geo in
+            let trackH = geo.size.height
+            let fraction = (value.wrappedValue - range.lowerBound) / (range.upperBound - range.lowerBound)
+            let thumbY = trackH * (1 - fraction)
+
+            ZStack(alignment: .bottom) {
+                // トラック
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.white.opacity(0.15))
+                    .frame(width: 4)
+                    .frame(maxHeight: .infinity)
+
+                // アクティブ部分
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.cyan.opacity(0.6))
+                    .frame(width: 4, height: trackH * fraction)
+            }
+            .frame(maxWidth: .infinity)
+            .overlay(
+                // つまみ
+                Circle()
+                    .fill(Color.cyan)
+                    .frame(width: 10, height: 10)
+                    .shadow(color: .cyan.opacity(0.4), radius: 3)
+                    .position(x: geo.size.width / 2, y: thumbY)
+            )
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { drag in
+                        let y = max(0, min(trackH, drag.location.y))
+                        let frac = 1 - (y / trackH)
+                        value.wrappedValue = range.lowerBound + (range.upperBound - range.lowerBound) * frac
+                    }
+            )
+        }
+        .frame(width: 20)
+    }
+
+    @ViewBuilder
+    private func stepperRow(value: Binding<Double>, range: ClosedRange<Double>, step: Double, format: @escaping (Double) -> String) -> some View {
+        HStack(spacing: 0) {
+            Button(action: {
+                let newVal = value.wrappedValue - step
+                if newVal >= range.lowerBound { value.wrappedValue = newVal }
+            }) {
+                Image(systemName: "minus")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 22, height: 20)
+            }
+            .buttonStyle(NoHighlightButtonStyle())
+
+            Text(format(value.wrappedValue))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.9))
+                .frame(minWidth: 32)
+
+            Button(action: {
+                let newVal = value.wrappedValue + step
+                if newVal <= range.upperBound { value.wrappedValue = newVal }
+            }) {
+                Image(systemName: "plus")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 22, height: 20)
+            }
+            .buttonStyle(NoHighlightButtonStyle())
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(Color.white.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5)
+                )
+        )
     }
 
     // MARK: - Helpers
@@ -825,7 +846,7 @@ class ShutterOptionsPanelController {
     private let monitorRegionIndicator = MonitorRegionIndicator()
     private var changeDetectionObserver: NSObjectProtocol?
 
-    func show(attachedTo parent: NSWindow, screenshot: Screenshot, onRecapture: @escaping (CGRect, NSWindow?) -> Void) {
+    func show(attachedTo parent: NSWindow, screenshot: Screenshot, mode: ShutterTab, onRecapture: @escaping (CGRect, NSWindow?) -> Void) {
         parentWindow = parent
         captureRegion = screenshot.captureRegion ?? .zero
 
@@ -883,31 +904,38 @@ class ShutterOptionsPanelController {
             onResetMonitorRegion: { [weak self] in
                 self?.shutterService.monitorSubRect = nil
                 self?.monitorRegionIndicator.dismiss()
-            }
+            },
+            onSizeChange: { [weak self] newSize in
+                self?.updatePanelSize(newSize)
+            },
+            initialMode: mode
         )
 
-        let width: CGFloat = 360
-        let height: CGFloat = 500
-        cachedSize = CGSize(width: width, height: height)
+        let panelSize = ShutterOptionsView.panelSize(for: mode)
+        cachedSize = panelSize
 
-        // VStackを上寄せし、残りを透明にする
+        // プログラマブルはコンテンツが伸びるので、hostingは最大サイズで確保
+        let maxHostingSize = mode == .programmable
+            ? CGSize(width: 300, height: 500)
+            : panelSize
+
         let wrappedView = VStack(spacing: 0) {
             panelView
             Spacer(minLength: 0)
         }
-        .frame(width: width, height: height, alignment: .top)
+        .frame(width: maxHostingSize.width, height: maxHostingSize.height, alignment: .top)
 
         let hosting = NSHostingView(rootView: wrappedView)
         hosting.layer?.isOpaque = false
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+            contentRect: NSRect(x: 0, y: 0, width: panelSize.width, height: panelSize.height),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
-        hosting.frame = NSRect(x: 0, y: 0, width: width, height: height)
-        hosting.autoresizingMask = [.width, .height]
+        hosting.frame = NSRect(x: 0, y: 0, width: maxHostingSize.width, height: maxHostingSize.height)
+        hosting.autoresizingMask = []
         window.contentView = hosting
         window.backgroundColor = .clear
         window.isOpaque = false
@@ -974,11 +1002,11 @@ class ShutterOptionsPanelController {
         cachedSize = nil
     }
 
-    func toggle(attachedTo parent: NSWindow, screenshot: Screenshot, onRecapture: @escaping (CGRect, NSWindow?) -> Void) {
+    func toggle(attachedTo parent: NSWindow, screenshot: Screenshot, mode: ShutterTab, onRecapture: @escaping (CGRect, NSWindow?) -> Void) {
         if window != nil {
             close()
         } else {
-            show(attachedTo: parent, screenshot: screenshot, onRecapture: onRecapture)
+            show(attachedTo: parent, screenshot: screenshot, mode: mode, onRecapture: onRecapture)
         }
     }
 
@@ -995,11 +1023,24 @@ class ShutterOptionsPanelController {
         )
     }
 
+    private func updatePanelSize(_ newSize: CGSize) {
+        cachedSize = newSize
+        guard let panel = window else { return }
+        let oldFrame = panel.frame
+        let newY = oldFrame.maxY - newSize.height
+        let newFrame = NSRect(x: oldFrame.origin.x, y: newY, width: newSize.width, height: newSize.height)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            panel.animator().setFrame(newFrame, display: true)
+        }
+    }
+
     private func updatePosition() {
         guard let parent = parentWindow, let panel = window else { return }
 
         let parentFrame = parent.frame
-        let panelSize = cachedSize ?? CGSize(width: 360, height: 300)
+        let panelSize = cachedSize ?? CGSize(width: 200, height: 250)
 
         // Place to the right of the parent window
         var panelX = parentFrame.maxX + 4
