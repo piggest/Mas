@@ -3,21 +3,60 @@ import CoreGraphics
 
 // MARK: - Programmable Step Model
 
-enum ProgramStepType: String, CaseIterable {
+enum ProgramStepType: String, CaseIterable, Codable {
     case capture = "撮影"
     case wait = "待機"
     case waitForChange = "変化待ち"
+    case waitForStable = "安定待ち"
     case loop = "繰り返し"
 }
 
-struct ProgramStep: Identifiable {
-    let id = UUID()
+struct ProgramStep: Identifiable, Codable, Equatable {
+    var id = UUID()
     var type: ProgramStepType
     var waitSeconds: Double = 3.0
     var sensitivity: Double = 0.05
     var loopCount: Int = 0
     var children: [ProgramStep] = []  // .loop専用
     var monitorSubRect: CGRect? = nil  // .waitForChange専用: 正規化座標(0〜1)
+}
+
+// MARK: - Program Persistence
+
+struct ProgramStepStore {
+    private static let lastStepsKey = "programmableShutter.lastSteps"
+    private static let savedProgramsKey = "programmableShutter.savedPrograms"
+
+    static func saveLastSteps(_ steps: [ProgramStep]) {
+        guard let data = try? JSONEncoder().encode(steps) else { return }
+        UserDefaults.standard.set(data, forKey: lastStepsKey)
+    }
+
+    static func loadLastSteps() -> [ProgramStep] {
+        guard let data = UserDefaults.standard.data(forKey: lastStepsKey),
+              let steps = try? JSONDecoder().decode([ProgramStep].self, from: data) else { return [] }
+        return steps
+    }
+
+    static func saveProgram(name: String, steps: [ProgramStep]) {
+        var programs = loadAllPrograms()
+        programs[name] = steps
+        guard let data = try? JSONEncoder().encode(programs) else { return }
+        UserDefaults.standard.set(data, forKey: savedProgramsKey)
+    }
+
+    static func loadAllPrograms() -> [String: [ProgramStep]] {
+        guard let data = UserDefaults.standard.data(forKey: savedProgramsKey),
+              let programs = try? JSONDecoder().decode([String: [ProgramStep]].self, from: data) else { return [:] }
+        return programs
+    }
+
+    static func deleteProgram(name: String) {
+        var programs = loadAllPrograms()
+        programs.removeValue(forKey: name)
+        guard let data = try? JSONEncoder().encode(programs) else { return }
+        UserDefaults.standard.set(data, forKey: savedProgramsKey)
+    }
 }
 
 enum ShutterMode: String {
@@ -43,6 +82,7 @@ class ShutterService: ObservableObject {
     private var timer: DispatchSourceTimer?
     private var monitorTimer: DispatchSourceTimer?
     private var referenceImage: CGImage?
+    private var lastCapturedImage: CGImage?  // プログラマブル: 前回の撮影ステップの画像
     private let captureService = ScreenCaptureService()
     private var programmableTask: Task<Void, Never>?
 
@@ -191,6 +231,10 @@ class ShutterService: ObservableObject {
             case .capture:
                 captureCount += 1
                 onCapture?()
+                // 撮影直後の画面をサブ領域ごとにキャプチャして保存（変化待ち・安定待ちの基準）
+                if let provider = regionProvider {
+                    lastCapturedImage = await captureRegionImage(provider())
+                }
 
             case .wait:
                 let nanoseconds = UInt64(step.waitSeconds * 1_000_000_000)
@@ -202,14 +246,22 @@ class ShutterService: ObservableObject {
 
             case .waitForChange:
                 guard let provider = regionProvider else { break }
-                let fullRegion = provider()
-                let region = stepMonitorRegion(from: fullRegion, subRect: step.monitorSubRect)
+                let region = stepMonitorRegion(from: provider(), subRect: step.monitorSubRect)
                 guard region.width > 0, region.height > 0 else { break }
-                guard let refImage = await captureRegionImage(region) else { break }
+                // 前回撮影の同一領域をキャプチャして基準とする（なければ今の画面）
+                let refImage: CGImage
+                if let lastFull = lastCapturedImage {
+                    // 前回撮影時のフル画像から、同じ方法でサブ領域をキャプチャし直す
+                    let refRegion = stepMonitorRegion(from: provider(), subRect: step.monitorSubRect)
+                    refImage = await captureRefFromLastCapture(fullImage: lastFull, fullRegion: provider(), subRegion: refRegion)
+                } else {
+                    guard let fallback = await captureRegionImage(region) else { break }
+                    refImage = fallback
+                }
 
                 while !Task.isCancelled {
                     do {
-                        try await Task.sleep(nanoseconds: 500_000_000)  // 0.5秒
+                        try await Task.sleep(nanoseconds: 500_000_000)
                     } catch {
                         return
                     }
@@ -218,6 +270,35 @@ class ShutterService: ObservableObject {
                     let diff = imageDifference(refImage, current)
                     currentDiff = diff
                     if diff > step.sensitivity {
+                        break
+                    }
+                }
+
+            case .waitForStable:
+                guard let provider = regionProvider else { break }
+                let stableRegion = stepMonitorRegion(from: provider(), subRect: step.monitorSubRect)
+                guard stableRegion.width > 0, stableRegion.height > 0 else { break }
+                // 前回撮影の同一領域を基準に、変化率がしきい値以下になるまで待つ
+                let stableRef: CGImage
+                if let lastFull = lastCapturedImage {
+                    let refRegion = stepMonitorRegion(from: provider(), subRect: step.monitorSubRect)
+                    stableRef = await captureRefFromLastCapture(fullImage: lastFull, fullRegion: provider(), subRegion: refRegion)
+                } else {
+                    guard let fallback = await captureRegionImage(stableRegion) else { break }
+                    stableRef = fallback
+                }
+
+                while !Task.isCancelled {
+                    do {
+                        try await Task.sleep(nanoseconds: 500_000_000)
+                    } catch {
+                        return
+                    }
+                    let curRegion = stepMonitorRegion(from: provider(), subRect: step.monitorSubRect)
+                    guard let curImage = await captureRegionImage(curRegion) else { continue }
+                    let diff = imageDifference(stableRef, curImage)
+                    currentDiff = diff
+                    if diff <= step.sensitivity {
                         break
                     }
                 }
@@ -249,6 +330,7 @@ class ShutterService: ObservableObject {
         monitorTimer?.cancel()
         monitorTimer = nil
         referenceImage = nil
+        lastCapturedImage = nil
         regionProvider = nil
         isActive = false
         activeMode = nil
@@ -277,6 +359,34 @@ class ShutterService: ObservableObject {
             width: fullRegion.width * sub.width,
             height: fullRegion.height * sub.height
         )
+    }
+
+    /// lastCapturedImage（フル領域）からサブ領域を切り出す。
+    /// fullRegion と subRegion の比率でフル画像をクロップする。
+    private func captureRefFromLastCapture(fullImage: CGImage, fullRegion: CGRect, subRegion: CGRect) -> CGImage {
+        // サブ領域がフル領域と同じならそのまま返す
+        guard fullRegion.width > 0, fullRegion.height > 0 else { return fullImage }
+        let relX = (subRegion.origin.x - fullRegion.origin.x) / fullRegion.width
+        let relY = (subRegion.origin.y - fullRegion.origin.y) / fullRegion.height
+        let relW = subRegion.width / fullRegion.width
+        let relH = subRegion.height / fullRegion.height
+
+        // ほぼ全体ならクロップ不要
+        if relX <= 0.001 && relY <= 0.001 && relW >= 0.999 && relH >= 0.999 {
+            return fullImage
+        }
+
+        let cropRect = CGRect(
+            x: CGFloat(fullImage.width) * relX,
+            y: CGFloat(fullImage.height) * relY,
+            width: CGFloat(fullImage.width) * relW,
+            height: CGFloat(fullImage.height) * relH
+        ).integral  // ピクセル境界に揃える
+
+        let imageRect = CGRect(x: 0, y: 0, width: fullImage.width, height: fullImage.height)
+        let clamped = cropRect.intersection(imageRect)
+        guard !clamped.isEmpty else { return fullImage }
+        return fullImage.cropping(to: clamped) ?? fullImage
     }
 
     private func captureRegionImage(_ region: CGRect) async -> CGImage? {

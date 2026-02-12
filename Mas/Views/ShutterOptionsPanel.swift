@@ -59,8 +59,11 @@ struct ShutterOptionsView: View {
     @State private var selectedDelay: Double = 3
     @State private var selectedInterval: Double = 5
     @State private var maxCaptureCount: Double = 0
-    @State private var programSteps: [ProgramStep] = []
+    @State private var programSteps: [ProgramStep] = ProgramStepStore.loadLastSteps()
     @State private var draggingStepId: UUID?
+    @State private var showSavePopover = false
+    @State private var saveName = ""
+    @State private var savedPrograms: [String: [ProgramStep]] = ProgramStepStore.loadAllPrograms()
 
     private static let compactWidth: CGFloat = 44
 
@@ -92,6 +95,65 @@ struct ShutterOptionsView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.white.opacity(0.9))
                     Spacer()
+
+                    // 保存ボタン
+                    Button(action: {
+                        saveName = ""
+                        showSavePopover = true
+                    }) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 10))
+                            .foregroundColor(programSteps.isEmpty ? .white.opacity(0.2) : .white.opacity(0.6))
+                            .frame(width: 16, height: 16)
+                    }
+                    .buttonStyle(NoHighlightButtonStyle())
+                    .disabled(programSteps.isEmpty)
+                    .popover(isPresented: $showSavePopover) {
+                        savePopoverContent
+                    }
+
+                    // 読み込みメニュー
+                    Menu {
+                        if savedPrograms.isEmpty {
+                            Text("保存済みプログラムなし")
+                        } else {
+                            ForEach(savedPrograms.keys.sorted(), id: \.self) { name in
+                                Button(name) {
+                                    if let steps = savedPrograms[name] {
+                                        withAnimation(.easeInOut(duration: 0.25)) {
+                                            programSteps = steps.map { step in
+                                                var s = step
+                                                s.id = UUID()
+                                                s.children = assignNewIds(step.children)
+                                                return s
+                                            }
+                                        }
+                                        autoSave()
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                            onSizeChange?(CGSize(width: 300, height: programmableHeight()))
+                                        }
+                                    }
+                                }
+                            }
+                            Divider()
+                            Menu("削除") {
+                                ForEach(savedPrograms.keys.sorted(), id: \.self) { name in
+                                    Button(name, role: .destructive) {
+                                        ProgramStepStore.deleteProgram(name: name)
+                                        savedPrograms = ProgramStepStore.loadAllPrograms()
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "folder")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(width: 16, height: 16)
+                    }
+                    .menuStyle(.borderlessButton)
+                    .frame(width: 16)
+
                     Button(action: { onClose?() }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 7, weight: .bold))
@@ -204,10 +266,10 @@ struct ShutterOptionsView: View {
                 .foregroundColor(.white.opacity(0.7))
 
             // 感度 縦スライダー
-            Text("\(Int(shutterService.sensitivity * 100))%")
+            Text(formatSensitivity(shutterService.sensitivity))
                 .font(.system(size: 9, weight: .medium, design: .monospaced))
                 .foregroundColor(.white.opacity(0.7))
-            verticalSlider(value: $shutterService.sensitivity, range: 0.01...0.20)
+            verticalSlider(value: $shutterService.sensitivity, range: 0.001...0.20)
                 .frame(height: 60)
 
             // 監視範囲ボタン
@@ -311,8 +373,49 @@ struct ShutterOptionsView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
+        .onChange(of: programSteps) { _ in autoSave() }
+    }
 
+    // MARK: - Save Popover
 
+    private var savePopoverContent: some View {
+        VStack(spacing: 8) {
+            Text("プログラムを保存")
+                .font(.system(size: 12, weight: .semibold))
+            TextField("名前", text: $saveName)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 160)
+                .onSubmit { performSave() }
+            HStack(spacing: 8) {
+                Button("キャンセル") { showSavePopover = false }
+                    .keyboardShortcut(.cancelAction)
+                Button("保存") { performSave() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(saveName.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(12)
+    }
+
+    private func performSave() {
+        let name = saveName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        ProgramStepStore.saveProgram(name: name, steps: programSteps)
+        savedPrograms = ProgramStepStore.loadAllPrograms()
+        showSavePopover = false
+    }
+
+    private func autoSave() {
+        ProgramStepStore.saveLastSteps(programSteps)
+    }
+
+    private func assignNewIds(_ steps: [ProgramStep]) -> [ProgramStep] {
+        steps.map { step in
+            var s = step
+            s.id = UUID()
+            s.children = assignNewIds(step.children)
+            return s
+        }
     }
 
     // MARK: - Recursive Step List
@@ -394,7 +497,8 @@ struct ShutterOptionsView: View {
                     ),
                     range: 0...999, step: 1,
                     format: { $0 == 0 ? "∞" : "\(Int($0))回" },
-                    color: .purple
+                    color: .green,
+                    fontSize: 13
                 )
 
                 // 削除ボタン
@@ -447,7 +551,7 @@ struct ShutterOptionsView: View {
             .padding(.bottom, 4)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.purple.opacity(0.5))
+                    .fill(Color.green.opacity(0.25))
             )
             .padding(.horizontal, 4)
             .padding(.bottom, 2)
@@ -459,11 +563,11 @@ struct ShutterOptionsView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.purple.opacity(0.7))
+                .fill(Color.green.opacity(0.3))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(isCurrentStep ? Color.cyan : Color.purple.opacity(0.85), lineWidth: isCurrentStep ? 2 : 1)
+                .strokeBorder(isCurrentStep ? Color.cyan : Color.green.opacity(0.85), lineWidth: isCurrentStep ? 2 : 1)
         )
         .shadow(color: isCurrentStep ? .cyan.opacity(0.6) : .clear, radius: 4)
     }
@@ -483,10 +587,10 @@ struct ShutterOptionsView: View {
                 .foregroundColor(.white)
                 .frame(width: 14)
 
-            Text(step.type.rawValue)
+            Text(stepShortLabel(step.type))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.white.opacity(0.9))
-                .frame(width: 40, alignment: .leading)
+                .frame(width: 28, alignment: .leading)
 
             // パラメータ
             switch step.type {
@@ -507,13 +611,13 @@ struct ShutterOptionsView: View {
                 Slider(value: Binding(
                     get: { (steps.wrappedValue[safe: index]?.sensitivity ?? 0.05) * 100 },
                     set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].sensitivity = $0 / 100 } }
-                ), in: 1...20, step: 1)
+                ), in: 0.1...20, step: 0.1)
                     .controlSize(.mini)
-                    .tint(.green)
-                Text("\(Int(step.sensitivity * 100))%")
+                    .tint(.purple)
+                Text(formatSensitivity(step.sensitivity))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 24, alignment: .trailing)
+                    .frame(width: 32, alignment: .trailing)
 
                 // 監視範囲ボタン
                 Button(action: {
@@ -524,6 +628,39 @@ struct ShutterOptionsView: View {
                         }
                     } else {
                         // 領域選択
+                        onSelectStepMonitorRegion? { rect in
+                            if index < steps.wrappedValue.count {
+                                steps.wrappedValue[index].monitorSubRect = rect
+                            }
+                        }
+                    }
+                }) {
+                    Image(systemName: step.monitorSubRect != nil ? "viewfinder.circle.fill" : "viewfinder")
+                        .font(.system(size: 11))
+                        .foregroundColor(step.monitorSubRect != nil ? .cyan : .white.opacity(0.6))
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(NoHighlightButtonStyle())
+                .disabled(shutterService.activeMode == .programmable)
+            case .waitForStable:
+                Slider(value: Binding(
+                    get: { (steps.wrappedValue[safe: index]?.sensitivity ?? 0.05) * 100 },
+                    set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].sensitivity = $0 / 100 } }
+                ), in: 0.1...20, step: 0.1)
+                    .controlSize(.mini)
+                    .tint(.yellow)
+                Text(formatSensitivity(step.sensitivity))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 32, alignment: .trailing)
+
+                // 監視範囲ボタン
+                Button(action: {
+                    if steps.wrappedValue[safe: index]?.monitorSubRect != nil {
+                        if index < steps.wrappedValue.count {
+                            steps.wrappedValue[index].monitorSubRect = nil
+                        }
+                    } else {
                         onSelectStepMonitorRegion? { rect in
                             if index < steps.wrappedValue.count {
                                 steps.wrappedValue[index].monitorSubRect = rect
@@ -582,11 +719,22 @@ struct ShutterOptionsView: View {
             paletteButton(steps: steps, type: .capture, icon: "camera.fill", label: "撮影")
             paletteButton(steps: steps, type: .wait, icon: "clock", label: "待機")
             paletteButton(steps: steps, type: .waitForChange, icon: "eye", label: "変化")
+            paletteButton(steps: steps, type: .waitForStable, icon: "eye.trianglebadge.exclamationmark", label: "安定")
             if includeLoop {
                 paletteButton(steps: steps, type: .loop, icon: "arrow.counterclockwise", label: "繰返")
             }
         }
         .disabled(shutterService.activeMode == .programmable)
+    }
+
+    private func stepShortLabel(_ type: ProgramStepType) -> String {
+        switch type {
+        case .capture:       return "撮影"
+        case .wait:          return "待機"
+        case .waitForChange: return "変化"
+        case .waitForStable: return "安定"
+        case .loop:          return "繰返"
+        }
     }
 
     @ViewBuilder
@@ -626,16 +774,18 @@ struct ShutterOptionsView: View {
         case .capture: return "camera.fill"
         case .wait: return "clock"
         case .waitForChange: return "eye"
+        case .waitForStable: return "eye.trianglebadge.exclamationmark"
         case .loop: return "arrow.counterclockwise"
         }
     }
 
     private func stepColor(_ type: ProgramStepType) -> Color {
         switch type {
-        case .capture:       return .cyan
-        case .wait:          return .orange
-        case .waitForChange: return .green
-        case .loop:          return .purple
+        case .capture:        return .cyan
+        case .wait:           return .orange
+        case .waitForChange:  return .purple
+        case .waitForStable:  return .yellow
+        case .loop:           return .green
         }
     }
 
@@ -646,6 +796,15 @@ struct ShutterOptionsView: View {
             return "\(Int(seconds))秒"
         } else {
             return String(format: "%.1f秒", seconds)
+        }
+    }
+
+    private func formatSensitivity(_ value: Double) -> String {
+        let pct = value * 100
+        if pct >= 1 {
+            return "\(Int(pct))%"
+        } else {
+            return String(format: "%.1f%%", pct)
         }
     }
 
@@ -801,38 +960,8 @@ struct ShutterOptionsView: View {
         .frame(width: 20)
     }
 
-    @ViewBuilder
-    private func inlineStepper(value: Binding<Double>, range: ClosedRange<Double>, step: Double, format: @escaping (Double) -> String, color: Color) -> some View {
-        HStack(spacing: 2) {
-            Button(action: {
-                let newVal = value.wrappedValue - step
-                if newVal >= range.lowerBound { value.wrappedValue = newVal }
-            }) {
-                Image(systemName: "minus")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundColor(color.opacity(0.9))
-                    .frame(width: 18, height: 18)
-                    .background(Circle().fill(color.opacity(0.15)))
-            }
-            .buttonStyle(NoHighlightButtonStyle())
-
-            Text(format(value.wrappedValue))
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.white.opacity(0.9))
-                .frame(minWidth: 30)
-
-            Button(action: {
-                let newVal = value.wrappedValue + step
-                if newVal <= range.upperBound { value.wrappedValue = newVal }
-            }) {
-                Image(systemName: "plus")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundColor(color.opacity(0.9))
-                    .frame(width: 18, height: 18)
-                    .background(Circle().fill(color.opacity(0.15)))
-            }
-            .buttonStyle(NoHighlightButtonStyle())
-        }
+    private func inlineStepper(value: Binding<Double>, range: ClosedRange<Double>, step: Double, format: @escaping (Double) -> String, color: Color, fontSize: CGFloat = 10) -> some View {
+        InlineStepperView(value: value, range: range, step: step, format: format, color: color, fontSize: fontSize)
     }
 
     @ViewBuilder
@@ -911,7 +1040,7 @@ class ShutterOptionsPanelController {
         // Set up the capture callback
         shutterService.onCapture = { [weak self] in
             guard let self = self, let parent = self.parentWindow else { return }
-            let screenHeight = NSScreen.main?.frame.height ?? 0
+            let screenHeight = NSScreen.screens.first?.frame.height ?? 0
             let frame = parent.frame
             let rect = CGRect(
                 x: frame.origin.x,
@@ -989,7 +1118,7 @@ class ShutterOptionsPanelController {
         let hosting = NSHostingView(rootView: wrappedView)
         hosting.layer?.isOpaque = false
 
-        let window = NSWindow(
+        let window = KeyableWindow(
             contentRect: NSRect(x: 0, y: 0, width: panelSize.width, height: panelSize.height),
             styleMask: [.borderless],
             backing: .buffered,
@@ -1075,7 +1204,7 @@ class ShutterOptionsPanelController {
     func currentCGRegion() -> CGRect {
         guard let parent = parentWindow else { return captureRegion }
         let frame = parent.frame
-        let screenHeight = NSScreen.main?.frame.height ?? 0
+        let screenHeight = NSScreen.screens.first?.frame.height ?? 0
         return CGRect(
             x: frame.origin.x,
             y: screenHeight - frame.origin.y - frame.height,
@@ -1169,6 +1298,10 @@ class ShutterOptionsPanelController {
 }
 
 // MARK: - Monitor Region Overlay (ドラッグで監視サブ領域を選択)
+
+private class KeyableWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+}
 
 private class MonitorRegionKeyableWindow: NSWindow {
     override var canBecomeKey: Bool { true }
@@ -1551,6 +1684,107 @@ struct EndOfListDropDelegate: DropDelegate {
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
         DropProposal(operation: .move)
+    }
+}
+
+// MARK: - Inline Stepper View
+
+private struct InlineStepperView: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let format: (Double) -> String
+    let color: Color
+    let fontSize: CGFloat
+
+    @State private var isEditing = false
+    @State private var editText = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Button(action: {
+                let newVal = value - step
+                if newVal >= range.lowerBound { value = newVal }
+            }) {
+                Image(systemName: "minus")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(color.opacity(0.9))
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(color.opacity(0.15)))
+            }
+            .buttonStyle(NoHighlightButtonStyle())
+
+            if isEditing {
+                TextField("", text: $editText, onCommit: commitEdit)
+                    .focused($isFocused)
+                    .font(.system(size: fontSize, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .frame(minWidth: 36, maxWidth: 50)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 1)
+                    .background(
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.white.opacity(0.15))
+                    )
+                    .onChange(of: isFocused) { focused in
+                        if !focused { commitEdit() }
+                    }
+                    .onAppear { isFocused = true }
+            } else {
+                Text(format(value))
+                    .font(.system(size: displayFontSize, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.9))
+                    .frame(minWidth: 30)
+                    .contentShape(Rectangle())
+                    .onTapGesture { startEditing() }
+            }
+
+            Button(action: {
+                let newVal = value + step
+                if newVal <= range.upperBound { value = newVal }
+            }) {
+                Image(systemName: "plus")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(color.opacity(0.9))
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(color.opacity(0.15)))
+            }
+            .buttonStyle(NoHighlightButtonStyle())
+        }
+    }
+
+    /// ∞ 表示時はフォントサイズを大きめにする
+    private var displayFontSize: CGFloat {
+        format(value) == "∞" ? fontSize + 4 : fontSize
+    }
+
+    private func startEditing() {
+        // 編集開始時は生の数値を表示
+        if step >= 1 {
+            editText = value == 0 && range.lowerBound == 0 ? "" : "\(Int(value))"
+        } else {
+            editText = value == 0 ? "" : String(format: "%g", value)
+        }
+        isEditing = true
+    }
+
+    private func commitEdit() {
+        let stripped = editText.replacingOccurrences(of: "[^0-9.]", with: "", options: .regularExpression)
+        if let parsed = Double(stripped) {
+            let clamped = min(max(parsed, range.lowerBound), range.upperBound)
+            if step >= 1 {
+                value = Double(Int(clamped))
+            } else {
+                value = (clamped / step).rounded() * step
+            }
+        } else if editText.trimmingCharacters(in: .whitespaces).isEmpty {
+            // 空欄 → 最小値（ループの場合は0=∞になる）
+            value = range.lowerBound
+        }
+        isEditing = false
     }
 }
 
