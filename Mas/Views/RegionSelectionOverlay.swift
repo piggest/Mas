@@ -34,6 +34,7 @@ class RegionSelectionOverlay {
             window.ignoresMouseEvents = false
             window.acceptsMouseMovedEvents = true
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.sharingType = .none
 
             let selectionView = SelectionView(frame: NSRect(origin: .zero, size: screen.frame.size)) { [weak self] rect in
                 self?.handleSelection(rect, on: screen)

@@ -1036,6 +1036,11 @@ class ClickThroughWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
+    override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
+        super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
+        self.sharingType = .none
+    }
+
     override func sendEvent(_ event: NSEvent) {
         // 非アクティブ時のマウスクリックもそのまま処理する
         if event.type == .leftMouseDown && !isKeyWindow {

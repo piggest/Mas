@@ -126,6 +126,7 @@ class GifPlayerToolbarController {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isMovableByWindowBackground = false
         window.ignoresMouseEvents = false
+        window.sharingType = .none
 
         self.window = window
 

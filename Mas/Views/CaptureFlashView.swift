@@ -26,6 +26,7 @@ class CaptureFlashView {
         window.ignoresMouseEvents = true
         window.alphaValue = 0.8
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        window.sharingType = .none
 
         flashWindow = window
         window.orderFrontRegardless()

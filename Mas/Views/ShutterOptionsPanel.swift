@@ -1040,14 +1040,7 @@ class ShutterOptionsPanelController {
         // Set up the capture callback
         shutterService.onCapture = { [weak self] in
             guard let self = self, let parent = self.parentWindow else { return }
-            let screenHeight = NSScreen.screens.first?.frame.height ?? 0
-            let frame = parent.frame
-            let rect = CGRect(
-                x: frame.origin.x,
-                y: screenHeight - frame.origin.y - frame.height,
-                width: frame.width,
-                height: frame.height
-            )
+            let rect = self.contentCGRegion(of: parent)
             onRecapture(rect, parent)
         }
 
@@ -1203,13 +1196,24 @@ class ShutterOptionsPanelController {
     /// parentWindow の現在位置からCG座標系のリージョンを返す
     func currentCGRegion() -> CGRect {
         guard let parent = parentWindow else { return captureRegion }
-        let frame = parent.frame
+        return contentCGRegion(of: parent)
+    }
+
+    /// ウィンドウのコンテンツ領域をCG座標系で返す（リサイズマージンを除外）
+    private func contentCGRegion(of window: NSWindow) -> CGRect {
         let screenHeight = NSScreen.screens.first?.frame.height ?? 0
+        // contentLayoutRect はウィンドウローカル座標のコンテンツ領域
+        let content = window.contentLayoutRect
+        // ウィンドウ座標系でのコンテンツ原点をスクリーン座標に変換
+        let contentOriginInScreen = NSPoint(
+            x: window.frame.origin.x + content.origin.x,
+            y: window.frame.origin.y + content.origin.y
+        )
         return CGRect(
-            x: frame.origin.x,
-            y: screenHeight - frame.origin.y - frame.height,
-            width: frame.width,
-            height: frame.height
+            x: contentOriginInScreen.x,
+            y: screenHeight - contentOriginInScreen.y - content.height,
+            width: content.width,
+            height: content.height
         )
     }
 
@@ -1301,10 +1305,18 @@ class ShutterOptionsPanelController {
 
 private class KeyableWindow: NSWindow {
     override var canBecomeKey: Bool { true }
+    override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
+        super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
+        self.sharingType = .none
+    }
 }
 
 private class MonitorRegionKeyableWindow: NSWindow {
     override var canBecomeKey: Bool { true }
+    override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
+        super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
+        self.sharingType = .none
+    }
 }
 
 @MainActor
@@ -1517,6 +1529,7 @@ class MonitorRegionIndicator {
         window.hasShadow = false
         window.ignoresMouseEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.sharingType = .none
 
         let borderView = MonitorRegionBorderView(frame: NSRect(origin: .zero, size: frame.size))
         window.contentView = borderView

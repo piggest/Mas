@@ -171,6 +171,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         settingsWindow.title = "設定"
+        settingsWindow.sharingType = .none
         settingsWindow.contentViewController = NSHostingController(rootView: SettingsWindow())
         settingsWindow.center()
         settingsWindow.makeKeyAndOrderFront(nil)
