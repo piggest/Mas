@@ -52,6 +52,7 @@ struct ShutterOptionsView: View {
     var onClose: (() -> Void)?
     var onSelectMonitorRegion: (() -> Void)?
     var onResetMonitorRegion: (() -> Void)?
+    var onSelectStepMonitorRegion: ((_ completion: @escaping (CGRect?) -> Void) -> Void)?
     var onSizeChange: ((CGSize) -> Void)?
     let initialMode: ShutterTab
 
@@ -386,18 +387,15 @@ struct ShutterOptionsView: View {
 
                 Spacer()
 
-                Slider(value: Binding(
-                    get: { Double(steps.wrappedValue[safe: index]?.loopCount ?? 0) },
-                    set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].loopCount = Int($0) } }
-                ), in: 0...50, step: 1)
-                    .controlSize(.mini)
-                    .tint(.purple)
-                    .frame(maxWidth: 60)
-
-                Text(step.loopCount == 0 ? "∞" : "\(step.loopCount)回")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 24, alignment: .trailing)
+                inlineStepper(
+                    value: Binding(
+                        get: { Double(steps.wrappedValue[safe: index]?.loopCount ?? 0) },
+                        set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].loopCount = Int($0) } }
+                    ),
+                    range: 0...999, step: 1,
+                    format: { $0 == 0 ? "∞" : "\(Int($0))回" },
+                    color: .purple
+                )
 
                 // 削除ボタン
                 Button(action: {
@@ -461,12 +459,13 @@ struct ShutterOptionsView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isCurrentStep ? Color.purple.opacity(0.85) : Color.purple.opacity(0.7))
+                .fill(Color.purple.opacity(0.7))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(isCurrentStep ? Color.purple : Color.purple.opacity(0.85), lineWidth: 1)
+                .strokeBorder(isCurrentStep ? Color.cyan : Color.purple.opacity(0.85), lineWidth: isCurrentStep ? 2 : 1)
         )
+        .shadow(color: isCurrentStep ? .cyan.opacity(0.6) : .clear, radius: 4)
     }
 
     @ViewBuilder
@@ -494,16 +493,16 @@ struct ShutterOptionsView: View {
             case .capture:
                 Spacer()
             case .wait:
-                Slider(value: Binding(
-                    get: { steps.wrappedValue[safe: index]?.waitSeconds ?? 3.0 },
-                    set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].waitSeconds = $0 } }
-                ), in: 0.5...60, step: 0.5)
-                    .controlSize(.mini)
-                    .tint(.orange)
-                Text(waitLabel(step.waitSeconds))
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 32, alignment: .trailing)
+                Spacer()
+                inlineStepper(
+                    value: Binding(
+                        get: { steps.wrappedValue[safe: index]?.waitSeconds ?? 3.0 },
+                        set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].waitSeconds = $0 } }
+                    ),
+                    range: 0.5...999, step: 0.5,
+                    format: { waitLabel($0) },
+                    color: .orange
+                )
             case .waitForChange:
                 Slider(value: Binding(
                     get: { (steps.wrappedValue[safe: index]?.sensitivity ?? 0.05) * 100 },
@@ -515,6 +514,30 @@ struct ShutterOptionsView: View {
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.white.opacity(0.7))
                     .frame(width: 24, alignment: .trailing)
+
+                // 監視範囲ボタン
+                Button(action: {
+                    if steps.wrappedValue[safe: index]?.monitorSubRect != nil {
+                        // リセット
+                        if index < steps.wrappedValue.count {
+                            steps.wrappedValue[index].monitorSubRect = nil
+                        }
+                    } else {
+                        // 領域選択
+                        onSelectStepMonitorRegion? { rect in
+                            if index < steps.wrappedValue.count {
+                                steps.wrappedValue[index].monitorSubRect = rect
+                            }
+                        }
+                    }
+                }) {
+                    Image(systemName: step.monitorSubRect != nil ? "viewfinder.circle.fill" : "viewfinder")
+                        .font(.system(size: 11))
+                        .foregroundColor(step.monitorSubRect != nil ? .cyan : .white.opacity(0.6))
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(NoHighlightButtonStyle())
+                .disabled(shutterService.activeMode == .programmable)
             default:
                 EmptyView()
             }
@@ -542,12 +565,13 @@ struct ShutterOptionsView: View {
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isCurrentStep ? stepColor(step.type).opacity(0.85) : stepColor(step.type).opacity(0.7))
+                .fill(stepColor(step.type).opacity(0.7))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(isCurrentStep ? stepColor(step.type) : stepColor(step.type).opacity(0.85), lineWidth: 1)
+                .strokeBorder(isCurrentStep ? Color.cyan : stepColor(step.type).opacity(0.85), lineWidth: isCurrentStep ? 2 : 1)
         )
+        .shadow(color: isCurrentStep ? .cyan.opacity(0.6) : .clear, radius: 4)
     }
 
     // MARK: - Step Palette
@@ -778,6 +802,40 @@ struct ShutterOptionsView: View {
     }
 
     @ViewBuilder
+    private func inlineStepper(value: Binding<Double>, range: ClosedRange<Double>, step: Double, format: @escaping (Double) -> String, color: Color) -> some View {
+        HStack(spacing: 2) {
+            Button(action: {
+                let newVal = value.wrappedValue - step
+                if newVal >= range.lowerBound { value.wrappedValue = newVal }
+            }) {
+                Image(systemName: "minus")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(color.opacity(0.9))
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(color.opacity(0.15)))
+            }
+            .buttonStyle(NoHighlightButtonStyle())
+
+            Text(format(value.wrappedValue))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.9))
+                .frame(minWidth: 30)
+
+            Button(action: {
+                let newVal = value.wrappedValue + step
+                if newVal <= range.upperBound { value.wrappedValue = newVal }
+            }) {
+                Image(systemName: "plus")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(color.opacity(0.9))
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(color.opacity(0.15)))
+            }
+            .buttonStyle(NoHighlightButtonStyle())
+        }
+    }
+
+    @ViewBuilder
     private func stepperRow(value: Binding<Double>, range: ClosedRange<Double>, step: Double, format: @escaping (Double) -> String) -> some View {
         HStack(spacing: 0) {
             Button(action: {
@@ -904,6 +962,9 @@ class ShutterOptionsPanelController {
             onResetMonitorRegion: { [weak self] in
                 self?.shutterService.monitorSubRect = nil
                 self?.monitorRegionIndicator.dismiss()
+            },
+            onSelectStepMonitorRegion: { [weak self] completion in
+                self?.startStepMonitorRegionSelection(completion: completion)
             },
             onSizeChange: { [weak self] newSize in
                 self?.updatePanelSize(newSize)
@@ -1070,6 +1131,16 @@ class ShutterOptionsPanelController {
             NSRect(x: panelX, y: panelY, width: panelSize.width, height: panelSize.height),
             display: false
         )
+    }
+
+    private func startStepMonitorRegionSelection(completion: @escaping (CGRect?) -> Void) {
+        guard let parent = parentWindow else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.monitorRegionOverlay.show(on: parent) { normalizedRect in
+                completion(normalizedRect)
+            }
+        }
     }
 
     private func startMonitorRegionSelection() {

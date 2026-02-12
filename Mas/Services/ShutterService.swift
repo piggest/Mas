@@ -17,6 +17,7 @@ struct ProgramStep: Identifiable {
     var sensitivity: Double = 0.05
     var loopCount: Int = 0
     var children: [ProgramStep] = []  // .loop専用
+    var monitorSubRect: CGRect? = nil  // .waitForChange専用: 正規化座標(0〜1)
 }
 
 enum ShutterMode: String {
@@ -202,7 +203,7 @@ class ShutterService: ObservableObject {
             case .waitForChange:
                 guard let provider = regionProvider else { break }
                 let fullRegion = provider()
-                let region = monitorRegion(from: fullRegion)
+                let region = stepMonitorRegion(from: fullRegion, subRect: step.monitorSubRect)
                 guard region.width > 0, region.height > 0 else { break }
                 guard let refImage = await captureRegionImage(region) else { break }
 
@@ -212,7 +213,7 @@ class ShutterService: ObservableObject {
                     } catch {
                         return
                     }
-                    let currentRegion = monitorRegion(from: provider())
+                    let currentRegion = stepMonitorRegion(from: provider(), subRect: step.monitorSubRect)
                     guard let current = await captureRegionImage(currentRegion) else { continue }
                     let diff = imageDifference(refImage, current)
                     currentDiff = diff
@@ -255,6 +256,17 @@ class ShutterService: ObservableObject {
     }
 
     // MARK: - Private
+
+    /// ステップ固有の正規化サブ領域を絶対CG座標に変換。subRect が nil ならフル領域を返す
+    private func stepMonitorRegion(from fullRegion: CGRect, subRect: CGRect?) -> CGRect {
+        guard let sub = subRect else { return fullRegion }
+        return CGRect(
+            x: fullRegion.origin.x + fullRegion.width * sub.origin.x,
+            y: fullRegion.origin.y + fullRegion.height * sub.origin.y,
+            width: fullRegion.width * sub.width,
+            height: fullRegion.height * sub.height
+        )
+    }
 
     /// 正規化座標のサブ領域を絶対CG座標に変換。monitorSubRect が nil なら fullRegion をそのまま返す
     private func monitorRegion(from fullRegion: CGRect) -> CGRect {
