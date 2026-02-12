@@ -380,6 +380,7 @@ struct ShutterOptionsView: View {
                         VStack(spacing: 6) {
                             stepListView(steps: $programSteps)
                         }
+                        .animation(.easeInOut(duration: 0.25), value: allStepIds(programSteps))
                     }
                     .frame(maxHeight: 260)
                 } else {
@@ -423,8 +424,12 @@ struct ShutterOptionsView: View {
     private func stepListView(steps: Binding<[ProgramStep]>) -> some View {
         ForEach(Array(steps.wrappedValue.enumerated()), id: \.element.id) { index, step in
             if step.type == .loop {
-                // ループはヘッダー行だけでドラッグ開始（子要素のドラッグを妨げない）
                 AnyView(loopBlockView(steps: steps, index: index))
+                    .opacity(draggingStepId == step.id ? 0.3 : 1.0)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                        removal: .opacity
+                    ))
                     .onDrop(of: [.text], delegate: StepDropDelegate(
                         targetId: step.id,
                         rootSteps: $programSteps,
@@ -432,6 +437,11 @@ struct ShutterOptionsView: View {
                     ))
             } else {
                 stepRowView(steps: steps, index: index, step: step)
+                    .opacity(draggingStepId == step.id ? 0.3 : 1.0)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                        removal: .opacity
+                    ))
                     .onDrag {
                         draggingStepId = step.id
                         return NSItemProvider(object: step.id.uuidString as NSString)
@@ -443,6 +453,17 @@ struct ShutterOptionsView: View {
                     ))
             }
         }
+
+        // 末尾ドロップゾーン
+        Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: 28)
+            .contentShape(Rectangle())
+            .onDrop(of: [.text], delegate: EndOfListDropDelegate(
+                targetSteps: steps,
+                rootSteps: $programSteps,
+                draggingStepId: $draggingStepId
+            ))
     }
 
     @ViewBuilder
@@ -485,7 +506,9 @@ struct ShutterOptionsView: View {
                 // 削除ボタン
                 Button(action: {
                     if index < steps.wrappedValue.count {
-                        steps.wrappedValue.remove(at: index)
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            steps.wrappedValue.remove(at: index)
+                        }
                     }
                 }) {
                     Image(systemName: "xmark")
@@ -641,7 +664,9 @@ struct ShutterOptionsView: View {
     @ViewBuilder
     private func paletteButton(steps: Binding<[ProgramStep]>, type: ProgramStepType, icon: String, label: String) -> some View {
         Button(action: {
-            steps.wrappedValue.append(ProgramStep(type: type))
+            withAnimation(.easeInOut(duration: 0.25)) {
+                steps.wrappedValue.append(ProgramStep(type: type))
+            }
         }) {
             HStack(spacing: 3) {
                 Image(systemName: icon)
@@ -681,6 +706,13 @@ struct ShutterOptionsView: View {
             return "\(Int(seconds))秒"
         } else {
             return String(format: "%.1f秒", seconds)
+        }
+    }
+
+    /// 全ステップのIDをフラットに収集（アニメーション監視用）
+    private func allStepIds(_ steps: [ProgramStep]) -> [UUID] {
+        steps.flatMap { step in
+            [step.id] + allStepIds(step.children)
         }
     }
 
@@ -1380,6 +1412,33 @@ struct LoopChildrenDropDelegate: DropDelegate {
             }
             appendToLoop(step: step, loopId: loopId, in: &steps[i].children)
         }
+    }
+}
+
+// MARK: - End of List Drop Delegate
+
+struct EndOfListDropDelegate: DropDelegate {
+    let targetSteps: Binding<[ProgramStep]>
+    let rootSteps: Binding<[ProgramStep]>
+    @Binding var draggingStepId: UUID?
+
+    func dropEntered(info: DropInfo) {
+        guard let dragId = draggingStepId else { return }
+        // すでにこの配列の末尾なら何もしない
+        if targetSteps.wrappedValue.last?.id == dragId { return }
+        guard let step = StepDropDelegate.removeStep(id: dragId, from: &rootSteps.wrappedValue) else { return }
+        withAnimation(.easeInOut(duration: 0.25)) {
+            targetSteps.wrappedValue.append(step)
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingStepId = nil
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
     }
 }
 
