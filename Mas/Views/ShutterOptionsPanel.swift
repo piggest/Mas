@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 // MARK: - VisualEffectBlur Helper
 
@@ -27,12 +28,14 @@ enum ShutterTab: String, CaseIterable {
     case delayed = "時限"
     case interval = "インターバル"
     case changeDetection = "変化検知"
+    case programmable = "プログラム"
 
     var icon: String {
         switch self {
         case .delayed: return "timer"
         case .interval: return "arrow.triangle.2.circlepath"
         case .changeDetection: return "eye"
+        case .programmable: return "list.bullet.rectangle"
         }
     }
 }
@@ -44,6 +47,7 @@ struct ShutterOptionsView: View {
     let onStartDelayed: (Int) -> Void
     let onStartInterval: (Double, Int) -> Void
     let onStartChangeDetection: () -> Void
+    let onStartProgrammable: ([ProgramStep]) -> Void
     let onStop: () -> Void
     var onClose: (() -> Void)?
     var onSelectMonitorRegion: (() -> Void)?
@@ -53,6 +57,8 @@ struct ShutterOptionsView: View {
     @State private var selectedDelay: Double = 3
     @State private var selectedInterval: Double = 5
     @State private var maxCaptureCount: Double = 0
+    @State private var programSteps: [ProgramStep] = []
+    @State private var draggingStepId: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -85,11 +91,13 @@ struct ShutterOptionsView: View {
                     intervalContent
                 case .changeDetection:
                     changeDetectionContent
+                case .programmable:
+                    programmableContent
                 }
             }
             .transaction { $0.animation = nil }
         }
-        .frame(width: 240)
+        .frame(width: 360)
         .background(
             ZStack {
                 VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
@@ -120,13 +128,14 @@ struct ShutterOptionsView: View {
         let isActive = (tab == .delayed && shutterService.activeMode == .delayed)
             || (tab == .interval && shutterService.activeMode == .interval)
             || (tab == .changeDetection && shutterService.activeMode == .changeDetection)
+            || (tab == .programmable && shutterService.activeMode == .programmable)
 
         Button(action: { selectedTab = tab }) {
             HStack(spacing: 3) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 9))
+                    .font(.system(size: 10))
                 Text(tab.rawValue)
-                    .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
             }
             .foregroundColor(
                 isActive ? .cyan :
@@ -358,6 +367,323 @@ struct ShutterOptionsView: View {
         .padding(.bottom, 4)
     }
 
+    // MARK: - Programmable Content
+
+    private var programmableContent: some View {
+        sectionCard {
+            VStack(alignment: .leading, spacing: 10) {
+                sectionLabel("プログラマブルシャッター", icon: "list.bullet.rectangle", isActive: shutterService.activeMode == .programmable)
+
+                // ステップリスト
+                if !programSteps.isEmpty {
+                    ScrollView {
+                        VStack(spacing: 6) {
+                            stepListView(steps: $programSteps)
+                        }
+                    }
+                    .frame(maxHeight: 260)
+                } else {
+                    Text("ブロックを追加してください")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.4))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 8)
+                }
+
+                // トップレベルパレット（4種すべて）
+                stepPalette(steps: $programSteps, includeLoop: true)
+
+                // 実行中ステータス
+                if shutterService.activeMode == .programmable {
+                    progressBadge {
+                        HStack(spacing: 6) {
+                            Text("キャプチャ: \(shutterService.captureCount)")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+                }
+
+                actionButton(
+                    isActive: shutterService.activeMode == .programmable,
+                    startAction: {
+                        guard !programSteps.isEmpty else { return }
+                        onStartProgrammable(programSteps)
+                    },
+                    stopAction: onStop
+                )
+            }
+        }
+        .padding(.bottom, 4)
+    }
+
+    // MARK: - Recursive Step List
+
+    @ViewBuilder
+    private func stepListView(steps: Binding<[ProgramStep]>) -> some View {
+        ForEach(Array(steps.wrappedValue.enumerated()), id: \.element.id) { index, step in
+            if step.type == .loop {
+                // ループはヘッダー行だけでドラッグ開始（子要素のドラッグを妨げない）
+                AnyView(loopBlockView(steps: steps, index: index))
+                    .onDrop(of: [.text], delegate: StepDropDelegate(
+                        targetId: step.id,
+                        rootSteps: $programSteps,
+                        draggingStepId: $draggingStepId
+                    ))
+            } else {
+                stepRowView(steps: steps, index: index, step: step)
+                    .onDrag {
+                        draggingStepId = step.id
+                        return NSItemProvider(object: step.id.uuidString as NSString)
+                    }
+                    .onDrop(of: [.text], delegate: StepDropDelegate(
+                        targetId: step.id,
+                        rootSteps: $programSteps,
+                        draggingStepId: $draggingStepId
+                    ))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func loopBlockView(steps: Binding<[ProgramStep]>, index: Int) -> some View {
+        let step = steps.wrappedValue[index]
+        let isCurrentStep = shutterService.activeMode == .programmable && shutterService.currentStepId == step.id
+
+        VStack(alignment: .leading, spacing: 0) {
+            // ループヘッダー行（ドラッグはここだけで開始）
+            HStack(spacing: 6) {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 9))
+                    .foregroundColor(.white.opacity(0.25))
+                    .frame(width: 12)
+
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.system(size: 11))
+                    .foregroundColor(isCurrentStep ? .cyan : .cyan.opacity(0.8))
+                    .frame(width: 16)
+
+                Text("繰り返し")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.cyan.opacity(0.9))
+
+                Spacer()
+
+                Slider(value: Binding(
+                    get: { Double(steps.wrappedValue[safe: index]?.loopCount ?? 0) },
+                    set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].loopCount = Int($0) } }
+                ), in: 0...50, step: 1)
+                    .controlSize(.small)
+                    .tint(.cyan)
+                    .frame(maxWidth: 80)
+
+                Text(step.loopCount == 0 ? "∞回" : "\(step.loopCount)回")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 30, alignment: .trailing)
+
+                // 削除ボタン
+                Button(action: {
+                    if index < steps.wrappedValue.count {
+                        steps.wrappedValue.remove(at: index)
+                    }
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.white.opacity(0.4))
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(NoHighlightButtonStyle())
+                .disabled(shutterService.activeMode == .programmable)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .onDrag {
+                draggingStepId = step.id
+                return NSItemProvider(object: step.id.uuidString as NSString)
+            }
+
+            // 子要素エリア
+            VStack(spacing: 4) {
+                let childrenBinding = Binding<[ProgramStep]>(
+                    get: { steps.wrappedValue[safe: index]?.children ?? [] },
+                    set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].children = $0 } }
+                )
+
+                if steps.wrappedValue[index].children.isEmpty {
+                    Text("ブロックを追加")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.3))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 4)
+                } else {
+                    stepListView(steps: childrenBinding)
+                }
+
+                // ループ内パレット（繰返含む4種）
+                stepPalette(steps: childrenBinding, includeLoop: true)
+            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.cyan.opacity(0.05))
+            )
+            .padding(.horizontal, 4)
+            .padding(.bottom, 2)
+            .onDrop(of: [.text], delegate: LoopChildrenDropDelegate(
+                loopStepId: step.id,
+                rootSteps: $programSteps,
+                draggingStepId: $draggingStepId
+            ))
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isCurrentStep ? Color.cyan.opacity(0.15) : Color.white.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(isCurrentStep ? Color.cyan.opacity(0.5) : Color.cyan.opacity(0.15), lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private func stepRowView(steps: Binding<[ProgramStep]>, index: Int, step: ProgramStep) -> some View {
+        let isCurrentStep = shutterService.activeMode == .programmable && shutterService.currentStepId == step.id
+
+        HStack(spacing: 6) {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 9))
+                .foregroundColor(.white.opacity(0.25))
+                .frame(width: 12)
+
+            Image(systemName: stepIcon(step.type))
+                .font(.system(size: 11))
+                .foregroundColor(isCurrentStep ? .cyan : .white.opacity(0.7))
+                .frame(width: 16)
+
+            Text(step.type.rawValue)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.9))
+                .frame(width: 46, alignment: .leading)
+
+            // パラメータ
+            switch step.type {
+            case .capture:
+                Spacer()
+            case .wait:
+                Slider(value: Binding(
+                    get: { steps.wrappedValue[safe: index]?.waitSeconds ?? 3.0 },
+                    set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].waitSeconds = $0 } }
+                ), in: 0.5...60, step: 0.5)
+                    .controlSize(.small)
+                    .tint(.cyan)
+                Text(waitLabel(step.waitSeconds))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 36, alignment: .trailing)
+            case .waitForChange:
+                Slider(value: Binding(
+                    get: { (steps.wrappedValue[safe: index]?.sensitivity ?? 0.05) * 100 },
+                    set: { if index < steps.wrappedValue.count { steps.wrappedValue[index].sensitivity = $0 / 100 } }
+                ), in: 1...20, step: 1)
+                    .controlSize(.small)
+                    .tint(.cyan)
+                Text("\(Int(step.sensitivity * 100))%")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 28, alignment: .trailing)
+            default:
+                EmptyView()
+            }
+
+            // 削除ボタン
+            Button(action: {
+                if index < steps.wrappedValue.count {
+                    steps.wrappedValue.remove(at: index)
+                }
+            }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.white.opacity(0.4))
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(NoHighlightButtonStyle())
+            .disabled(shutterService.activeMode == .programmable)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isCurrentStep ? Color.cyan.opacity(0.15) : Color.white.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(isCurrentStep ? Color.cyan.opacity(0.5) : Color.clear, lineWidth: 1)
+        )
+    }
+
+    // MARK: - Step Palette
+
+    @ViewBuilder
+    private func stepPalette(steps: Binding<[ProgramStep]>, includeLoop: Bool) -> some View {
+        HStack(spacing: 6) {
+            paletteButton(steps: steps, type: .capture, icon: "camera.fill", label: "撮影")
+            paletteButton(steps: steps, type: .wait, icon: "clock", label: "待機")
+            paletteButton(steps: steps, type: .waitForChange, icon: "eye", label: "変化")
+            if includeLoop {
+                paletteButton(steps: steps, type: .loop, icon: "arrow.counterclockwise", label: "繰返")
+            }
+        }
+        .disabled(shutterService.activeMode == .programmable)
+    }
+
+    @ViewBuilder
+    private func paletteButton(steps: Binding<[ProgramStep]>, type: ProgramStepType, icon: String, label: String) -> some View {
+        Button(action: {
+            steps.wrappedValue.append(ProgramStep(type: type))
+        }) {
+            HStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 10))
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundColor(.white.opacity(0.8))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.white.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5)
+                    )
+            )
+        }
+        .buttonStyle(NoHighlightButtonStyle())
+    }
+
+    private func stepIcon(_ type: ProgramStepType) -> String {
+        switch type {
+        case .capture: return "camera.fill"
+        case .wait: return "clock"
+        case .waitForChange: return "eye"
+        case .loop: return "arrow.counterclockwise"
+        }
+    }
+
+    private func waitLabel(_ seconds: Double) -> String {
+        if seconds >= 60 {
+            return "\(Int(seconds / 60))分"
+        } else if seconds == floor(seconds) {
+            return "\(Int(seconds))秒"
+        } else {
+            return String(format: "%.1f秒", seconds)
+        }
+    }
+
     // MARK: - Components
 
     @ViewBuilder
@@ -502,6 +828,16 @@ class ShutterOptionsPanelController {
                 )
                 self.showIndicatorIfNeeded()
             },
+            onStartProgrammable: { [weak self] steps in
+                guard let self = self else { return }
+                self.shutterService.startProgrammable(
+                    steps: steps,
+                    regionProvider: { [weak self] in
+                        self?.currentCGRegion() ?? .zero
+                    }
+                )
+                self.showIndicatorIfNeeded()
+            },
             onStop: { [weak self] in
                 self?.shutterService.stopAll()
                 self?.monitorRegionIndicator.dismiss()
@@ -518,10 +854,18 @@ class ShutterOptionsPanelController {
             }
         )
 
-        let width: CGFloat = 240
-        let height: CGFloat = 260
+        let width: CGFloat = 360
+        let height: CGFloat = 500
         cachedSize = CGSize(width: width, height: height)
-        let hosting = NSHostingView(rootView: panelView)
+
+        // VStackを上寄せし、残りを透明にする
+        let wrappedView = VStack(spacing: 0) {
+            panelView
+            Spacer(minLength: 0)
+        }
+        .frame(width: width, height: height, alignment: .top)
+
+        let hosting = NSHostingView(rootView: wrappedView)
         hosting.layer?.isOpaque = false
 
         let window = NSWindow(
@@ -531,6 +875,7 @@ class ShutterOptionsPanelController {
             defer: false
         )
         hosting.frame = NSRect(x: 0, y: 0, width: width, height: height)
+        hosting.autoresizingMask = [.width, .height]
         window.contentView = hosting
         window.backgroundColor = .clear
         window.isOpaque = false
@@ -622,7 +967,7 @@ class ShutterOptionsPanelController {
         guard let parent = parentWindow, let panel = window else { return }
 
         let parentFrame = parent.frame
-        let panelSize = cachedSize ?? CGSize(width: 240, height: 300)
+        let panelSize = cachedSize ?? CGSize(width: 360, height: 300)
 
         // Place to the right of the parent window
         var panelX = parentFrame.maxX + 4
@@ -932,5 +1277,116 @@ private class MonitorRegionBorderView: NSView {
         NSColor.cyan.withAlphaComponent(0.8).setStroke()
         path.setLineDash([6, 4], count: 2, phase: 0)
         path.stroke()
+    }
+}
+
+// MARK: - Step Drop Delegate
+
+struct StepDropDelegate: DropDelegate {
+    let targetId: UUID
+    let rootSteps: Binding<[ProgramStep]>
+    @Binding var draggingStepId: UUID?
+
+    func dropEntered(info: DropInfo) {
+        guard let dragId = draggingStepId, dragId != targetId else { return }
+        // ルートから再帰的にドラッグ元を取り出す
+        guard let draggedStep = Self.removeStep(id: dragId, from: &rootSteps.wrappedValue) else { return }
+        // ターゲットの前に挿入
+        withAnimation(.easeInOut(duration: 0.2)) {
+            _ = Self.insertStep(draggedStep, before: targetId, in: &rootSteps.wrappedValue)
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingStepId = nil
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    // 再帰的にステップを検索・削除して返す
+    static func removeStep(id: UUID, from steps: inout [ProgramStep]) -> ProgramStep? {
+        if let index = steps.firstIndex(where: { $0.id == id }) {
+            return steps.remove(at: index)
+        }
+        for i in steps.indices {
+            if let found = removeStep(id: id, from: &steps[i].children) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    // targetIdの前に挿入
+    static func insertStep(_ step: ProgramStep, before targetId: UUID, in steps: inout [ProgramStep]) -> Bool {
+        if let index = steps.firstIndex(where: { $0.id == targetId }) {
+            steps.insert(step, at: index)
+            return true
+        }
+        for i in steps.indices {
+            if insertStep(step, before: targetId, in: &steps[i].children) {
+                return true
+            }
+        }
+        return false
+    }
+}
+
+// MARK: - Loop Children Drop Delegate
+
+struct LoopChildrenDropDelegate: DropDelegate {
+    let loopStepId: UUID
+    let rootSteps: Binding<[ProgramStep]>
+    @Binding var draggingStepId: UUID?
+
+    func dropEntered(info: DropInfo) {
+        guard let dragId = draggingStepId, dragId != loopStepId else { return }
+        // すでにこのループの直下にある場合はスキップ（子要素のStepDropDelegateに任せる）
+        if Self.findStep(id: loopStepId, in: rootSteps.wrappedValue)?.children.contains(where: { $0.id == dragId }) == true {
+            return
+        }
+        // ルートから削除
+        guard let draggedStep = StepDropDelegate.removeStep(id: dragId, from: &rootSteps.wrappedValue) else { return }
+        // ループの children 末尾に追加
+        withAnimation(.easeInOut(duration: 0.2)) {
+            Self.appendToLoop(step: draggedStep, loopId: loopStepId, in: &rootSteps.wrappedValue)
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingStepId = nil
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    private static func findStep(id: UUID, in steps: [ProgramStep]) -> ProgramStep? {
+        for step in steps {
+            if step.id == id { return step }
+            if let found = findStep(id: id, in: step.children) { return found }
+        }
+        return nil
+    }
+
+    private static func appendToLoop(step: ProgramStep, loopId: UUID, in steps: inout [ProgramStep]) {
+        for i in steps.indices {
+            if steps[i].id == loopId {
+                steps[i].children.append(step)
+                return
+            }
+            appendToLoop(step: step, loopId: loopId, in: &steps[i].children)
+        }
+    }
+}
+
+// MARK: - Safe Array Access
+
+private extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }

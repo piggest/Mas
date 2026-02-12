@@ -1,10 +1,29 @@
 import AppKit
 import CoreGraphics
 
+// MARK: - Programmable Step Model
+
+enum ProgramStepType: String, CaseIterable {
+    case capture = "撮影"
+    case wait = "待機"
+    case waitForChange = "変化待ち"
+    case loop = "繰り返し"
+}
+
+struct ProgramStep: Identifiable {
+    let id = UUID()
+    var type: ProgramStepType
+    var waitSeconds: Double = 3.0
+    var sensitivity: Double = 0.05
+    var loopCount: Int = 0
+    var children: [ProgramStep] = []  // .loop専用
+}
+
 enum ShutterMode: String {
     case delayed = "delayed"
     case interval = "interval"
     case changeDetection = "changeDetection"
+    case programmable = "programmable"
 }
 
 @MainActor
@@ -17,12 +36,14 @@ class ShutterService: ObservableObject {
     @Published var sensitivity: Double = 0.05
     @Published var currentDiff: Double = 0
     @Published var monitorSubRect: CGRect?  // 正規化座標(0〜1)のサブ領域。nilなら全体監視
+    @Published var currentStepId: UUID? = nil
 
     var onCapture: (() -> Void)?
     private var timer: DispatchSourceTimer?
     private var monitorTimer: DispatchSourceTimer?
     private var referenceImage: CGImage?
     private let captureService = ScreenCaptureService()
+    private var programmableTask: Task<Void, Never>?
 
     // MARK: - Delayed Capture
 
@@ -128,9 +149,100 @@ class ShutterService: ObservableObject {
         }
     }
 
+    // MARK: - Programmable Capture
+
+    func startProgrammable(steps: [ProgramStep], regionProvider: @escaping () -> CGRect) {
+        stopAll()
+        activeMode = .programmable
+        isActive = true
+        captureCount = 0
+        self.regionProvider = regionProvider
+
+        programmableTask = Task { [weak self] in
+            await self?.executeProgrammableSteps(steps: steps)
+        }
+    }
+
+    private func executeProgrammableSteps(steps: [ProgramStep]) async {
+        guard !steps.isEmpty else {
+            stopAll()
+            return
+        }
+
+        await executeSteps(steps)
+
+        if !Task.isCancelled {
+            await MainActor.run {
+                self.currentStepId = nil
+                self.isActive = false
+                self.activeMode = nil
+            }
+        }
+    }
+
+    /// 再帰的にステップリストを実行する
+    private func executeSteps(_ steps: [ProgramStep]) async {
+        for step in steps {
+            guard !Task.isCancelled else { return }
+            currentStepId = step.id
+
+            switch step.type {
+            case .capture:
+                captureCount += 1
+                onCapture?()
+
+            case .wait:
+                let nanoseconds = UInt64(step.waitSeconds * 1_000_000_000)
+                do {
+                    try await Task.sleep(nanoseconds: nanoseconds)
+                } catch {
+                    return  // cancelled
+                }
+
+            case .waitForChange:
+                guard let provider = regionProvider else { break }
+                let fullRegion = provider()
+                let region = monitorRegion(from: fullRegion)
+                guard region.width > 0, region.height > 0 else { break }
+                guard let refImage = await captureRegionImage(region) else { break }
+
+                while !Task.isCancelled {
+                    do {
+                        try await Task.sleep(nanoseconds: 500_000_000)  // 0.5秒
+                    } catch {
+                        return
+                    }
+                    let currentRegion = monitorRegion(from: provider())
+                    guard let current = await captureRegionImage(currentRegion) else { continue }
+                    let diff = imageDifference(refImage, current)
+                    currentDiff = diff
+                    if diff > step.sensitivity {
+                        break
+                    }
+                }
+
+            case .loop:
+                let iterations = step.loopCount  // 0 = 無限
+                if iterations == 0 {
+                    while !Task.isCancelled {
+                        await executeSteps(step.children)
+                    }
+                } else {
+                    for _ in 0..<iterations {
+                        guard !Task.isCancelled else { return }
+                        await executeSteps(step.children)
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Stop
 
     func stopAll() {
+        programmableTask?.cancel()
+        programmableTask = nil
+        currentStepId = nil
         timer?.cancel()
         timer = nil
         monitorTimer?.cancel()

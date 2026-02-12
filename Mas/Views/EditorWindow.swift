@@ -1594,7 +1594,8 @@ struct EditorWindow: View {
                 onRecapture?(rect, parentWin, false)
                 // 変化検知モード: 画像を非表示にして背後の変化が見えるようにする
                 if shutterPanelController?.shutterService.activeMode == .changeDetection ||
-                   shutterPanelController?.shutterService.activeMode == .interval {
+                   shutterPanelController?.shutterService.activeMode == .interval ||
+                   shutterPanelController?.shutterService.activeMode == .programmable {
                     showImage = false
                 } else {
                     showImage = true
