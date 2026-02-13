@@ -34,6 +34,9 @@ mas-cli capture region
 # キャプチャ枠を表示
 mas-cli capture frame
 
+# GIF録画を開始
+mas-cli capture gif
+
 # 遅延付きキャプチャ（右クリックメニュー等の撮影に）
 mas-cli capture fullscreen --delay 5
 mas-cli capture region --delay 3
@@ -76,6 +79,35 @@ mas-cli capture delayed --output screenshot.png
 # 3秒後にキャプチャ
 mas-cli capture delayed --delay 3 --output screenshot.png
 ```
+
+### デモ画像生成
+
+全画面をキャプチャし、全アノテーション種（矢印・四角・丸・テキスト・ハイライト・モザイク）を自動配置したデモ画像を生成します。
+
+```bash
+# デモ画像を生成
+mas-cli capture demo --output docs/images/annotations-demo.png
+```
+
+### ドキュメント用一括撮影
+
+メニュー・設定・ライブラリのスクリーンショットを一括で撮影します。
+
+```bash
+# docs/images/ に一括撮影（デフォルト）
+mas-cli capture all-docs
+
+# 出力先ディレクトリを指定
+mas-cli capture all-docs --output-dir docs/images
+```
+
+撮影されるファイル:
+
+| ファイル | 内容 |
+|---------|------|
+| `menu.png` | メニューバーポップオーバー |
+| `settings.png` | 設定画面 |
+| `library.png` | ライブラリウィンドウ |
 
 ---
 
@@ -227,8 +259,46 @@ mas-cli status
 
 ---
 
+## 使用例
+
+### ドキュメント用スクリーンショットの自動化
+
+```bash
+# 1. 一括撮影でUI系スクリーンショットを取得
+mas-cli capture all-docs --output-dir docs/images
+
+# 2. デモ画像を生成
+mas-cli capture demo --output docs/images/annotations-demo.png
+
+# 3. エディターウィンドウを撮影（事前にエディターを開いておく）
+mas-cli capture editor --output docs/images/editor.png
+```
+
+### アノテーション付き画像の自動生成
+
+```bash
+# スクリーンショットを撮って注釈を追加
+mas-cli capture delayed --delay 3 --output /tmp/raw.png
+mas-cli annotate /tmp/raw.png rect --rect 50,50,200,100 --color red --output /tmp/step1.png
+mas-cli annotate /tmp/step1.png arrow --from 250,100 --to 150,75 --color red --output /tmp/step2.png
+mas-cli annotate /tmp/step2.png text --pos 260,90 --text "注目" --size 18 --color red --output final.png
+```
+
+### CI/CDでのスクリーンショット取得
+
+```bash
+# 設定変更 → キャプチャ → 設定復元
+mas-cli settings set playSound false
+mas-cli capture fullscreen --delay 2
+mas-cli settings set playSound true
+```
+
+---
+
 ## 備考
 
-- キャプチャ系コマンド（`fullscreen`, `region`, `frame`）はMas.appへの通知として送信されます。アプリが未起動の場合は自動的に起動します。
+- キャプチャ系コマンド（`fullscreen`, `region`, `frame`, `gif`）はMas.appへの通知として送信されます。アプリが未起動の場合は自動的に起動します。
 - OCR、履歴、設定、アノテーションコマンドはスタンドアロンで動作し、アプリの起動は不要です。
 - `capture menu` / `capture library` / `capture settings` は対象UIを表示してからウィンドウをキャプチャします。
+- `capture demo` はスタンドアロンで全画面キャプチャ後にアノテーションを適用します。
+- `capture all-docs` はMas.appを自動起動し、各UIを順番に表示・キャプチャします。

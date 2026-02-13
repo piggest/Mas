@@ -6,7 +6,7 @@ import CoreGraphics
 
 // MARK: - Constants
 
-let appVersion = "2.0.0"
+let appVersion = "3.4.2"
 let bundleIdentifier = "com.example.Mas"
 
 let historyFileURL: URL = {
@@ -179,7 +179,7 @@ func defaultOutputPath(prefix: String) -> String {
 
 func handleCapture(_ args: [String]) {
     guard let subcommand = args.first else {
-        printError("Usage: mas-cli capture <fullscreen|region|frame|menu|library> [--delay N] [--output path]")
+        printError("Usage: mas-cli capture <fullscreen|region|frame|gif|menu|library|demo|all-docs> [--delay N] [--output path]")
         exit(1)
     }
 
@@ -248,6 +248,87 @@ func handleCapture(_ args: [String]) {
         }
         print("保存しました: \(output)")
 
+    case "gif":
+        if let delay = delay {
+            ensureAppRunning()
+            countdown(seconds: delay, label: "GIF録画")
+            sendNotification("com.example.Mas.capture.gif")
+        } else {
+            sendNotification("com.example.Mas.capture.gif")
+            print("GIF録画 コマンドを送信しました")
+        }
+
+    case "demo":
+        let output = parseOutput(from: restArgs) ?? defaultOutputPath(prefix: "demo")
+        print("デモ画像を生成中...")
+        screencapture(to: output)
+        var img = loadImage(at: output)
+        let w = img.size.width
+        let h = img.size.height
+        // 矢印
+        img = drawArrowOnImage(img, start: CGPoint(x: w * 0.15, y: h * 0.3), end: CGPoint(x: w * 0.35, y: h * 0.5), color: parseColorName("red"), lineWidth: 4, stroke: true)
+        // 四角
+        img = drawRectOnImage(img, rect: CGRect(x: w * 0.4, y: h * 0.2, width: w * 0.2, height: h * 0.15), color: parseColorName("blue"), lineWidth: 3, filled: false, stroke: true)
+        // テキスト
+        img = drawTextOnImage(img, position: CGPoint(x: w * 0.42, y: h * 0.38), text: "サンプルテキスト", fontSize: 24, color: parseColorName("red"), stroke: true)
+        // ハイライト
+        img = drawHighlightOnImage(img, rect: CGRect(x: w * 0.1, y: h * 0.6, width: w * 0.3, height: h * 0.05), color: parseColorName("yellow"))
+        // モザイク
+        img = drawMosaicOnImage(img, rect: CGRect(x: w * 0.5, y: h * 0.55, width: w * 0.2, height: h * 0.15), pixelSize: 15)
+        // 丸
+        img = drawEllipseOnImage(img, rect: CGRect(x: w * 0.65, y: h * 0.2, width: w * 0.15, height: h * 0.15), color: parseColorName("green"), lineWidth: 3, filled: false, stroke: true)
+        saveAnnotatedImage(img, to: output)
+        print("保存しました: \(output)")
+
+    case "all-docs":
+        var outputDir = "docs/images"
+        if let idx = restArgs.firstIndex(of: "--output-dir"), idx + 1 < restArgs.count {
+            outputDir = (restArgs[idx + 1] as NSString).expandingTildeInPath
+        }
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: outputDir) {
+            try? fm.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
+        }
+        ensureAppRunning()
+
+        // 1. メニュー
+        print("[1/3] メニューをキャプチャ中...")
+        sendNotification("com.example.Mas.show.menu")
+        Thread.sleep(forTimeInterval: 1.5)
+        let menuPath = (outputDir as NSString).appendingPathComponent("menu.png")
+        let menuWindows = findMasWindows().filter { $0.title.isEmpty && $0.width > 100 && $0.height > 100 }
+        if let win = menuWindows.first {
+            captureWindow(windowID: win.id, to: menuPath)
+        } else {
+            screencapture(to: menuPath)
+        }
+        print("  保存: \(menuPath)")
+        // メニューを閉じる
+        sendNotification("com.example.Mas.show.menu")
+        Thread.sleep(forTimeInterval: 0.5)
+
+        // 2. 設定ウィンドウ
+        print("[2/3] 設定ウィンドウをキャプチャ中...")
+        sendNotification("com.example.Mas.show.settings")
+        Thread.sleep(forTimeInterval: 1.5)
+        let settingsPath = (outputDir as NSString).appendingPathComponent("settings.png")
+        if !captureWindowByTitle(containing: "設定", to: settingsPath) {
+            screencapture(to: settingsPath)
+        }
+        print("  保存: \(settingsPath)")
+
+        // 3. ライブラリ
+        print("[3/3] ライブラリをキャプチャ中...")
+        sendNotification("com.example.Mas.show.library")
+        Thread.sleep(forTimeInterval: 1.5)
+        let libraryPath = (outputDir as NSString).appendingPathComponent("library.png")
+        if !captureWindowByTitle(containing: "ライブラリ", to: libraryPath) {
+            screencapture(to: libraryPath)
+        }
+        print("  保存: \(libraryPath)")
+
+        print("完了！ \(outputDir) に3枚のスクリーンショットを保存しました")
+
     case "editor":
         let output = parseOutput(from: restArgs) ?? defaultOutputPath(prefix: "editor")
         Thread.sleep(forTimeInterval: Double(delay ?? 1))
@@ -288,7 +369,7 @@ func handleCapture(_ args: [String]) {
 
     default:
         printError("Unknown capture mode: \(subcommand)")
-        printError("Available: fullscreen, region, frame, menu, library, settings, editor, window, delayed")
+        printError("Available: fullscreen, region, frame, gif, menu, library, settings, editor, window, delayed, demo, all-docs")
         exit(1)
     }
 }
@@ -591,15 +672,21 @@ func printAppStatus() {
 
 func printUsage() {
     print("""
-    mas-cli — Mas コマンドラインツール
+    mas-cli — Mas コマンドラインツール v\(appVersion)
 
     Usage: mas-cli <command> [options]
 
     Commands:
       capture fullscreen|region|frame [--delay N]  キャプチャを実行
+      capture gif [--delay N]                      GIF録画を開始
       capture menu [--delay N] [--output path]     メニューを開いてキャプチャ
       capture library [--delay N] [--output path]  ライブラリを開いてキャプチャ
+      capture settings [--delay N] [--output path] 設定画面を開いてキャプチャ
+      capture editor [--output path]               エディタウィンドウをキャプチャ
       capture delayed [--delay N] [--output path]  遅延キャプチャ（右クリックメニュー等）
+      capture demo [--output path]                 全アノテーション種のデモ画像を生成
+      capture all-docs [--output-dir dir]          ドキュメント用スクリーンショット一括撮影
+      capture window [id] [--output path]          ウィンドウ一覧 / 指定IDキャプチャ
       annotate <image> <type> [options]  画像にアノテーションを追加
       ocr <image-path> [--json]         画像からテキストを認識
       history list [--favorites] [--json] 履歴を一覧表示
