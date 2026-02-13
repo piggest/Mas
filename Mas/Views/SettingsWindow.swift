@@ -10,6 +10,11 @@ struct SettingsWindow: View {
                     Label("一般", systemImage: "gear")
                 }
 
+            DisplaySettingsView()
+                .tabItem {
+                    Label("表示", systemImage: "macwindow")
+                }
+
             ShortcutsSettingsView()
                 .tabItem {
                     Label("ショートカット", systemImage: "keyboard")
@@ -39,8 +44,6 @@ struct GeneralSettingsView: View {
     @AppStorage("autoSaveEnabled") private var autoSaveEnabled = true
     @AppStorage("autoSaveFolder") private var autoSaveFolder = ""
     @AppStorage("autoCopyToClipboard") private var autoCopyToClipboard = true
-    @AppStorage("closeOnDragSuccess") private var closeOnDragSuccess = true
-    @AppStorage("pinBehavior") private var pinBehavior = "alwaysOn"
     @AppStorage("developerMode") private var developerMode = false
     @State private var displayPath = ""
 
@@ -89,49 +92,22 @@ struct GeneralSettingsView: View {
 
                 Divider()
 
-                sectionHeader("ウィンドウ")
+                sectionHeader("その他")
                 VStack(alignment: .leading, spacing: 8) {
-                    settingRow("ピン（最前面表示）") {
-                        Picker("", selection: $pinBehavior) {
-                            Text("常にON").tag("alwaysOn")
-                            Text("最新のみON").tag("latestOnly")
-                            Text("デフォルトOFF").tag("off")
-                        }
-                        .labelsHidden()
-                        .frame(width: 140)
+                    settingRow("マウスカーソルを含める") {
+                        Toggle("", isOn: $showCursor).labelsHidden()
                     }
-                    settingRow("ドラッグ成功時に閉じる") {
-                        Toggle("", isOn: $closeOnDragSuccess).labelsHidden()
+                    settingRow("キャプチャ時にサウンド再生") {
+                        Toggle("", isOn: $playSound).labelsHidden()
+                    }
+                    settingRow("開発者モード") {
+                        Toggle("", isOn: $developerMode).labelsHidden()
                     }
                 }
 
                 Divider()
 
-                Group {
-                    sectionHeader("メニューバー")
-                    settingRow("アイコン") {
-                        MenuBarIconPicker()
-                    }
-
-                    Divider()
-
-                    sectionHeader("その他")
-                    VStack(alignment: .leading, spacing: 8) {
-                        settingRow("マウスカーソルを含める") {
-                            Toggle("", isOn: $showCursor).labelsHidden()
-                        }
-                        settingRow("キャプチャ時にサウンド再生") {
-                            Toggle("", isOn: $playSound).labelsHidden()
-                        }
-                        settingRow("開発者モード") {
-                            Toggle("", isOn: $developerMode).labelsHidden()
-                        }
-                    }
-
-                    Divider()
-
-                    UpdateSettingsSection()
-                }
+                UpdateSettingsSection()
             }
             .padding()
         }
@@ -143,6 +119,7 @@ struct GeneralSettingsView: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.system(size: 13, weight: .bold))
+            .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
@@ -177,6 +154,55 @@ struct GeneralSettingsView: View {
             } else {
                 displayPath = autoSaveFolder
             }
+        }
+    }
+}
+
+struct DisplaySettingsView: View {
+    @AppStorage("pinBehavior") private var pinBehavior = "alwaysOn"
+    @AppStorage("closeOnDragSuccess") private var closeOnDragSuccess = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader("ウィンドウ")
+            VStack(alignment: .leading, spacing: 8) {
+                settingRow("ピン（最前面表示）") {
+                    Picker("", selection: $pinBehavior) {
+                        Text("常にON").tag("alwaysOn")
+                        Text("最新のみON").tag("latestOnly")
+                        Text("デフォルトOFF").tag("off")
+                    }
+                    .labelsHidden()
+                    .frame(width: 140)
+                }
+                settingRow("ドラッグ成功時に閉じる") {
+                    Toggle("", isOn: $closeOnDragSuccess).labelsHidden()
+                }
+            }
+
+            Divider()
+
+            sectionHeader("メニューバー")
+            settingRow("アイコン") {
+                MenuBarIconPicker()
+            }
+
+            Spacer()
+        }
+        .padding()
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 13, weight: .bold))
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(label)
+                .frame(width: 180, alignment: .trailing)
+            content()
         }
     }
 }
@@ -229,6 +255,7 @@ struct ShortcutsSettingsView: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.system(size: 13, weight: .bold))
+            .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private func shortcutRow(action: HotkeyAction) -> some View {
@@ -620,6 +647,7 @@ struct DeveloperSettingsView: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.system(size: 13, weight: .bold))
+            .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
@@ -639,6 +667,7 @@ struct UpdateSettingsSection: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("アップデート")
                 .font(.system(size: 13, weight: .bold))
+                .frame(maxWidth: .infinity, alignment: .center)
 
             settingRow("自動アップデート") {
                 Toggle("", isOn: $autoUpdateEnabled)
