@@ -148,7 +148,7 @@ struct GeneralSettingsView: View {
     private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
         HStack {
             Text(label)
-                .frame(width: 180, alignment: .leading)
+                .frame(width: 180, alignment: .trailing)
             content()
         }
     }
@@ -234,7 +234,7 @@ struct ShortcutsSettingsView: View {
     private func shortcutRow(action: HotkeyAction) -> some View {
         HStack {
             Text(action.label)
-                .frame(width: 160, alignment: .leading)
+                .frame(width: 160, alignment: .trailing)
 
             KeyRecorderButton(
                 action: action,
@@ -625,7 +625,7 @@ struct DeveloperSettingsView: View {
     private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
         HStack {
             Text(label)
-                .frame(width: 180, alignment: .leading)
+                .frame(width: 180, alignment: .trailing)
             content()
         }
     }
@@ -740,7 +740,7 @@ struct UpdateSettingsSection: View {
     private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
         HStack {
             Text(label)
-                .frame(width: 180, alignment: .leading)
+                .frame(width: 180, alignment: .trailing)
             content()
         }
     }

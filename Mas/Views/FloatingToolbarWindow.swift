@@ -590,7 +590,7 @@ struct FloatingToolbarViewIndependent: View {
                     .font(.system(size: iconSize, weight: .medium))
                     .foregroundColor(state.strokeEnabled ? .white : .secondary)
                     .frame(width: buttonSize, height: buttonSize)
-                    .background(state.strokeEnabled ? Color.blue : Color.white.opacity(0.9))
+                    .background(state.strokeEnabled ? Color.blue : Color(NSColor.controlBackgroundColor))
                     .clipShape(Circle())
             }
             .buttonStyle(NoHighlightButtonStyle())
@@ -628,7 +628,7 @@ struct FloatingToolbarViewIndependent: View {
                         .font(.system(size: iconSize))
                         .foregroundColor(.primary)
                         .frame(width: buttonSize, height: buttonSize)
-                        .background(Color.white.opacity(0.9))
+                        .background(Color(NSColor.controlBackgroundColor))
                         .clipShape(Circle())
                 }
                 .buttonStyle(NoHighlightButtonStyle())
@@ -650,7 +650,7 @@ struct FloatingToolbarViewIndependent: View {
                 .font(.system(size: iconSize, weight: .medium))
                 .foregroundColor(.secondary)
                 .frame(width: buttonSize, height: buttonSize)
-                .background(Color.white.opacity(0.9))
+                .background(Color(NSColor.controlBackgroundColor))
                 .clipShape(Circle())
         }
         .buttonStyle(NoHighlightButtonStyle())
@@ -663,7 +663,7 @@ struct FloatingToolbarViewIndependent: View {
                 .font(.system(size: iconSize, weight: .medium))
                 .foregroundColor(state.selectedTool == tool ? .white : .secondary)
                 .frame(width: buttonSize, height: buttonSize)
-                .background(state.selectedTool == tool ? Color.blue : Color.white.opacity(0.9))
+                .background(state.selectedTool == tool ? Color.blue : Color(NSColor.controlBackgroundColor))
                 .clipShape(Circle())
         }
         .buttonStyle(NoHighlightButtonStyle())
@@ -734,7 +734,7 @@ struct ToolGroupButtonCircle: View {
             }
             .foregroundColor(isGroupSelected ? .white : .secondary)
             .frame(width: buttonSize + 10, height: buttonSize)
-            .background(isGroupSelected ? Color.blue : Color.white.opacity(0.9))
+            .background(isGroupSelected ? Color.blue : Color(NSColor.controlBackgroundColor))
             .clipShape(Capsule())
         }
         .buttonStyle(NoHighlightButtonStyle())
