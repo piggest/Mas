@@ -126,7 +126,7 @@ class GifPlayerToolbarController {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isMovableByWindowBackground = false
         window.ignoresMouseEvents = false
-        window.sharingType = .none
+        window.sharingType = NSWindow.masSharingType
 
         self.window = window
 

@@ -500,6 +500,7 @@ struct AboutView: View {
 }
 
 struct DeveloperSettingsView: View {
+    @AppStorage("includeOwnUI") private var includeOwnUI = false
     @State private var captureDelay: Double = 3
     @State private var countdownRemaining: Int?
 
@@ -534,6 +535,25 @@ struct DeveloperSettingsView: View {
                     }
                 }
             }
+
+            Divider()
+
+            sectionHeader("キャプチャ")
+            VStack(alignment: .leading, spacing: 8) {
+                settingRow("自UIをキャプチャに含める") {
+                    Toggle("", isOn: $includeOwnUI)
+                        .labelsHidden()
+                        .onChange(of: includeOwnUI) { _ in
+                            NSWindow.updateAllMasSharingType()
+                        }
+                }
+                Text("ONにするとMasのボタンや枠線もスクリーンショットに映ります")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 180)
+            }
+
+            Divider()
 
             sectionHeader("遅延キャプチャ")
             Text("メニューやライブラリなど、通常キャプチャしづらいUI要素を撮影できます")

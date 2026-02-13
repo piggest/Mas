@@ -54,6 +54,21 @@ extension NSScreen {
     }
 }
 
+extension NSWindow {
+    /// 開発モードの「自UIを含める」設定に応じた sharingType を返す
+    static var masSharingType: SharingType {
+        UserDefaults.standard.bool(forKey: "includeOwnUI") ? .readOnly : .none
+    }
+
+    /// 全ウィンドウの sharingType を一括更新
+    static func updateAllMasSharingType() {
+        let type = masSharingType
+        for window in NSApp.windows {
+            window.sharingType = type
+        }
+    }
+}
+
 @MainActor
 class ScreenCaptureService: NSObject {
 

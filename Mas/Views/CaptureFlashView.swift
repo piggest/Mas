@@ -26,7 +26,7 @@ class CaptureFlashView {
         window.ignoresMouseEvents = true
         window.alphaValue = 0.8
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        window.sharingType = .none
+        window.sharingType = NSWindow.masSharingType
 
         flashWindow = window
         window.orderFrontRegardless()

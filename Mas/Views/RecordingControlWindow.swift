@@ -102,7 +102,7 @@ class RecordingControlWindowController {
         border.isOpaque = false
         border.hasShadow = false
         border.ignoresMouseEvents = true
-        border.sharingType = .none
+        border.sharingType = NSWindow.masSharingType
         border.contentView = RecordingBorderView(frame: NSRect(x: 0, y: 0, width: borderW, height: borderH))
         border.orderFront(nil)
         self.borderWindow = border
@@ -123,7 +123,7 @@ class RecordingControlWindowController {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.isMovableByWindowBackground = true
-        panel.sharingType = .none
+        panel.sharingType = NSWindow.masSharingType
 
         let controlWidth: CGFloat = 180
         let controlHeight: CGFloat = 44

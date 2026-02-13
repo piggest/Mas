@@ -1360,7 +1360,7 @@ private class KeyableWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
-        self.sharingType = .none
+        self.sharingType = NSWindow.masSharingType
     }
 }
 
@@ -1368,7 +1368,7 @@ private class MonitorRegionKeyableWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
-        self.sharingType = .none
+        self.sharingType = NSWindow.masSharingType
     }
 }
 
@@ -1582,7 +1582,7 @@ class MonitorRegionIndicator {
         window.hasShadow = false
         window.ignoresMouseEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.sharingType = .none
+        window.sharingType = NSWindow.masSharingType
 
         let borderView = MonitorRegionBorderView(frame: NSRect(origin: .zero, size: frame.size))
         window.contentView = borderView
@@ -1654,7 +1654,7 @@ class StepRegionsOverlay {
             window.hasShadow = false
             window.ignoresMouseEvents = true
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            window.sharingType = .none
+            window.sharingType = NSWindow.masSharingType
 
             let view = StepRegionsView(frame: NSRect(origin: .zero, size: parentFrame.size))
             window.contentView = view
