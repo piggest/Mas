@@ -29,12 +29,16 @@ struct DraggableImageView: NSViewRepresentable {
     let image: NSImage
     let showImage: Bool
     var gifURL: URL? = nil
+    var imageProvider: (() -> NSImage?)? = nil
+    var onDragSuccess: (() -> Void)? = nil
 
     func makeNSView(context: Context) -> DragSourceView {
         let view = DragSourceView()
         view.image = image
         view.showImage = showImage
         view.gifURL = gifURL
+        view.imageProvider = imageProvider
+        view.onDragSuccess = onDragSuccess
         return view
     }
 
@@ -42,6 +46,8 @@ struct DraggableImageView: NSViewRepresentable {
         nsView.image = image
         nsView.showImage = showImage
         nsView.gifURL = gifURL
+        nsView.imageProvider = imageProvider
+        nsView.onDragSuccess = onDragSuccess
         nsView.needsDisplay = true
     }
 }
@@ -50,6 +56,8 @@ class DragSourceView: NSView {
     var image: NSImage?
     var showImage: Bool = true
     var gifURL: URL?
+    var imageProvider: (() -> NSImage?)?
+    var onDragSuccess: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -108,7 +116,9 @@ class DragSourceView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard let image = image else { return }
+        // imageProviderで最新のアノテーション付き画像を取得（SwiftUI更新タイミングに依存しない）
+        let image = imageProvider?() ?? self.image
+        guard let image else { return }
 
         let tempDir = FileManager.default.temporaryDirectory
         let fileURL: URL
@@ -168,6 +178,8 @@ extension DragSourceView: NSDraggingSource {
                     ]
                     UserDefaults.standard.set(rectDict, forKey: "lastCaptureRect")
                 }
+                // アノテーション適用とクリーンアップ
+                onDragSuccess?()
                 window?.close()
                 NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
                 return
@@ -1019,10 +1031,33 @@ struct EditorWindow: View {
     }
 
     private func dragArea(geometry: GeometryProxy) -> some View {
-        DraggableImageView(
+        let screenshotRef = screenshot
+        let toolboxRef = toolboxState
+        return DraggableImageView(
             image: imageForDrag ?? screenshot.originalImage,
             showImage: showImage,
-            gifURL: screenshot.isGif ? screenshot.savedURL : nil
+            gifURL: screenshot.isGif ? screenshot.savedURL : nil,
+            imageProvider: {
+                // ドラッグ開始時に最新のアノテーション付き画像をリアルタイムで生成
+                if !toolboxRef.annotations.isEmpty, !screenshotRef.isGif {
+                    return EditorWindow.renderImageInBackground(
+                        originalImage: screenshotRef.originalImage,
+                        annotations: toolboxRef.annotations,
+                        captureRegion: screenshotRef.captureRegion
+                    )
+                }
+                return screenshotRef.originalImage
+            },
+            onDragSuccess: { [self] in
+                // ドラッグ成功でウインドウが閉じる前にアノテーションを適用
+                if editMode && !toolboxState.annotations.isEmpty {
+                    applyAnnotations()
+                }
+                toolboxState.annotations.removeAll()
+                toolbarController?.close()
+                shutterPanelController?.close()
+                shutterPanelController = nil
+            }
         )
         .frame(width: 32, height: 32)
         .position(x: geometry.size.width - 24, y: geometry.size.height - 24)
