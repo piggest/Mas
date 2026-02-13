@@ -60,7 +60,8 @@ class FloatingToolbarState: ObservableObject {
 class FloatingToolbarWindowController {
     private var window: NSWindow?
     private var parentWindow: NSWindow?
-    private var frameObserver: NSObjectProtocol?
+    private var moveObserver: NSObjectProtocol?
+    private var resizeObserver: NSObjectProtocol?
     private var hostingView: NSView?
     private var cachedToolbarSize: CGSize?
 
@@ -107,7 +108,7 @@ class FloatingToolbarWindowController {
         startSyncTimer()
 
         // 親ウィンドウの移動・リサイズを監視
-        frameObserver = NotificationCenter.default.addObserver(
+        moveObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didMoveNotification,
             object: parent,
             queue: .main
@@ -115,7 +116,7 @@ class FloatingToolbarWindowController {
             self?.updatePosition()
         }
 
-        NotificationCenter.default.addObserver(
+        resizeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResizeNotification,
             object: parent,
             queue: .main
@@ -140,18 +141,12 @@ class FloatingToolbarWindowController {
             self?.window?.alphaValue = 1  // リセット
         })
         stopSyncTimer()
-        if let observer = frameObserver {
-            NotificationCenter.default.removeObserver(observer)
-            frameObserver = nil
-        }
+        removeObservers()
     }
 
     func close() {
         stopSyncTimer()
-        if let observer = frameObserver {
-            NotificationCenter.default.removeObserver(observer)
-            frameObserver = nil
-        }
+        removeObservers()
         // 親ウィンドウから子ウィンドウを削除
         if let toolbarWindow = window, let parent = parentWindow {
             parent.removeChildWindow(toolbarWindow)
@@ -164,6 +159,17 @@ class FloatingToolbarWindowController {
         parentWindow = nil
         cachedToolbarSize = nil
         originalState = nil
+    }
+
+    private func removeObservers() {
+        if let observer = moveObserver {
+            NotificationCenter.default.removeObserver(observer)
+            moveObserver = nil
+        }
+        if let observer = resizeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            resizeObserver = nil
+        }
     }
 
     // 元のToolboxStateの変更をツールバーに反映
