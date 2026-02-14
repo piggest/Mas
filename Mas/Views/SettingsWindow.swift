@@ -1,4 +1,5 @@
 import SwiftUI
+import ServiceManagement
 
 struct SettingsWindow: View {
     @AppStorage("developerMode") private var developerMode = false
@@ -46,6 +47,7 @@ struct GeneralSettingsView: View {
     @AppStorage("autoCopyToClipboard") private var autoCopyToClipboard = true
     @AppStorage("developerMode") private var developerMode = false
     @State private var displayPath = ""
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
         ScrollView {
@@ -99,6 +101,22 @@ struct GeneralSettingsView: View {
                     }
                     settingRow("キャプチャ時にサウンド再生") {
                         Toggle("", isOn: $playSound).labelsHidden()
+                    }
+                    settingRow("ログイン時に起動") {
+                        Toggle("", isOn: $launchAtLogin)
+                            .labelsHidden()
+                            .onChange(of: launchAtLogin) { newValue in
+                                do {
+                                    if newValue {
+                                        try SMAppService.mainApp.register()
+                                    } else {
+                                        try SMAppService.mainApp.unregister()
+                                    }
+                                } catch {
+                                    print("Launch at login error: \(error)")
+                                    launchAtLogin = SMAppService.mainApp.status == .enabled
+                                }
+                            }
                     }
                     settingRow("開発者モード") {
                         Toggle("", isOn: $developerMode).labelsHidden()
