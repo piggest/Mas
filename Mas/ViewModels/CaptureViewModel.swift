@@ -226,9 +226,6 @@ class CaptureViewModel: ObservableObject {
         let overlay = RegionSelectionOverlay(onComplete: { [weak self] rect in
             guard let self = self else { return }
             Task {
-                // オーバーレイが消えるのを待ってからキャプチャ
-                try? await Task.sleep(nanoseconds: 100_000_000)
-
                 // ライブラリウィンドウを復元
                 if libraryWasVisible {
                     self.historyWindowController?.window?.orderBack(nil)
@@ -300,11 +297,8 @@ class CaptureViewModel: ObservableObject {
     // 再キャプチャ機能（現在のウィンドウ位置で）
     func recaptureRegion(for screenshot: Screenshot, at region: CGRect, window: NSWindow?, hideWindow: Bool = true) async {
         if hideWindow {
-            // ウィンドウを一時的に隠す
+            // ウィンドウを一時的に隠す（sharingType=.noneにより自UIはキャプチャに写らない）
             window?.orderOut(nil)
-
-            // 少し待つ
-            try? await Task.sleep(nanoseconds: 200_000_000)
         }
 
         do {
