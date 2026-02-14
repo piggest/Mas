@@ -195,6 +195,7 @@ enum EditTool: String, CaseIterable {
     case move = "移動"
     case pen = "ペン"
     case highlight = "マーカー"
+    case line = "直線"
     case arrow = "矢印"
     case rectangle = "四角"
     case ellipse = "丸"
@@ -208,6 +209,7 @@ enum EditTool: String, CaseIterable {
         case .move: return "arrow.up.and.down.and.arrow.left.and.right"
         case .pen: return "pencil.tip"
         case .highlight: return "highlighter"
+        case .line: return "line.diagonal"
         case .arrow: return "arrow.up.right"
         case .rectangle: return "rectangle"
         case .ellipse: return "circle"
@@ -1356,7 +1358,24 @@ struct EditorWindow: View {
 
     private static func drawScaledAnnotationStatic(_ annotation: any Annotation, scale: CGFloat, imageHeight: CGFloat, canvasHeight: CGFloat) {
         // 単純にスケーリングのみ（NSViewとNSImageは同じ左下原点座標系）
-        if let arrow = annotation as? ArrowAnnotation {
+        if let line = annotation as? LineAnnotation {
+            let startPoint = CGPoint(
+                x: line.startPoint.x * scale,
+                y: line.startPoint.y * scale
+            )
+            let endPoint = CGPoint(
+                x: line.endPoint.x * scale,
+                y: line.endPoint.y * scale
+            )
+            let scaledLine = LineAnnotation(
+                startPoint: startPoint,
+                endPoint: endPoint,
+                color: line.color.copy() as! NSColor,
+                lineWidth: line.lineWidth * scale,
+                strokeEnabled: line.strokeEnabled
+            )
+            scaledLine.draw(in: .zero)
+        } else if let arrow = annotation as? ArrowAnnotation {
             let startPoint = CGPoint(
                 x: arrow.startPoint.x * scale,
                 y: arrow.startPoint.y * scale
@@ -2108,7 +2127,10 @@ class AnnotationCanvas: NSView {
 
         var boundingRect: CGRect = .zero
 
-        if let arrow = annotation as? ArrowAnnotation {
+        if let line = annotation as? LineAnnotation {
+            boundingRect = line.boundingRect()
+            highlightPath.appendRect(boundingRect)
+        } else if let arrow = annotation as? ArrowAnnotation {
             boundingRect = arrow.boundingRect()
             highlightPath.appendRect(boundingRect)
         } else if let rect = annotation as? RectAnnotation {
@@ -2145,7 +2167,11 @@ class AnnotationCanvas: NSView {
 
         // 選択中のアノテーションにリサイズハンドルを描画
         if isSelected {
-            if let arrow = annotation as? ArrowAnnotation {
+            if let line = annotation as? LineAnnotation {
+                // 直線は始点と終点にハンドル
+                drawResizeHandle(at: line.startPoint)
+                drawResizeHandle(at: line.endPoint)
+            } else if let arrow = annotation as? ArrowAnnotation {
                 // 矢印は始点と終点にハンドル
                 drawResizeHandle(at: arrow.startPoint)
                 drawResizeHandle(at: arrow.endPoint)
@@ -2179,7 +2205,15 @@ class AnnotationCanvas: NSView {
         let handleSize: CGFloat = 12  // ヒットエリアは少し大きめに
         let annotation = annotations[index]
 
-        if let arrow = annotation as? ArrowAnnotation {
+        if let line = annotation as? LineAnnotation {
+            // 直線は始点と終点をチェック
+            if CGRect(x: line.startPoint.x - handleSize / 2, y: line.startPoint.y - handleSize / 2, width: handleSize, height: handleSize).contains(point) {
+                return .startPoint
+            }
+            if CGRect(x: line.endPoint.x - handleSize / 2, y: line.endPoint.y - handleSize / 2, width: handleSize, height: handleSize).contains(point) {
+                return .endPoint
+            }
+        } else if let arrow = annotation as? ArrowAnnotation {
             // 矢印は始点と終点をチェック
             if CGRect(x: arrow.startPoint.x - handleSize / 2, y: arrow.startPoint.y - handleSize / 2, width: handleSize, height: handleSize).contains(point) {
                 return .startPoint
@@ -2355,6 +2389,8 @@ class AnnotationCanvas: NSView {
             currentAnnotation = FreehandAnnotation(points: [point], color: safeColor, lineWidth: lineWidth, isHighlighter: false, strokeEnabled: strokeEnabled)
         case .highlight:
             currentAnnotation = FreehandAnnotation(points: [point], color: safeColor, lineWidth: lineWidth, isHighlighter: true, strokeEnabled: strokeEnabled)
+        case .line:
+            currentAnnotation = LineAnnotation(startPoint: point, endPoint: point, color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
         case .arrow:
             currentAnnotation = ArrowAnnotation(startPoint: point, endPoint: point, color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
         case .rectangle:
@@ -2422,6 +2458,10 @@ class AnnotationCanvas: NSView {
         case .pen, .highlight:
             if let freehand = currentAnnotation as? FreehandAnnotation {
                 freehand.addPoint(point)
+            }
+        case .line:
+            if let line = currentAnnotation as? LineAnnotation {
+                line.endPoint = point
             }
         case .arrow:
             if let arrow = currentAnnotation as? ArrowAnnotation {
@@ -2510,7 +2550,15 @@ class AnnotationCanvas: NSView {
     private func resizeAnnotation(at index: Int, to point: CGPoint) {
         let annotation = annotations[index]
 
-        if let arrow = annotation as? ArrowAnnotation {
+        if let line = annotation as? LineAnnotation {
+            switch activeResizeHandle {
+            case .startPoint:
+                line.startPoint = point
+            case .endPoint:
+                line.endPoint = point
+            default: break
+            }
+        } else if let arrow = annotation as? ArrowAnnotation {
             switch activeResizeHandle {
             case .startPoint:
                 arrow.startPoint = point

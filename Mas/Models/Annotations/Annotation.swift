@@ -30,6 +30,7 @@ extension Annotation {
 }
 
 enum AnnotationType: String, CaseIterable, Identifiable {
+    case line = "直線"
     case arrow = "矢印"
     case rectangle = "四角"
     case ellipse = "丸"
@@ -41,6 +42,7 @@ enum AnnotationType: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
+        case .line: return "line.diagonal"
         case .arrow: return "arrow.up.right"
         case .rectangle: return "rectangle"
         case .ellipse: return "circle"

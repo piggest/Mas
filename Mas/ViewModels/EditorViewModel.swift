@@ -59,6 +59,8 @@ class EditorViewModel: ObservableObject {
 
     func createAnnotation(from startPoint: CGPoint, to endPoint: CGPoint) -> (any Annotation)? {
         switch selectedTool {
+        case .line:
+            return LineAnnotation(startPoint: startPoint, endPoint: endPoint, color: selectedColor, lineWidth: lineWidth)
         case .arrow:
             return ArrowAnnotation(startPoint: startPoint, endPoint: endPoint, color: selectedColor, lineWidth: lineWidth)
         case .rectangle:

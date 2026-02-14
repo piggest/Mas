@@ -60,6 +60,10 @@ class CanvasNSView: NSView {
 
     private func drawPreview(from start: CGPoint, to current: CGPoint, context: CGContext) {
         switch viewModel.selectedTool {
+        case .line:
+            let line = LineAnnotation(startPoint: start, endPoint: current, color: viewModel.selectedColor, lineWidth: viewModel.lineWidth)
+            line.draw(in: bounds)
+
         case .arrow:
             let arrow = ArrowAnnotation(startPoint: start, endPoint: current, color: viewModel.selectedColor, lineWidth: viewModel.lineWidth)
             arrow.draw(in: bounds)

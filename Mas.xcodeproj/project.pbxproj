@@ -10,6 +10,7 @@
 		042B782ECB5FA1E045C2236D /* Annotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0C035641F7CFE5019E75B3 /* Annotation.swift */; };
 		043C577D0F42433673F56F0A /* WindowPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */; };
 		1EC15D284C2030633273509B /* ArrowAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9702C9A674BA192EFF166589 /* ArrowAnnotation.swift */; };
+		LINEANNOT01BUILD /* LineAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = LINEANNOT01FILEREF /* LineAnnotation.swift */; };
 		2198BAD974BEFFEB55B1A55E /* ScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */; };
 		235776E0F0D33F6C472F6E69 /* Screenshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9909D433CD57C9C7B08E3C /* Screenshot.swift */; };
 		4073332D6F51A0FF7EBDC576 /* PermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 002A68B3D208C945FEA1D830 /* PermissionService.swift */; };
@@ -67,6 +68,7 @@
 		8E0C035641F7CFE5019E75B3 /* Annotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Annotation.swift; sourceTree = "<group>"; };
 		8F9909D433CD57C9C7B08E3C /* Screenshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Screenshot.swift; sourceTree = "<group>"; };
 		9702C9A674BA192EFF166589 /* ArrowAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrowAnnotation.swift; sourceTree = "<group>"; };
+		LINEANNOT01FILEREF /* LineAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineAnnotation.swift; sourceTree = "<group>"; };
 		9AADE98A628BFE59D34AF3B4 /* RegionSelectionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegionSelectionOverlay.swift; sourceTree = "<group>"; };
 		AC96B8C5055AFEA295B48A8A /* ScreenshotApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ScreenshotApp.entitlements; sourceTree = "<group>"; };
 		'ASSETS00001FILEREF' = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -146,6 +148,7 @@
 			children = (
 				8E0C035641F7CFE5019E75B3 /* Annotation.swift */,
 				9702C9A674BA192EFF166589 /* ArrowAnnotation.swift */,
+				LINEANNOT01FILEREF /* LineAnnotation.swift */,
 				ELLIPSE001FILEREF,
 				FREEHAND01FILEREF,
 				F26D94A3B6CFB41C0B3E7DC1 /* HighlightAnnotation.swift */,
@@ -293,6 +296,7 @@
 				042B782ECB5FA1E045C2236D /* Annotation.swift in Sources */,
 				621F46F34B68FFB6CBA35643 /* AppDelegate.swift in Sources */,
 				1EC15D284C2030633273509B /* ArrowAnnotation.swift in Sources */,
+				LINEANNOT01BUILD /* LineAnnotation.swift in Sources */,
 				943805E5647910512FCE5F80 /* CanvasView.swift in Sources */,
 				D66BF3341C56BEA60138ECB4 /* CaptureMode.swift in Sources */,
 				92CE034412FBA4DBF88385E1 /* CaptureViewModel.swift in Sources */,

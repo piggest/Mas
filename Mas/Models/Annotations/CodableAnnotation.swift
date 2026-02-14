@@ -3,7 +3,7 @@ import Foundation
 
 struct CodableAnnotation: Codable {
     enum Kind: String, Codable {
-        case arrow, rect, ellipse, text, highlight, freehand, mosaic
+        case arrow, rect, ellipse, text, highlight, freehand, mosaic, line
     }
 
     let kind: Kind
@@ -47,6 +47,18 @@ struct CodableAnnotation: Codable {
     // MARK: - Annotation → CodableAnnotation
 
     static func from(_ annotation: any Annotation) -> CodableAnnotation? {
+        if let a = annotation as? LineAnnotation {
+            let c = colorComponents(a.color)
+            return CodableAnnotation(
+                kind: .line, colorR: c.r, colorG: c.g, colorB: c.b, colorA: c.a,
+                lineWidth: Double(a.lineWidth), strokeEnabled: a.strokeEnabled,
+                rectX: nil, rectY: nil, rectW: nil, rectH: nil, isFilled: nil,
+                startX: Double(a.startPoint.x), startY: Double(a.startPoint.y),
+                endX: Double(a.endPoint.x), endY: Double(a.endPoint.y),
+                posX: nil, posY: nil, text: nil, fontSize: nil,
+                points: nil, isHighlighter: nil, pixelSize: nil
+            )
+        }
         if let a = annotation as? ArrowAnnotation {
             let c = colorComponents(a.color)
             return CodableAnnotation(
@@ -143,6 +155,15 @@ struct CodableAnnotation: Codable {
         let color = NSColor(red: colorR, green: colorG, blue: colorB, alpha: colorA)
 
         switch kind {
+        case .line:
+            guard let sx = startX, let sy = startY, let ex = endX, let ey = endY else { return nil }
+            return LineAnnotation(
+                startPoint: CGPoint(x: sx, y: sy),
+                endPoint: CGPoint(x: ex, y: ey),
+                color: color,
+                lineWidth: CGFloat(lineWidth ?? 3),
+                strokeEnabled: strokeEnabled ?? true
+            )
         case .arrow:
             guard let sx = startX, let sy = startY, let ex = endX, let ey = endY else { return nil }
             return ArrowAnnotation(
