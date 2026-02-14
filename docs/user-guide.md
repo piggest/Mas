@@ -37,7 +37,7 @@ Masはメニューバーに常駐するアプリです。
 2. ドラッグで撮りたい範囲を選択すると、そのまま切り取られます
 3. エディターウィンドウが開くので、必要に応じて編集ツールで注釈を入れられます
 
-![エディター](images/editor.png)
+![エディター](../images/editor.png)
 
 ---
 
@@ -53,7 +53,7 @@ Masはメニューバーに常駐するアプリです。
 
 キャプチャ後は自動的にエディターウィンドウが開きます。
 
-![メニュー](images/menu.png)
+![メニュー](../images/menu.png)
 
 ### 範囲選択
 
@@ -213,14 +213,14 @@ Masはメニューバーに常駐するアプリです。
 
 | ツール | | 説明 |
 |--------|:------:|------|
-| 移動 | <img src="images/tools/move.png" width="20"> | アノテーションをクリックして選択、ドラッグで移動 |
-| ペン | <img src="images/tools/pen.png" width="20"> | 自由に線を描画 |
-| マーカー | <img src="images/tools/marker.png" width="20"> | 半透明のハイライトを描画 |
-| 矢印 | <img src="images/tools/arrow.png" width="20"> | テーパー形状の矢印を描画 |
-| 四角 | <img src="images/tools/rect.png" width="20"> | 四角形を描画（枠線または半透明塗りつぶし） |
-| 丸 | <img src="images/tools/ellipse.png" width="20"> | 楕円を描画 |
-| 文字 | <img src="images/tools/text.png" width="20"> | テキストを追加 |
-| ぼかし | <img src="images/tools/mosaic.png" width="20"> | モザイク効果を適用。個人情報のマスキングに |
+| 移動 | <img src="../images/tools/move.png" width="20"> | アノテーションをクリックして選択、ドラッグで移動 |
+| ペン | <img src="../images/tools/pen.png" width="20"> | 自由に線を描画 |
+| マーカー | <img src="../images/tools/marker.png" width="20"> | 半透明のハイライトを描画 |
+| 矢印 | <img src="../images/tools/arrow.png" width="20"> | テーパー形状の矢印を描画 |
+| 四角 | <img src="../images/tools/rect.png" width="20"> | 四角形を描画（枠線または半透明塗りつぶし） |
+| 丸 | <img src="../images/tools/ellipse.png" width="20"> | 楕円を描画 |
+| 文字 | <img src="../images/tools/text.png" width="20"> | テキストを追加 |
+| ぼかし | <img src="../images/tools/mosaic.png" width="20"> | モザイク効果を適用。個人情報のマスキングに |
 
 ### 編集オプション
 
@@ -239,11 +239,11 @@ Masはメニューバーに常駐するアプリです。
 
 ペン/マーカー、矢印/四角/丸はそれぞれグループ化されています。ボタンをクリックするとグループ内のツールを切り替えるメニューが表示されます。最後に選択したツールが記憶されるので、素速くツールを切り替えられます。
 
-### <img src="images/tools/trim.png" width="20"> トリミング
+### <img src="../images/tools/trim.png" width="20"> トリミング
 
 ツールバーから「トリミング」を選択し、ドラッグで切り出し範囲を決定。確定ボタンで画像を切り出します。
 
-### <img src="images/tools/ocr.png" width="20"> テキスト選択（OCR）
+### <img src="../images/tools/ocr.png" width="20"> テキスト選択（OCR）
 
 スクリーンショット内のテキストを認識し、文字単位で選択・コピーできます。
 
@@ -311,7 +311,7 @@ Masはメニューバーに常駐するアプリです。
 
 キャプチャ履歴を管理するウィンドウです。メニューから「ライブラリ」を選択するか、`⌘⇧L` で開きます。
 
-![ライブラリ](images/library.png)
+![ライブラリ](../images/library.png)
 
 - サムネイル付きでキャプチャ履歴をグリッド表示
 - クリックでエディターウィンドウを開閉
@@ -355,7 +355,7 @@ Masはメニューバーに常駐するアプリです。
 
 メニューの「設定...」（`⌘,`）から設定ウィンドウを開けます。4つのタブで構成されています。
 
-![設定](images/settings.png)
+![設定](../images/settings.png)
 
 ### 一般タブ
 
