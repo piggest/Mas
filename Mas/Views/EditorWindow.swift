@@ -961,12 +961,10 @@ struct EditorWindow: View {
         Button(action: {
             let rect = getCurrentWindowRect()
             closeWindow()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                NotificationCenter.default.post(
-                    name: .startGifRecordingAtRegion,
-                    object: NSValue(rect: rect)
-                )
-            }
+            NotificationCenter.default.post(
+                name: .startGifRecordingAtRegion,
+                object: NSValue(rect: rect)
+            )
         }) {
             Image(systemName: "record.circle")
                 .font(.system(size: 12, weight: .bold))
