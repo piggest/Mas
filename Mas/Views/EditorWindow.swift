@@ -558,13 +558,20 @@ struct EditorWindow: View {
                         .frame(width: imageWidth, height: imageHeight)
                 }
                 // 編集モード中、またはアノテーションがある場合にcanvasを表示
+                // ウィンドウ全体に広げてアノテーションのはみ出しを表示可能に
                 if editMode || !toolboxState.annotations.isEmpty {
+                    let extraX = max(0, geometry.size.width - imageWidth)
+                    let extraY = max(0, geometry.size.height - imageHeight)
                     annotationCanvas
+                        .frame(
+                            width: imageWidth + extraX * 2,
+                            height: imageHeight + extraY * 2
+                        )
+                        .offset(x: -extraX, y: -extraY)
                 }
             }
             .offset(x: offsetX, y: offsetY)
         }
-        .clipped()
     }
 
     @ViewBuilder
@@ -622,11 +629,11 @@ struct EditorWindow: View {
             },
             onCopyTrimRegion: { [self] rect in
                 performCopyRegion(canvasRect: rect)
-            }
-        )
-        .frame(
-            width: screenshot.captureRegion?.width ?? screenshot.originalImage.size.width,
-            height: screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
+            },
+            imageDisplaySize: CGSize(
+                width: screenshot.captureRegion?.width ?? screenshot.originalImage.size.width,
+                height: screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
+            )
         )
         .overlay {
             if toolboxState.selectedTool == .textSelection {
@@ -1216,6 +1223,17 @@ struct EditorWindow: View {
         let canvasSize = captureRegion?.size ?? imageSize
         let scale = imageSize.width / canvasSize.width
 
+        // アノテーションのはみ出しを含む拡張キャンバスを計算
+        var expandedCanvas = CGRect(origin: .zero, size: canvasSize)
+        for annotation in annotations {
+            expandedCanvas = expandedCanvas.union(annotation.boundingRect())
+        }
+        let offset = CGPoint(x: -expandedCanvas.origin.x * scale, y: -expandedCanvas.origin.y * scale)
+        let expandedImageSize = NSSize(
+            width: expandedCanvas.width * scale,
+            height: expandedCanvas.height * scale
+        )
+
         // モザイク効果を適用
         var baseImage = originalImage
         for annotation in annotations {
@@ -1234,17 +1252,23 @@ struct EditorWindow: View {
             }
         }
 
-        // NSImageのlockFocusを使用して描画（より確実）
-        let resultImage = NSImage(size: imageSize)
+        // NSImageのlockFocusを使用して描画（フリップキャンバスに合わせる）
+        let resultImage = NSImage(size: expandedImageSize)
         resultImage.lockFocus()
 
-        // モザイク適用済み画像を描画
-        baseImage.draw(in: NSRect(origin: .zero, size: imageSize))
+        // はみ出し領域を白で塗りつぶし
+        if expandedImageSize != imageSize {
+            NSColor.white.setFill()
+            NSRect(origin: .zero, size: expandedImageSize).fill()
+        }
+
+        // モザイク適用済み画像をオフセット付きで描画
+        baseImage.draw(in: NSRect(origin: CGPoint(x: offset.x, y: offset.y), size: imageSize))
 
         // その他のアノテーションを描画
         for annotation in annotations {
             if !(annotation is MosaicAnnotation) {
-                Self.drawScaledAnnotationStatic(annotation, scale: scale, imageHeight: imageSize.height, canvasHeight: canvasSize.height)
+                Self.drawScaledAnnotationStatic(annotation, scale: scale, imageHeight: imageSize.height, canvasHeight: canvasSize.height, offset: offset)
             }
         }
 
@@ -1295,6 +1319,17 @@ struct EditorWindow: View {
         let canvasSize = screenshot.captureRegion?.size ?? imageSize
         let scale = imageSize.width / canvasSize.width
 
+        // アノテーションのはみ出しを含む拡張キャンバスを計算
+        var expandedCanvas = CGRect(origin: .zero, size: canvasSize)
+        for annotation in toolboxState.annotations {
+            expandedCanvas = expandedCanvas.union(annotation.boundingRect())
+        }
+        let offset = CGPoint(x: -expandedCanvas.origin.x * scale, y: -expandedCanvas.origin.y * scale)
+        let expandedImageSize = NSSize(
+            width: expandedCanvas.width * scale,
+            height: expandedCanvas.height * scale
+        )
+
         // まずモザイク効果を適用
         var baseImage = screenshot.originalImage
         for annotation in toolboxState.annotations {
@@ -1313,13 +1348,20 @@ struct EditorWindow: View {
             }
         }
 
-        let newImage = NSImage(size: imageSize)
+        let newImage = NSImage(size: expandedImageSize)
         newImage.lockFocus()
-        baseImage.draw(in: NSRect(origin: .zero, size: imageSize))
+
+        // はみ出し領域を白で塗りつぶし
+        if expandedImageSize != imageSize {
+            NSColor.white.setFill()
+            NSRect(origin: .zero, size: expandedImageSize).fill()
+        }
+
+        baseImage.draw(in: NSRect(origin: CGPoint(x: offset.x, y: offset.y), size: imageSize))
 
         for annotation in toolboxState.annotations {
             if !(annotation is MosaicAnnotation) {
-                Self.drawScaledAnnotationStatic(annotation, scale: scale, imageHeight: imageSize.height, canvasHeight: canvasSize.height)
+                Self.drawScaledAnnotationStatic(annotation, scale: scale, imageHeight: imageSize.height, canvasHeight: canvasSize.height, offset: offset)
             }
         }
 
@@ -1354,16 +1396,18 @@ struct EditorWindow: View {
         toolboxState.annotations.removeAll()
     }
 
-    private static func drawScaledAnnotationStatic(_ annotation: any Annotation, scale: CGFloat, imageHeight: CGFloat, canvasHeight: CGFloat) {
-        // 単純にスケーリングのみ（NSViewとNSImageは同じ左下原点座標系）
+    private static func drawScaledAnnotationStatic(_ annotation: any Annotation, scale: CGFloat, imageHeight: CGFloat, canvasHeight: CGFloat, offset: CGPoint = .zero) {
+        // 単純にスケーリング + オフセット（NSViewとNSImageは同じ左下原点座標系）
+        let ox = offset.x
+        let oy = offset.y
         if let line = annotation as? LineAnnotation {
             let startPoint = CGPoint(
-                x: line.startPoint.x * scale,
-                y: line.startPoint.y * scale
+                x: line.startPoint.x * scale + ox,
+                y: line.startPoint.y * scale + oy
             )
             let endPoint = CGPoint(
-                x: line.endPoint.x * scale,
-                y: line.endPoint.y * scale
+                x: line.endPoint.x * scale + ox,
+                y: line.endPoint.y * scale + oy
             )
             let scaledLine = LineAnnotation(
                 startPoint: startPoint,
@@ -1375,12 +1419,12 @@ struct EditorWindow: View {
             scaledLine.draw(in: .zero)
         } else if let arrow = annotation as? ArrowAnnotation {
             let startPoint = CGPoint(
-                x: arrow.startPoint.x * scale,
-                y: arrow.startPoint.y * scale
+                x: arrow.startPoint.x * scale + ox,
+                y: arrow.startPoint.y * scale + oy
             )
             let endPoint = CGPoint(
-                x: arrow.endPoint.x * scale,
-                y: arrow.endPoint.y * scale
+                x: arrow.endPoint.x * scale + ox,
+                y: arrow.endPoint.y * scale + oy
             )
             let scaledArrow = ArrowAnnotation(
                 startPoint: startPoint,
@@ -1392,8 +1436,8 @@ struct EditorWindow: View {
             scaledArrow.draw(in: .zero)
         } else if let rect = annotation as? RectAnnotation {
             let scaledRect = CGRect(
-                x: rect.rect.origin.x * scale,
-                y: rect.rect.origin.y * scale,
+                x: rect.rect.origin.x * scale + ox,
+                y: rect.rect.origin.y * scale + oy,
                 width: rect.rect.width * scale,
                 height: rect.rect.height * scale
             )
@@ -1406,8 +1450,8 @@ struct EditorWindow: View {
             scaledAnnotation.draw(in: .zero)
         } else if let ellipse = annotation as? EllipseAnnotation {
             let scaledRect = CGRect(
-                x: ellipse.rect.origin.x * scale,
-                y: ellipse.rect.origin.y * scale,
+                x: ellipse.rect.origin.x * scale + ox,
+                y: ellipse.rect.origin.y * scale + oy,
                 width: ellipse.rect.width * scale,
                 height: ellipse.rect.height * scale
             )
@@ -1421,8 +1465,8 @@ struct EditorWindow: View {
         } else if let text = annotation as? TextAnnotation {
             let scaledFont = NSFont.systemFont(ofSize: text.font.pointSize * scale, weight: .medium)
             let scaledPosition = CGPoint(
-                x: text.position.x * scale,
-                y: text.position.y * scale
+                x: text.position.x * scale + ox,
+                y: text.position.y * scale + oy
             )
             let scaledAnnotation = TextAnnotation(
                 position: scaledPosition,
@@ -1434,8 +1478,8 @@ struct EditorWindow: View {
             scaledAnnotation.draw(in: .zero)
         } else if let highlight = annotation as? HighlightAnnotation {
             let scaledRect = CGRect(
-                x: highlight.rect.origin.x * scale,
-                y: highlight.rect.origin.y * scale,
+                x: highlight.rect.origin.x * scale + ox,
+                y: highlight.rect.origin.y * scale + oy,
                 width: highlight.rect.width * scale,
                 height: highlight.rect.height * scale
             )
@@ -1446,8 +1490,8 @@ struct EditorWindow: View {
             scaledAnnotation.draw(in: .zero)
         } else if let mosaic = annotation as? MosaicAnnotation {
             let scaledRect = CGRect(
-                x: mosaic.rect.origin.x * scale,
-                y: mosaic.rect.origin.y * scale,
+                x: mosaic.rect.origin.x * scale + ox,
+                y: mosaic.rect.origin.y * scale + oy,
                 width: mosaic.rect.width * scale,
                 height: mosaic.rect.height * scale
             )
@@ -1458,7 +1502,7 @@ struct EditorWindow: View {
             scaledAnnotation.draw(in: .zero)
         } else if let freehand = annotation as? FreehandAnnotation {
             let scaledPoints = freehand.points.map { point in
-                CGPoint(x: point.x * scale, y: point.y * scale)
+                CGPoint(x: point.x * scale + ox, y: point.y * scale + oy)
             }
             let scaledAnnotation = FreehandAnnotation(
                 points: scaledPoints,
@@ -1795,11 +1839,13 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let onToolChanged: ((EditTool) -> Void)?
     var onTrimRequested: ((CGRect) -> Void)?
     var onCopyTrimRegion: ((CGRect) -> Void)?
+    var imageDisplaySize: CGSize = .zero
 
     func makeNSView(context: Context) -> AnnotationCanvas {
         let canvas = AnnotationCanvas()
         canvas.delegate = context.coordinator
         canvas.sourceImage = sourceImage
+        canvas.imageDisplaySize = imageDisplaySize
         context.coordinator.canvas = canvas
         return canvas
     }
@@ -1816,6 +1862,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
         nsView.lineWidth = lineWidth
         nsView.strokeEnabled = strokeEnabled
         nsView.sourceImage = sourceImage
+        nsView.imageDisplaySize = imageDisplaySize
         nsView.isEditing = isEditing
         nsView.showImage = showImage
         // 編集モード終了時に選択をクリア
@@ -1970,6 +2017,7 @@ class AnnotationCanvas: NSView {
     var lineWidth: CGFloat = 3
     var strokeEnabled: Bool = true
     var sourceImage: NSImage?
+    var imageDisplaySize: CGSize = .zero  // 画像の表示サイズ（モザイクのスケール計算用）
     var isEditing: Bool = false
     var showImage: Bool = true
     private var dragStart: CGPoint?
@@ -1982,6 +2030,21 @@ class AnnotationCanvas: NSView {
     private var isResizing: Bool = false
     var trimRect: CGRect?
     private var trimDragStart: CGPoint?
+
+    /// キャンバス内の画像領域オフセット（全方向パディング対応）
+    private var canvasPadding: CGPoint {
+        guard imageDisplaySize.width > 0, imageDisplaySize.height > 0 else { return .zero }
+        let px = max(0, (bounds.width - imageDisplaySize.width) / 2)
+        let py = max(0, (bounds.height - imageDisplaySize.height) / 2)
+        return CGPoint(x: px, y: py)
+    }
+
+    /// マウスイベント座標を画像座標系に変換
+    private func imagePoint(from event: NSEvent) -> CGPoint {
+        let raw = convert(event.locationInWindow, from: nil)
+        let pad = canvasPadding
+        return CGPoint(x: raw.x - pad.x, y: raw.y - pad.y)
+    }
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -2045,6 +2108,17 @@ class AnnotationCanvas: NSView {
         // ウィンドウフレームを更新
         updateWindowFrame()
         let winNum = window?.windowNumber ?? 0
+        // モザイクのスケール計算には画像表示サイズを使用
+        let imgSize = imageDisplaySize.width > 0 ? imageDisplaySize : bounds.size
+        let imgBounds = NSRect(origin: .zero, size: imgSize)
+
+        // キャンバスが画像より大きい場合、描画を画像領域にオフセット（全方向パディング対応）
+        let pad = canvasPadding
+        let hasPadding = pad.x > 0 || pad.y > 0
+        if hasPadding {
+            NSGraphicsContext.current?.cgContext.saveGState()
+            NSGraphicsContext.current?.cgContext.translateBy(x: pad.x, y: pad.y)
+        }
 
         // 配列の順序通りに描画（インデックス0が最背面、最後が最前面）
         for (index, annotation) in annotations.enumerated() {
@@ -2053,9 +2127,9 @@ class AnnotationCanvas: NSView {
                 mosaic.useRealTimeCapture = !showImage
                 mosaic.windowFrame = windowFrame
                 mosaic.windowNumber = winNum
-                mosaic.canvasSize = bounds.size
+                mosaic.canvasSize = imgSize
             }
-            annotation.draw(in: bounds)
+            annotation.draw(in: imgBounds)
             // 編集モード中の移動モードのみバウンディングボックスを描画
             if isEditing && selectedTool == .move {
                 let isSelected = index == selectedAnnotationIndex
@@ -2069,14 +2143,18 @@ class AnnotationCanvas: NSView {
                 mosaic.useRealTimeCapture = !showImage
                 mosaic.windowFrame = windowFrame
                 mosaic.windowNumber = winNum
-                mosaic.canvasSize = bounds.size
+                mosaic.canvasSize = imgSize
             }
-            current.draw(in: bounds)
+            current.draw(in: imgBounds)
         }
 
         // トリミング選択範囲の描画
         if selectedTool == .trim, let trimRect = trimRect {
             drawTrimOverlay(trimRect: trimRect)
+        }
+
+        if hasPadding {
+            NSGraphicsContext.current?.cgContext.restoreGState()
         }
     }
 
@@ -2253,7 +2331,7 @@ class AnnotationCanvas: NSView {
         // テキスト選択モードはSwiftUIオーバーレイで処理
         if selectedTool == .textSelection { return }
 
-        let point = convert(event.locationInWindow, from: nil)
+        let point = imagePoint(from: event)
         dragStart = point
         lastDragPoint = point
 
@@ -2410,7 +2488,7 @@ class AnnotationCanvas: NSView {
     override func mouseDragged(with event: NSEvent) {
         guard isEditing else { return }
 
-        let point = convert(event.locationInWindow, from: nil)
+        let point = imagePoint(from: event)
 
         // トリミングモードの場合
         if selectedTool == .trim, let start = trimDragStart {

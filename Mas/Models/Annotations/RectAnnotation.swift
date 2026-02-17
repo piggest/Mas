@@ -48,6 +48,11 @@ class RectAnnotation: Annotation {
         return expandedRect.contains(point)
     }
 
+    func boundingRect() -> CGRect {
+        let padding = lineWidth + 2
+        return rect.insetBy(dx: -padding, dy: -padding)
+    }
+
     func move(by delta: CGPoint) {
         rect = CGRect(x: rect.origin.x + delta.x, y: rect.origin.y + delta.y, width: rect.width, height: rect.height)
     }

@@ -21,6 +21,10 @@ class HighlightAnnotation: Annotation {
         return rect.contains(point)
     }
 
+    func boundingRect() -> CGRect {
+        return rect
+    }
+
     func move(by delta: CGPoint) {
         rect = CGRect(x: rect.origin.x + delta.x, y: rect.origin.y + delta.y, width: rect.width, height: rect.height)
     }

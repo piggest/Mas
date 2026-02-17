@@ -179,7 +179,7 @@ class MosaicAnnotation: Annotation {
 
         let ciImage = CIImage(cgImage: cgImage)
 
-        // 領域を切り出し（Y座標反転なし - プレビューと同じ座標系）
+        // 領域を切り出し
         let croppedImage = ciImage.cropped(to: imageRect)
 
         // ピクセル化フィルタを適用
@@ -203,6 +203,10 @@ class MosaicAnnotation: Annotation {
 
     func contains(point: CGPoint) -> Bool {
         return rect.contains(point)
+    }
+
+    func boundingRect() -> CGRect {
+        return rect
     }
 
     func move(by delta: CGPoint) {

@@ -5,6 +5,7 @@ protocol Annotation: Identifiable {
     var id: UUID { get }
     func draw(in rect: NSRect)
     func contains(point: CGPoint) -> Bool
+    func boundingRect() -> CGRect
     func move(by delta: CGPoint)
 
     // 属性変更用（オプショナル）

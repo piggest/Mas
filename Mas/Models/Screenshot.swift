@@ -31,14 +31,37 @@ class Screenshot: ObservableObject, Identifiable {
 
     func renderFinalImage() -> NSImage {
         let size = originalImage.size
-        let finalImage = NSImage(size: size)
 
+        // アノテーションのはみ出しを含む拡張サイズを計算
+        var expandedRect = CGRect(origin: .zero, size: size)
+        for annotation in annotations {
+            expandedRect = expandedRect.union(annotation.boundingRect())
+        }
+        let offset = CGPoint(x: -expandedRect.origin.x, y: -expandedRect.origin.y)
+        let expandedSize = NSSize(width: expandedRect.width, height: expandedRect.height)
+
+        let finalImage = NSImage(size: expandedSize)
         finalImage.lockFocus()
 
-        originalImage.draw(in: NSRect(origin: .zero, size: size))
+        // はみ出し領域を白で塗りつぶし
+        if expandedSize != size {
+            NSColor.white.setFill()
+            NSRect(origin: .zero, size: expandedSize).fill()
+        }
 
-        for annotation in annotations {
-            annotation.draw(in: NSRect(origin: .zero, size: size))
+        originalImage.draw(in: NSRect(origin: CGPoint(x: offset.x, y: offset.y), size: size))
+
+        // アノテーションをオフセット付きで描画
+        if offset == .zero {
+            for annotation in annotations {
+                annotation.draw(in: NSRect(origin: .zero, size: expandedSize))
+            }
+        } else {
+            NSGraphicsContext.current?.cgContext.translateBy(x: offset.x, y: offset.y)
+            for annotation in annotations {
+                annotation.draw(in: NSRect(origin: .zero, size: size))
+            }
+            NSGraphicsContext.current?.cgContext.translateBy(x: -offset.x, y: -offset.y)
         }
 
         finalImage.unlockFocus()
