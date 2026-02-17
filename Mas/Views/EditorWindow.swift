@@ -234,6 +234,7 @@ struct EditorWindow: View {
     @ObservedObject var resizeState: WindowResizeState
     @State private var copiedToClipboard = false
     @State private var showImage: Bool
+    @State private var contentYOffset: CGFloat = 0
     @State private var passThroughEnabled = false
     @State private var editMode = false
     @State private var currentAnnotation: (any Annotation)?
@@ -553,9 +554,11 @@ struct EditorWindow: View {
             ZStack(alignment: .topLeading) {
                 if showImage {
                     screenshotImage
+                        .offset(y: contentYOffset)
                 } else {
                     Color.clear
                         .frame(width: imageWidth, height: imageHeight)
+                        .offset(y: contentYOffset)
                 }
                 // 編集モード中、またはアノテーションがある場合にcanvasを表示
                 // ウィンドウ全体に広げてアノテーションのはみ出しを表示可能に
@@ -567,7 +570,7 @@ struct EditorWindow: View {
                             width: imageWidth + extraX * 2,
                             height: imageHeight + extraY * 2
                         )
-                        .offset(x: -extraX, y: -extraY)
+                        .offset(x: -extraX, y: -extraY + contentYOffset)
                 }
             }
             .offset(x: offsetX, y: offsetY)
@@ -608,6 +611,7 @@ struct EditorWindow: View {
             },
             onAnnotationChanged: {
                 applyAnnotationsToImage()
+                expandWindowForAnnotations()
             },
             onTextEdit: { index, textAnnotation in
                 editingTextIndex = index
@@ -1068,6 +1072,48 @@ struct EditorWindow: View {
         )
         .frame(width: 32, height: 32)
         .position(x: geometry.size.width - 24, y: geometry.size.height - 24)
+    }
+
+    // アノテーションがはみ出した場合にウィンドウを自動拡張
+    private func expandWindowForAnnotations() {
+        guard let window = parentWindow else { return }
+        let imageWidth = screenshot.captureRegion?.width ?? screenshot.originalImage.size.width
+        let imageHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
+        let imageRect = CGRect(origin: .zero, size: CGSize(width: imageWidth, height: imageHeight))
+
+        var expandedRect = imageRect
+        for annotation in toolboxState.annotations {
+            expandedRect = expandedRect.union(annotation.boundingRect())
+        }
+
+        // 各方向のはみ出し量（NSView非flipped座標系: y=0が下端、上方向に増加）
+        let overflowUp = max(0, expandedRect.maxY - imageHeight)    // 視覚的な上はみ出し
+        let overflowDown = max(0, -expandedRect.origin.y)           // 視覚的な下はみ出し
+        let overflowLeft = max(0, -expandedRect.origin.x)
+        let overflowRight = max(0, expandedRect.maxX - imageWidth)
+
+        let maxOverflowX = max(overflowLeft, overflowRight)
+        let maxOverflowY = max(overflowUp, overflowDown)
+
+        let requiredWidth = imageWidth + maxOverflowX
+        let requiredHeight = imageHeight + maxOverflowY
+
+        let currentFrame = window.frame
+        guard requiredWidth > currentFrame.width || requiredHeight > currentFrame.height else { return }
+
+        let newWidth = max(currentFrame.width, requiredWidth)
+        let newHeight = max(currentFrame.height, requiredHeight)
+        let deltaH = newHeight - currentFrame.height
+
+        // 上方向に拡張 + contentYOffsetで画像位置を補正
+        let newFrame = NSRect(
+            x: currentFrame.origin.x,
+            y: currentFrame.origin.y,
+            width: newWidth,
+            height: newHeight
+        )
+        window.setFrame(newFrame, display: true, animate: false)
+        contentYOffset += deltaH
     }
 
     // アノテーションを画像に反映して自動保存（アノテーションは保持）
