@@ -125,15 +125,24 @@ class SelectionView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        // 十分な大きさの選択範囲がある場合はそのまま使用
-        if let rect = selectionRect, rect.width > 10, rect.height > 10 {
+        let upPoint = convert(event.locationInWindow, from: nil)
+
+        // startPointとの距離でクリック/ドラッグを判定（トラックパッドの微小ドラッグ対策）
+        let isClick: Bool
+        if let start = startPoint {
+            isClick = hypot(upPoint.x - start.x, upPoint.y - start.y) <= 20
+        } else {
+            isClick = true
+        }
+
+        // ドラッグで十分な大きさの選択範囲がある場合はそのまま使用
+        if !isClick, let rect = selectionRect, rect.width > 5, rect.height > 5 {
             onComplete(rect)
             return
         }
 
-        // クリックのみの場合、その位置にあるウィンドウを検出
-        let clickPoint = convert(event.locationInWindow, from: nil)
-        if let windowRect = findWindowAtPoint(clickPoint) {
+        // クリックの場合、その位置にあるウィンドウを検出
+        if let windowRect = findWindowAtPoint(upPoint) {
             onComplete(windowRect)
         } else {
             onCancel()
@@ -174,7 +183,14 @@ class SelectionView: NSView {
 
             // クリック位置がウィンドウ内にあるか確認
             if windowRect.contains(screenPoint) {
-                return windowRect
+                // CGグローバル座標からビュー座標に逆変換
+                // （handleSelectionがビュー→CGグローバル変換するため）
+                return CGRect(
+                    x: windowRect.origin.x - screen.frame.origin.x,
+                    y: windowRect.origin.y - screenTopInCG,
+                    width: windowRect.width,
+                    height: windowRect.height
+                )
             }
         }
 
