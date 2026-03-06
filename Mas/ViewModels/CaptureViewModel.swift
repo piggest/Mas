@@ -98,6 +98,7 @@ class CaptureViewModel: ObservableObject {
         showHistoryWindow()
     }
 
+
     @objc private func handleEditorWindowClosed() {
         cleanupClosedWindows()
     }
@@ -444,17 +445,22 @@ class CaptureViewModel: ObservableObject {
     func stopGifRecording() async {
         guard isRecording else { return }
 
-        recordingControlWindow?.close()
-        recordingControlWindow = .none
-
         guard let service = gifRecordingService else {
+            recordingControlWindow?.close()
+            recordingControlWindow = .none
             isRecording = false
             return
         }
 
+        // 生成中プログレス表示に切り替え
+        recordingControlWindow?.showGenerating(service: service)
+        isRecording = false
+
         let gifURL = await service.stopRecording()
         gifRecordingService = .none
-        isRecording = false
+
+        recordingControlWindow?.close()
+        recordingControlWindow = .none
 
         guard let url = gifURL, let nsImage = NSImage(contentsOf: url) else {
             errorMessage = "GIFの生成に失敗しました"

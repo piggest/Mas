@@ -50,6 +50,33 @@ struct RecordingControlView: View {
     }
 }
 
+class GeneratingProgressState: ObservableObject {
+    @Published var progress: Double = 0
+}
+
+struct GeneratingProgressView: View {
+    @ObservedObject var state: GeneratingProgressState
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.small)
+                .colorScheme(.dark)
+
+            Text(state.progress >= 0.9 ? "GIF書き込み中..." : "GIF生成中 \(Int(state.progress * 100))%")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white)
+                .frame(minWidth: 130, alignment: .leading)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(Color.black.opacity(0.75))
+        )
+    }
+}
+
 // 録画範囲の枠線を描画するビュー
 class RecordingBorderView: NSView {
     private let borderWidth: CGFloat = 2
@@ -80,6 +107,7 @@ class RecordingBorderView: NSView {
 class RecordingControlWindowController {
     private var windowController: NSWindowController?
     private var borderWindow: NSWindow?
+    private var progressTimer: Timer?
 
     func show(above region: CGRect, onStop: @escaping () -> Void) {
         let primaryHeight = NSScreen.primaryScreenHeight
@@ -112,7 +140,7 @@ class RecordingControlWindowController {
         let hostingController = NSHostingController(rootView: controlView)
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 180, height: 44),
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 44),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -125,7 +153,7 @@ class RecordingControlWindowController {
         panel.isMovableByWindowBackground = true
         panel.sharingType = NSWindow.masSharingType
 
-        let controlWidth: CGFloat = 180
+        let controlWidth: CGFloat = 200
         let controlHeight: CGFloat = 44
         let gap: CGFloat = 12
 
@@ -159,7 +187,41 @@ class RecordingControlWindowController {
         controller.showWindow(nil)
     }
 
+    private var progressState: GeneratingProgressState?
+
+    func showGenerating(service: GifRecordingService) {
+        // 枠線を消す
+        borderWindow?.orderOut(nil)
+        borderWindow = nil
+
+        guard let panel = windowController?.window else { return }
+
+        let state = GeneratingProgressState()
+        self.progressState = state
+
+        let progressView = GeneratingProgressView(state: state)
+        let hostingController = NSHostingController(rootView: progressView)
+        panel.contentViewController = hostingController
+        panel.isMovableByWindowBackground = false
+
+        // パネルサイズを調整
+        let newWidth: CGFloat = 220
+        let frame = panel.frame
+        let newX = frame.origin.x + (frame.width - newWidth) / 2
+        panel.setFrame(NSRect(x: newX, y: frame.origin.y, width: newWidth, height: frame.height), display: true)
+
+        // 定期的にプログレスを更新
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak service, weak state] _ in
+            guard let service = service, let state = state else { return }
+            Task { @MainActor in
+                state.progress = service.generationProgress
+            }
+        }
+    }
+
     func close() {
+        progressTimer?.invalidate()
+        progressTimer = nil
         borderWindow?.orderOut(nil)
         borderWindow = nil
         windowController?.window?.orderOut(nil)
