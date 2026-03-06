@@ -1,23 +1,39 @@
 import AVFoundation
-import AVKit
 import SwiftUI
 
-// 動画プレイヤー表示用
-struct VideoPlayerView: NSViewRepresentable {
-    let url: URL
+// 動画プレイヤー表示用（AVPlayerLayerベース、コントロールなし）
+class VideoLayerView: NSView {
+    let playerLayer: AVPlayerLayer
 
-    func makeNSView(context: Context) -> AVPlayerView {
-        let playerView = AVPlayerView()
-        let player = AVPlayer(url: url)
-        playerView.player = player
-        playerView.controlsStyle = .floating
-        playerView.showsFullScreenToggleButton = false
-        playerView.showsSharingServiceButton = false
-        playerView.allowsPictureInPicturePlayback = false
-        return playerView
+    init(player: AVPlayer) {
+        playerLayer = AVPlayerLayer(player: player)
+        playerLayer.videoGravity = .resizeAspect
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.addSublayer(playerLayer)
     }
 
-    func updateNSView(_ nsView: AVPlayerView, context: Context) {}
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        playerLayer.frame = bounds
+        CATransaction.commit()
+    }
+}
+
+struct VideoPlayerView: NSViewRepresentable {
+    let player: AVPlayer
+
+    func makeNSView(context: Context) -> VideoLayerView {
+        VideoLayerView(player: player)
+    }
+
+    func updateNSView(_ nsView: VideoLayerView, context: Context) {}
 }
 
 // GIFフレーム表示用（@ObservedObjectでPublished変更を監視）
@@ -51,6 +67,7 @@ struct DraggableImageView: NSViewRepresentable {
     var gifURL: URL? = nil
     var imageProvider: (() -> NSImage?)? = nil
     var onDragSuccess: (() -> Void)? = nil
+    var onDragStart: (() -> Void)? = nil
 
     func makeNSView(context: Context) -> DragSourceView {
         let view = DragSourceView()
@@ -59,6 +76,7 @@ struct DraggableImageView: NSViewRepresentable {
         view.gifURL = gifURL
         view.imageProvider = imageProvider
         view.onDragSuccess = onDragSuccess
+        view.onDragStart = onDragStart
         return view
     }
 
@@ -68,6 +86,7 @@ struct DraggableImageView: NSViewRepresentable {
         nsView.gifURL = gifURL
         nsView.imageProvider = imageProvider
         nsView.onDragSuccess = onDragSuccess
+        nsView.onDragStart = onDragStart
         nsView.needsDisplay = true
     }
 }
@@ -78,6 +97,7 @@ class DragSourceView: NSView {
     var gifURL: URL?
     var imageProvider: (() -> NSImage?)?
     var onDragSuccess: (() -> Void)?
+    var onDragStart: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -133,6 +153,7 @@ class DragSourceView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        onDragStart?()
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -280,6 +301,10 @@ struct EditorWindow: View {
     @State private var gifPlayerState: GifPlayerState?
     @State private var gifToolbarController: GifPlayerToolbarController?
 
+    // 動画再生
+    @State private var videoPlayerState: VideoPlayerState?
+    @State private var videoToolbarController: VideoPlayerToolbarController?
+
     // シャッターオプション
     @State private var shutterPanelController: ShutterOptionsPanelController?
 
@@ -377,7 +402,6 @@ struct EditorWindow: View {
             if screenshot.isGif, let url = screenshot.savedURL {
                 if let player = GifPlayerState(url: url) {
                     gifPlayerState = player
-                    // 少し遅延させて親ウィンドウのフレームが確定してからツールバーを表示
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         if let parent = self.parentWindow {
                             let controller = GifPlayerToolbarController()
@@ -388,11 +412,28 @@ struct EditorWindow: View {
                     }
                 }
             }
+
+            // 動画モード: プレイヤー初期化 + ツールバー表示 + 自動再生
+            if screenshot.isVideo, let url = screenshot.savedURL {
+                if let player = VideoPlayerState(url: url) {
+                    videoPlayerState = player
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        if let parent = self.parentWindow {
+                            let controller = VideoPlayerToolbarController()
+                            controller.show(attachedTo: parent, playerState: player)
+                            self.videoToolbarController = controller
+                        }
+                        player.play()
+                    }
+                }
+            }
         }
         .onDisappear {
             toolbarController?.close()
             gifPlayerState?.pause()
             gifToolbarController?.close()
+            videoPlayerState?.pause()
+            videoToolbarController?.close()
             shutterPanelController?.close()
             shutterPanelController = nil
         }
@@ -601,13 +642,17 @@ struct EditorWindow: View {
 
     @ViewBuilder
     private var screenshotImage: some View {
-        if screenshot.isVideo, let url = screenshot.savedURL {
-            // 動画モード: AVPlayerViewでインライン再生
-            VideoPlayerView(url: url)
+        if screenshot.isVideo, let playerState = videoPlayerState {
+            // 動画モード: AVPlayerLayerで再生
+            VideoPlayerView(player: playerState.player)
                 .frame(
                     width: screenshot.captureRegion?.width ?? screenshot.originalImage.size.width,
                     height: screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
                 )
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    playerState.togglePlayPause()
+                }
         } else if let gifPlayer = gifPlayerState {
             // GIFモード: GifFrameView(@ObservedObject)でフレーム変更を監視
             GifFrameView(playerState: gifPlayer, region: screenshot.captureRegion)
@@ -1117,6 +1162,10 @@ struct EditorWindow: View {
                 toolbarController?.close()
                 shutterPanelController?.close()
                 shutterPanelController = nil
+            },
+            onDragStart: { [self] in
+                videoPlayerState?.pause()
+                gifPlayerState?.pause()
             }
         )
         .frame(width: 32, height: 32)
