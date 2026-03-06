@@ -5,10 +5,13 @@ import UniformTypeIdentifiers
 
 @MainActor
 class GifRecordingService {
-    private var frames: [CGImage] = []
+    private var frameCount: Int = 0
+    private var tempDirectory: URL?
     private var timer: DispatchSourceTimer?
     private var region: CGRect = .zero
     private(set) var isRecording = false
+    private(set) var isGenerating = false
+    private(set) var generationProgress: Double = 0
     private var startTime: Date?
     private let captureService = ScreenCaptureService()
     private let frameInterval: Double = 0.1  // 10fps
@@ -20,9 +23,14 @@ class GifRecordingService {
 
     func startRecording(region: CGRect) {
         self.region = region
-        self.frames = []
+        self.frameCount = 0
         self.isRecording = true
         self.startTime = Date()
+
+        // 一時ディレクトリを作成
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("MasGifFrames-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        self.tempDirectory = tempDir
 
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now(), repeating: frameInterval)
@@ -42,15 +50,34 @@ class GifRecordingService {
         timer = nil
         isRecording = false
 
-        guard !frames.isEmpty else { return nil }
-
-        // 保存先URLを生成
+        guard frameCount > 0, let tempDir = tempDirectory else {
+            cleanupTempDirectory()
+            return nil
+        }
         let url = generateOutputURL()
+        let totalFrames = frameCount
+        let startFrame = max(0, totalFrames - Self.maxGifFrames)
+        let count = totalFrames - startFrame
+        let interval = frameInterval
 
-        // GIF生成
-        let success = generateGif(to: url)
-        frames = []
+        isGenerating = true
+        generationProgress = 0
 
+        // GIF生成をバックグラウンドで実行
+        let success = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let result = Self.generateGifFromDisk(to: url, tempDir: tempDir, startFrame: startFrame, frameCount: count, frameInterval: interval) { progress in
+                    Task { @MainActor [weak self] in
+                        self?.generationProgress = progress
+                    }
+                }
+                continuation.resume(returning: result)
+            }
+        }
+
+        isGenerating = false
+
+        cleanupTempDirectory()
         return success ? url : nil
     }
 
@@ -58,20 +85,18 @@ class GifRecordingService {
         timer?.cancel()
         timer = nil
         isRecording = false
-        frames = []
+        cleanupTempDirectory()
     }
 
     private func captureFrame() async {
-        guard isRecording else { return }
+        guard isRecording, let tempDir = tempDirectory else { return }
 
         do {
-            // regionが属するスクリーンを特定してキャプチャ
             guard let screen = NSScreen.screenContaining(cgRect: region) else { return }
             let fullImage = try await captureService.captureScreen(screen)
 
             let scale = CGFloat(fullImage.width) / screen.frame.width
 
-            // CGグローバル座標をスクリーン相対座標に変換
             let screenCGFrame = screen.cgFrame
             let scaledRect = CGRect(
                 x: (region.origin.x - screenCGFrame.origin.x) * scale,
@@ -85,24 +110,38 @@ class GifRecordingService {
 
             guard !clampedRect.isEmpty, let croppedImage = fullImage.cropping(to: clampedRect) else { return }
 
-            frames.append(croppedImage)
+            // フレームをディスクに保存
+            let frameURL = tempDir.appendingPathComponent(String(format: "frame_%06d.png", frameCount))
+            guard let dest = CGImageDestinationCreateWithURL(frameURL as CFURL, UTType.png.identifier as CFString, 1, nil) else { return }
+            CGImageDestinationAddImage(dest, croppedImage, nil)
+            if CGImageDestinationFinalize(dest) {
+                frameCount += 1
+                // 古いフレームを削除して直近maxGifFrames分だけ保持
+                let oldIndex = frameCount - Self.maxGifFrames - 1
+                if oldIndex >= 0 {
+                    let oldURL = tempDir.appendingPathComponent(String(format: "frame_%06d.png", oldIndex))
+                    try? FileManager.default.removeItem(at: oldURL)
+                }
+            }
         } catch {
             print("GIF frame capture error: \(error)")
         }
     }
 
-    private func generateGif(to url: URL) -> Bool {
+    // GIFの最大フレーム数（到達で自動停止）
+    static let maxGifFrames = 1500
+
+    private nonisolated static func generateGifFromDisk(to url: URL, tempDir: URL, startFrame: Int, frameCount: Int, frameInterval: Double, onProgress: @Sendable @escaping (Double) -> Void) -> Bool {
         guard let destination = CGImageDestinationCreateWithURL(
             url as CFURL,
             UTType.gif.identifier as CFString,
-            frames.count,
+            frameCount,
             nil
         ) else {
             print("Failed to create GIF destination")
             return false
         }
 
-        // GIFファイルプロパティ（無限ループ）
         let gifProperties: [String: Any] = [
             kCGImagePropertyGIFDictionary as String: [
                 kCGImagePropertyGIFLoopCount as String: 0
@@ -110,21 +149,38 @@ class GifRecordingService {
         ]
         CGImageDestinationSetProperties(destination, gifProperties as CFDictionary)
 
-        // 各フレーム追加
         let frameProperties: [String: Any] = [
             kCGImagePropertyGIFDictionary as String: [
                 kCGImagePropertyGIFDelayTime as String: frameInterval
             ]
         ]
-        for frame in frames {
-            CGImageDestinationAddImage(destination, frame, frameProperties as CFDictionary)
+
+        for i in 0..<frameCount {
+            autoreleasepool {
+                let frameURL = tempDir.appendingPathComponent(String(format: "frame_%06d.png", startFrame + i))
+                guard let source = CGImageSourceCreateWithURL(frameURL as CFURL, nil) else { return }
+                CGImageDestinationAddImageFromSource(destination, source, 0, frameProperties as CFDictionary)
+            }
+            if i % 50 == 0 {
+                onProgress(Double(i) / Double(frameCount) * 0.9)
+            }
         }
+        onProgress(0.9)
 
         let success = CGImageDestinationFinalize(destination)
+        onProgress(1.0)
         if !success {
             print("Failed to finalize GIF")
         }
         return success
+    }
+
+    private func cleanupTempDirectory() {
+        if let tempDir = tempDirectory {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+        tempDirectory = nil
+        frameCount = 0
     }
 
     private func generateOutputURL() -> URL {
@@ -133,7 +189,6 @@ class GifRecordingService {
         let timestamp = formatter.string(from: Date())
         let fileName = "Mas-GIF-\(timestamp).gif"
 
-        // 自動保存フォルダがあればそちらに保存
         if UserDefaults.standard.bool(forKey: "autoSaveEnabled"),
            let folder = UserDefaults.standard.string(forKey: "autoSaveFolder") {
             let folderURL = URL(fileURLWithPath: folder)
@@ -142,7 +197,6 @@ class GifRecordingService {
             }
         }
 
-        // デフォルトはデスクトップ
         let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!
         return desktop.appendingPathComponent(fileName)
     }
