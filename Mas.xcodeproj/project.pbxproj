@@ -51,6 +51,8 @@
 		SHUTSVC01BUILD = {isa = PBXBuildFile; fileRef = SHUTSVC01FILEREF; };
 		SHUTOPT01BUILD = {isa = PBXBuildFile; fileRef = SHUTOPT01FILEREF; };
 		VIDEOSVC01BUILD = {isa = PBXBuildFile; fileRef = VIDEOSVC01FILEREF; };
+		VIDPLYST01BUILD = {isa = PBXBuildFile; fileRef = VIDPLYST01FILEREF; };
+		VIDPLTB01BUILD = {isa = PBXBuildFile; fileRef = VIDPLTB01FILEREF; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -101,6 +103,8 @@
 		SHUTSVC01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShutterService.swift; sourceTree = "<group>"; };
 		SHUTOPT01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShutterOptionsPanel.swift; sourceTree = "<group>"; };
 		VIDEOSVC01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoRecordingService.swift; sourceTree = "<group>"; };
+		VIDPLYST01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerState.swift; sourceTree = "<group>"; };
+		VIDPLTB01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerToolbar.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -115,6 +119,7 @@
 				HISTWIN001FILEREF /* HistoryWindow.swift */,
 				BD3B265CA8F46C67C372C189 /* MenuBarView.swift */,
 				GIFPLTB01FILEREF /* GifPlayerToolbar.swift */,
+				VIDPLTB01FILEREF /* VideoPlayerToolbar.swift */,
 				RECCTRLW01FILEREF /* RecordingControlWindow.swift */,
 				9AADE98A628BFE59D34AF3B4 /* RegionSelectionOverlay.swift */,
 				62FF5E8583862D4BA967A830 /* SettingsWindow.swift */,
@@ -184,6 +189,7 @@
 				B83CBF9F86FC5B6E405972AE /* CaptureViewModel.swift */,
 				4DED66DF8556D1B2C7294624 /* EditorViewModel.swift */,
 				GIFPLYST01FILEREF /* GifPlayerState.swift */,
+				VIDPLYST01FILEREF /* VideoPlayerState.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -330,6 +336,8 @@
 				RECCTRLW01BUILD /* RecordingControlWindow.swift in Sources */,
 				GIFPLYST01BUILD /* GifPlayerState.swift in Sources */,
 				GIFPLTB01BUILD /* GifPlayerToolbar.swift in Sources */,
+				VIDPLYST01BUILD /* VideoPlayerState.swift in Sources */,
+				VIDPLTB01BUILD /* VideoPlayerToolbar.swift in Sources */,
 				UPDSVC001BUILD /* UpdateService.swift in Sources */,
 				SHUTSVC01BUILD /* ShutterService.swift in Sources */,
 				SHUTOPT01BUILD /* ShutterOptionsPanel.swift in Sources */,

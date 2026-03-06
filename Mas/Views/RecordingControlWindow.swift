@@ -140,7 +140,7 @@ class RecordingControlWindowController {
         let hostingController = NSHostingController(rootView: controlView)
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 200, height: 44),
+            contentRect: NSRect(x: 0, y: 0, width: 240, height: 44),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -153,7 +153,7 @@ class RecordingControlWindowController {
         panel.isMovableByWindowBackground = true
         panel.sharingType = NSWindow.masSharingType
 
-        let controlWidth: CGFloat = 200
+        let controlWidth: CGFloat = 240
         let controlHeight: CGFloat = 44
         let gap: CGFloat = 12
 
