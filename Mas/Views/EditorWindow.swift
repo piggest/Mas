@@ -1,4 +1,24 @@
+import AVFoundation
+import AVKit
 import SwiftUI
+
+// 動画プレイヤー表示用
+struct VideoPlayerView: NSViewRepresentable {
+    let url: URL
+
+    func makeNSView(context: Context) -> AVPlayerView {
+        let playerView = AVPlayerView()
+        let player = AVPlayer(url: url)
+        playerView.player = player
+        playerView.controlsStyle = .floating
+        playerView.showsFullScreenToggleButton = false
+        playerView.showsSharingServiceButton = false
+        playerView.allowsPictureInPicturePlayback = false
+        return playerView
+    }
+
+    func updateNSView(_ nsView: AVPlayerView, context: Context) {}
+}
 
 // GIFフレーム表示用（@ObservedObjectでPublished変更を監視）
 struct GifFrameView: View {
@@ -124,8 +144,9 @@ class DragSourceView: NSView {
         let fileURL: URL
 
         if let gifSource = gifURL, FileManager.default.fileExists(atPath: gifSource.path) {
-            // GIFファイルはそのままコピー
-            let fileName = "Mas_Recording_\(Int(Date().timeIntervalSince1970)).gif"
+            // GIF/動画ファイルはそのままコピー
+            let ext = gifSource.pathExtension.lowercased()
+            let fileName = "Mas_Recording_\(Int(Date().timeIntervalSince1970)).\(ext)"
             fileURL = tempDir.appendingPathComponent(fileName)
             try? FileManager.default.copyItem(at: gifSource, to: fileURL)
         } else {
@@ -562,7 +583,8 @@ struct EditorWindow: View {
                 }
                 // 編集モード中、またはアノテーションがある場合にcanvasを表示
                 // ウィンドウ全体に広げてアノテーションのはみ出しを表示可能に
-                if editMode || !toolboxState.annotations.isEmpty {
+                // 動画モードではアノテーション非対応
+                if !screenshot.isVideo, editMode || !toolboxState.annotations.isEmpty {
                     let extraX = max(0, geometry.size.width - imageWidth)
                     let extraY = max(0, geometry.size.height - imageHeight)
                     annotationCanvas
@@ -579,7 +601,14 @@ struct EditorWindow: View {
 
     @ViewBuilder
     private var screenshotImage: some View {
-        if let gifPlayer = gifPlayerState {
+        if screenshot.isVideo, let url = screenshot.savedURL {
+            // 動画モード: AVPlayerViewでインライン再生
+            VideoPlayerView(url: url)
+                .frame(
+                    width: screenshot.captureRegion?.width ?? screenshot.originalImage.size.width,
+                    height: screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
+                )
+        } else if let gifPlayer = gifPlayerState {
             // GIFモード: GifFrameView(@ObservedObject)でフレーム変更を監視
             GifFrameView(playerState: gifPlayer, region: screenshot.captureRegion)
         } else if let region = screenshot.captureRegion {
@@ -987,6 +1016,25 @@ struct EditorWindow: View {
         .buttonStyle(NoHighlightButtonStyle())
     }
 
+    private var videoRecordButton: some View {
+        Button(action: {
+            let rect = getCurrentWindowRect()
+            closeWindow()
+            NotificationCenter.default.post(
+                name: .startVideoRecordingAtRegion,
+                object: NSValue(rect: rect)
+            )
+        }) {
+            Image(systemName: "video.circle")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(showImage ? .white : .gray)
+                .padding(6)
+                .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
+                .clipShape(Circle())
+        }
+        .buttonStyle(NoHighlightButtonStyle())
+    }
+
     @ViewBuilder
     private func topRightButtons(geometry: GeometryProxy) -> some View {
         if screenshot.captureRegion != nil {
@@ -994,10 +1042,11 @@ struct EditorWindow: View {
                 if !showImage {
                     passThroughButton
                 }
+                videoRecordButton
                 gifRecordButton
                 recaptureButton
             }
-            .position(x: geometry.size.width - (showImage ? 34 : 50), y: 20)
+            .position(x: geometry.size.width - (showImage ? 50 : 66), y: 20)
         }
     }
 
@@ -1047,10 +1096,10 @@ struct EditorWindow: View {
         return DraggableImageView(
             image: imageForDrag ?? screenshot.originalImage,
             showImage: showImage,
-            gifURL: screenshot.isGif ? screenshot.savedURL : nil,
+            gifURL: (screenshot.isGif || screenshot.isVideo) ? screenshot.savedURL : nil,
             imageProvider: {
                 // ドラッグ開始時に最新のアノテーション付き画像をリアルタイムで生成
-                if !toolboxRef.annotations.isEmpty, !screenshotRef.isGif {
+                if !toolboxRef.annotations.isEmpty, !screenshotRef.isGif, !screenshotRef.isVideo {
                     return EditorWindow.renderImageInBackground(
                         originalImage: screenshotRef.originalImage,
                         annotations: toolboxRef.annotations,
@@ -1119,8 +1168,8 @@ struct EditorWindow: View {
     // アノテーションを画像に反映して自動保存（アノテーションは保持）
     private func applyAnnotationsToImage() {
         guard !toolboxState.annotations.isEmpty else { return }
-        // GIFモードでは中間保存しない（applyAnnotationsToGifで一括処理）
-        if screenshot.isGif { return }
+        // GIF/動画モードでは中間保存しない
+        if screenshot.isGif || screenshot.isVideo { return }
 
         // アノテーションデータを保存
         onAnnotationsSaved?(toolboxState.annotations)

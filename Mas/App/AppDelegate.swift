@@ -10,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastClickTime: Date?
     private let doubleClickInterval: TimeInterval = 0.3
     private let captureViewModel = CaptureViewModel()
+    private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupHotkeyHandlers()
@@ -132,6 +133,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name("com.example.Mas.show.settings"), object: nil)
         dnc.addObserver(self, selector: #selector(handleDistributedGifRecording),
             name: NSNotification.Name("com.example.Mas.capture.gif"), object: nil)
+        dnc.addObserver(self, selector: #selector(handleDistributedVideoRecording),
+            name: NSNotification.Name("com.example.Mas.capture.video"), object: nil)
     }
 
     @objc private func handleDistributedCaptureFullScreen() {
@@ -164,22 +167,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleDistributedShowSettings() {
-        let settingsWindow = NSWindow(
+        if let existing = settingsWindow, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 400),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
-        settingsWindow.title = "設定"
-        settingsWindow.sharingType = NSWindow.masSharingType
-        settingsWindow.contentViewController = NSHostingController(rootView: SettingsWindow())
-        settingsWindow.center()
-        settingsWindow.makeKeyAndOrderFront(nil)
+        window.title = "設定"
+        window.isReleasedWhenClosed = false
+        window.sharingType = NSWindow.masSharingType
+        window.contentViewController = NSHostingController(rootView: SettingsWindow())
+        window.center()
+        window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        self.settingsWindow = window
     }
 
     @objc private func handleDistributedGifRecording() {
         NotificationCenter.default.post(name: .startGifRecording, object: nil)
+    }
+
+    @objc private func handleDistributedVideoRecording() {
+        NotificationCenter.default.post(name: .startVideoRecording, object: nil)
     }
 
     @objc private func handleDistributedOpenFile(_ notification: Notification) {
@@ -208,6 +222,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             (.region, .captureRegion),
             (.frame, .showCaptureFrame),
             (.gifRecording, .startGifRecording),
+            (.videoRecording, .startVideoRecording),
             (.history, .showHistory),
         ]
 
@@ -237,5 +252,7 @@ extension Notification.Name {
     static let showHistory = Notification.Name("showHistory")
     static let startGifRecording = Notification.Name("startGifRecording")
     static let startGifRecordingAtRegion = Notification.Name("startGifRecordingAtRegion")
+    static let startVideoRecording = Notification.Name("startVideoRecording")
+    static let startVideoRecordingAtRegion = Notification.Name("startVideoRecordingAtRegion")
     static let menuBarIconChanged = Notification.Name("menuBarIconChanged")
 }

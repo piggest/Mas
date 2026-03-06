@@ -179,7 +179,7 @@ func defaultOutputPath(prefix: String) -> String {
 
 func handleCapture(_ args: [String]) {
     guard let subcommand = args.first else {
-        printError("Usage: mas-cli capture <fullscreen|region|frame|gif|menu|library|demo|all-docs> [--delay N] [--output path]")
+        printError("Usage: mas-cli capture <fullscreen|region|frame|gif|video|menu|library|demo|all-docs> [--delay N] [--output path]")
         exit(1)
     }
 
@@ -256,6 +256,16 @@ func handleCapture(_ args: [String]) {
         } else {
             sendNotification("com.example.Mas.capture.gif")
             print("GIF録画 コマンドを送信しました")
+        }
+
+    case "video":
+        if let delay = delay {
+            ensureAppRunning()
+            countdown(seconds: delay, label: "動画撮影")
+            sendNotification("com.example.Mas.capture.video")
+        } else {
+            sendNotification("com.example.Mas.capture.video")
+            print("動画撮影 コマンドを送信しました")
         }
 
     case "demo":
@@ -369,7 +379,7 @@ func handleCapture(_ args: [String]) {
 
     default:
         printError("Unknown capture mode: \(subcommand)")
-        printError("Available: fullscreen, region, frame, gif, menu, library, settings, editor, window, delayed, demo, all-docs")
+        printError("Available: fullscreen, region, frame, gif, video, menu, library, settings, editor, window, delayed, demo, all-docs")
         exit(1)
     }
 }
@@ -679,6 +689,7 @@ func printUsage() {
     Commands:
       capture fullscreen|region|frame [--delay N]  キャプチャを実行
       capture gif [--delay N]                      GIF録画を開始
+      capture video [--delay N]                    動画撮影を開始
       capture menu [--delay N] [--output path]     メニューを開いてキャプチャ
       capture library [--delay N] [--output path]  ライブラリを開いてキャプチャ
       capture settings [--delay N] [--output path] 設定画面を開いてキャプチャ

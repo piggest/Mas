@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import AppKit
 
@@ -610,7 +611,14 @@ struct HistoryEntryRow: View {
         let filePath = entry.filePath
         DispatchQueue.global(qos: .userInitiated).async {
             let url = URL(fileURLWithPath: filePath)
-            guard let image = NSImage(contentsOf: url) else { return }
+            let image: NSImage?
+            let ext = url.pathExtension.lowercased()
+            if ext == "mp4" || ext == "mov" {
+                image = Self.generateVideoThumbnail(url: url)
+            } else {
+                image = NSImage(contentsOf: url)
+            }
+            guard let image = image else { return }
             let maxSize: CGFloat = 160
             let ratio = min(maxSize / image.size.width, maxSize / image.size.height, 1.0)
             let newSize = NSSize(
@@ -629,6 +637,15 @@ struct HistoryEntryRow: View {
                 self.thumbnail = resized
             }
         }
+    }
+
+    private static func generateVideoThumbnail(url: URL) -> NSImage? {
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 320, height: 320)
+        guard let cgImage = try? generator.copyCGImage(at: .zero, actualTime: nil) else { return nil }
+        return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
     }
 
     private func showInFinder() {
