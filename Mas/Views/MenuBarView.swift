@@ -270,6 +270,8 @@ struct MenuBarView: View {
                 await viewModel.startRegionSelection()
             case .gifRecording:
                 await viewModel.startGifRecording()
+            case .videoRecording:
+                await viewModel.startVideoRecording()
             }
         }
     }
@@ -286,15 +288,12 @@ struct MenuBarView: View {
 
     private func openSettings() {
         dismissMenu()
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        NSApp.activate(ignoringOtherApps: true)
-        // 設定ウィンドウをfloatingエディタウィンドウより前に出す
-        DispatchQueue.main.async {
-            if let keyWindow = NSApp.keyWindow {
-                keyWindow.level = .floating
-                keyWindow.makeKeyAndOrderFront(nil)
-            }
-        }
+        DistributedNotificationCenter.default().postNotificationName(
+            NSNotification.Name("com.example.Mas.show.settings"),
+            object: nil,
+            userInfo: nil,
+            deliverImmediately: true
+        )
     }
 
     private func quitApp() {

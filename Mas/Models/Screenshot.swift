@@ -10,6 +10,7 @@ class Screenshot: ObservableObject, Identifiable {
     var captureRegion: CGRect?  // 範囲選択時の領域（スクリーン座標）
     var savedURL: URL?  // 保存先URL（上書き用）
     var isGif: Bool { mode == .gifRecording && savedURL?.pathExtension.lowercased() == "gif" }
+    var isVideo: Bool { mode == .videoRecording && savedURL?.pathExtension.lowercased() == "mp4" }
 
     init(image: NSImage, mode: CaptureMode, region: CGRect? = nil) {
         self.originalImage = image

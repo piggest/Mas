@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -15,8 +16,10 @@ class CaptureViewModel: ObservableObject {
     private let captureFlash = CaptureFlashView()
     private let historyService = HistoryService()
     private var gifRecordingService: GifRecordingService?
+    private var videoRecordingService: VideoRecordingService?
     private var recordingControlWindow: RecordingControlWindowController?
     private var gifRecordingRegion: CGRect?
+    private var videoRecordingRegion: CGRect?
 
     @Published var historyEntries: [ScreenshotHistoryEntry] = []
 
@@ -88,6 +91,18 @@ class CaptureViewModel: ObservableObject {
         )
         NotificationCenter.default.addObserver(
             self,
+            selector: #selector(handleStartVideoRecording),
+            name: .startVideoRecording,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleStartVideoRecordingAtRegion(_:)),
+            name: .startVideoRecordingAtRegion,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
             selector: #selector(handleShowHistory),
             name: .showHistory,
             object: nil
@@ -123,6 +138,16 @@ class CaptureViewModel: ObservableObject {
         guard let rect = notification.object as? NSValue else { return }
         let region = rect.rectValue
         Task { await beginRecordingFromWindow(in: region) }
+    }
+
+    @objc private func handleStartVideoRecording() {
+        Task { await startVideoRecording() }
+    }
+
+    @objc private func handleStartVideoRecordingAtRegion(_ notification: Notification) {
+        guard let rect = notification.object as? NSValue else { return }
+        let region = rect.rectValue
+        Task { await beginVideoRecordingFromWindow(in: region) }
     }
 
     // 前回のキャプチャ範囲を保存
@@ -506,6 +531,124 @@ class CaptureViewModel: ObservableObject {
         showEditorWindow(for: screenshot, at: region)
     }
 
+    // MARK: - 動画撮影
+
+    func startVideoRecording() async {
+        guard !isCapturing, !isRecording else { return }
+        guard await checkPermission() else { return }
+
+        isCapturing = true
+        errorMessage = nil
+
+        let overlay = RegionSelectionOverlay(onComplete: { [weak self] rect in
+            guard let self = self else { return }
+            self.isCapturing = false
+            Task {
+                await self.beginVideoRecording(in: rect)
+            }
+        }, onCancel: { [weak self] in
+            self?.isCapturing = false
+        })
+        overlay.show()
+    }
+
+    func beginVideoRecordingFromWindow(in region: CGRect) async {
+        guard !isRecording else { return }
+        await beginVideoRecording(in: region)
+    }
+
+    private func beginVideoRecording(in region: CGRect) async {
+        let service = VideoRecordingService()
+        self.videoRecordingService = service
+        self.videoRecordingRegion = region
+
+        let controlWindow = RecordingControlWindowController()
+        self.recordingControlWindow = controlWindow
+
+        service.startRecording(region: region)
+        isRecording = true
+
+        controlWindow.show(above: region) { [weak self] in
+            guard let self = self else { return }
+            Task {
+                await self.stopVideoRecording()
+            }
+        }
+    }
+
+    func stopVideoRecording() async {
+        guard isRecording else { return }
+
+        guard let service = videoRecordingService else {
+            recordingControlWindow?.close()
+            recordingControlWindow = .none
+            isRecording = false
+            return
+        }
+
+        recordingControlWindow?.showSaving()
+        isRecording = false
+
+        let videoURL = await service.stopRecording()
+        videoRecordingService = .none
+
+        recordingControlWindow?.close()
+        recordingControlWindow = .none
+
+        guard let url = videoURL else {
+            errorMessage = "動画の生成に失敗しました"
+            return
+        }
+
+        // 動画の最初のフレームをサムネイルとして取得
+        let thumbnail = generateVideoThumbnail(url: url)
+        let region = videoRecordingRegion
+        videoRecordingRegion = nil
+
+        let nsImage = thumbnail ?? NSImage(size: NSSize(width: 320, height: 240))
+        let screenshot = Screenshot(image: nsImage, mode: .videoRecording, region: region)
+        screenshot.savedURL = url
+        currentScreenshot = screenshot
+
+        // 履歴に追加
+        let entry = ScreenshotHistoryEntry(
+            id: UUID(),
+            timestamp: Date(),
+            mode: "動画撮影",
+            filePath: url.path,
+            width: Int(nsImage.size.width),
+            height: Int(nsImage.size.height),
+            windowX: region.map { Double($0.origin.x) },
+            windowY: region.map { Double($0.origin.y) },
+            windowW: region.map { Double($0.width) },
+            windowH: region.map { Double($0.height) }
+        )
+        historyService.addEntry(entry)
+        historyEntries = historyService.load()
+
+        showEditorWindow(for: screenshot, at: region)
+    }
+
+    private func generateVideoThumbnail(url: URL) -> NSImage? {
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 1920, height: 1080)
+
+        do {
+            let cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
+            let scale = NSScreen.main?.backingScaleFactor ?? 1.0
+            let size = NSSize(
+                width: CGFloat(cgImage.width) / scale,
+                height: CGFloat(cgImage.height) / scale
+            )
+            return NSImage(cgImage: cgImage, size: size)
+        } catch {
+            print("Failed to generate video thumbnail: \(error)")
+            return nil
+        }
+    }
+
     func openImageFromCLI(image: NSImage, filePath: String) {
         let url = URL(fileURLWithPath: filePath)
         let screenshot = Screenshot(image: image, mode: .fullScreen)
@@ -517,15 +660,25 @@ class CaptureViewModel: ObservableObject {
 
     func openImageFile() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image, .png, .jpeg, .tiff, .bmp, .gif]
+        panel.allowedContentTypes = [.image, .png, .jpeg, .tiff, .bmp, .gif, .mpeg4Movie]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.level = .floating
 
-        guard panel.runModal() == .OK, let url = panel.url,
-              let nsImage = NSImage(contentsOf: url) else { return }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        let screenshot = Screenshot(image: nsImage, mode: .fullScreen)
+        let isVideoFile = url.pathExtension.lowercased() == "mp4" || url.pathExtension.lowercased() == "mov"
+        let nsImage: NSImage
+        if isVideoFile {
+            guard let thumbnail = generateVideoThumbnail(url: url) else { return }
+            nsImage = thumbnail
+        } else {
+            guard let image = NSImage(contentsOf: url) else { return }
+            nsImage = image
+        }
+
+        let mode: CaptureMode = isVideoFile ? .videoRecording : .fullScreen
+        let screenshot = Screenshot(image: nsImage, mode: mode)
         screenshot.savedURL = url
         currentScreenshot = screenshot
         addToHistory(image: nsImage, url: url)
@@ -535,11 +688,14 @@ class CaptureViewModel: ObservableObject {
     private func addToHistory(image: NSImage, url: URL) {
         // 既に履歴にあればスキップ
         guard !historyEntries.contains(where: { $0.filePath == url.path }) else { return }
-        let isGif = url.pathExtension.lowercased() == "gif"
+        let ext = url.pathExtension.lowercased()
+        let isGif = ext == "gif"
+        let isVideo = ext == "mp4" || ext == "mov"
+        let modeStr = isGif ? "GIF録画" : (isVideo ? "動画撮影" : "開く")
         let entry = ScreenshotHistoryEntry(
             id: UUID(),
             timestamp: Date(),
-            mode: isGif ? "GIF録画" : "開く",
+            mode: modeStr,
             filePath: url.path,
             width: Int(image.size.width),
             height: Int(image.size.height),
@@ -754,11 +910,21 @@ class CaptureViewModel: ObservableObject {
         }
 
         let isGifEntry = entry.mode == "GIF録画"
+        let isVideoEntry = entry.mode == "動画撮影"
 
-        guard let nsImage = NSImage(contentsOf: imageURL) else {
-            // ファイルが存在しない場合は履歴から削除
-            removeHistoryEntry(id: entry.id)
-            return
+        let nsImage: NSImage
+        if isVideoEntry {
+            guard let thumbnail = generateVideoThumbnail(url: imageURL) else {
+                removeHistoryEntry(id: entry.id)
+                return
+            }
+            nsImage = thumbnail
+        } else {
+            guard let image = NSImage(contentsOf: imageURL) else {
+                removeHistoryEntry(id: entry.id)
+                return
+            }
+            nsImage = image
         }
 
         // Retina対応: NSImageのサイズをポイント単位に修正（GIFはGifPlayerStateで処理するのでここでは補正）
@@ -778,7 +944,7 @@ class CaptureViewModel: ObservableObject {
             region = CGRect(x: x, y: y, width: pointWidth, height: pointHeight)
         }
 
-        let captureMode: CaptureMode = isGifEntry ? .gifRecording : (entry.mode == "全画面" ? .fullScreen : .region)
+        let captureMode: CaptureMode = isGifEntry ? .gifRecording : (isVideoEntry ? .videoRecording : (entry.mode == "全画面" ? .fullScreen : .region))
         let screenshot = Screenshot(image: nsImage, mode: captureMode, region: region)
         screenshot.savedURL = URL(fileURLWithPath: entry.filePath)
         currentScreenshot = screenshot

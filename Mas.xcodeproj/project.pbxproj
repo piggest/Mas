@@ -50,6 +50,7 @@
 		UPDSVC001BUILD = {isa = PBXBuildFile; fileRef = UPDSVC001FILEREF; };
 		SHUTSVC01BUILD = {isa = PBXBuildFile; fileRef = SHUTSVC01FILEREF; };
 		SHUTOPT01BUILD = {isa = PBXBuildFile; fileRef = SHUTOPT01FILEREF; };
+		VIDEOSVC01BUILD = {isa = PBXBuildFile; fileRef = VIDEOSVC01FILEREF; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -99,6 +100,7 @@
 		UPDSVC001FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
 		SHUTSVC01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShutterService.swift; sourceTree = "<group>"; };
 		SHUTOPT01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShutterOptionsPanel.swift; sourceTree = "<group>"; };
+		VIDEOSVC01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoRecordingService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -192,6 +194,7 @@
 				EB5AB34A4452A8C7DD8CFBFA /* ClipboardService.swift */,
 				E5FD798C319657988E241C66 /* FileStorageService.swift */,
 				GIFRECSVC01FILEREF /* GifRecordingService.swift */,
+				VIDEOSVC01FILEREF /* VideoRecordingService.swift */,
 				HISTSVC001FILEREF /* HistoryService.swift */,
 				002A68B3D208C945FEA1D830 /* PermissionService.swift */,
 				357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */,
@@ -330,6 +333,7 @@
 				UPDSVC001BUILD /* UpdateService.swift in Sources */,
 				SHUTSVC01BUILD /* ShutterService.swift in Sources */,
 				SHUTOPT01BUILD /* ShutterOptionsPanel.swift in Sources */,
+				VIDEOSVC01BUILD /* VideoRecordingService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

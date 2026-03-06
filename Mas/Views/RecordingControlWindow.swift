@@ -219,6 +219,42 @@ class RecordingControlWindowController {
         }
     }
 
+    func showSaving() {
+        borderWindow?.orderOut(nil)
+        borderWindow = nil
+
+        guard let panel = windowController?.window else { return }
+
+        let state = GeneratingProgressState()
+        state.progress = 0.95
+        self.progressState = state
+
+        let savingView = HStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.small)
+                .colorScheme(.dark)
+            Text("動画を保存中...")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white)
+                .frame(minWidth: 130, alignment: .leading)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(Color.black.opacity(0.75))
+        )
+
+        let hostingController = NSHostingController(rootView: savingView)
+        panel.contentViewController = hostingController
+        panel.isMovableByWindowBackground = false
+
+        let newWidth: CGFloat = 220
+        let frame = panel.frame
+        let newX = frame.origin.x + (frame.width - newWidth) / 2
+        panel.setFrame(NSRect(x: newX, y: frame.origin.y, width: newWidth, height: frame.height), display: true)
+    }
+
     func close() {
         progressTimer?.invalidate()
         progressTimer = nil

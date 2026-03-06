@@ -3,35 +3,62 @@ import ServiceManagement
 
 struct SettingsWindow: View {
     @AppStorage("developerMode") private var developerMode = false
+    @State private var selectedTab = "general"
+
+    private var tabs: [(id: String, label: String, icon: String)] {
+        var items: [(id: String, label: String, icon: String)] = [
+            ("general", "一般", "gear"),
+            ("display", "表示", "macwindow"),
+            ("shortcuts", "ショートカット", "keyboard"),
+        ]
+        if developerMode {
+            items.append(("developer", "開発", "wrench.and.screwdriver"))
+        }
+        items.append(("about", "情報", "info.circle"))
+        return items
+    }
 
     var body: some View {
-        TabView {
-            GeneralSettingsView()
-                .tabItem {
-                    Label("一般", systemImage: "gear")
-                }
-
-            DisplaySettingsView()
-                .tabItem {
-                    Label("表示", systemImage: "macwindow")
-                }
-
-            ShortcutsSettingsView()
-                .tabItem {
-                    Label("ショートカット", systemImage: "keyboard")
-                }
-
-            if developerMode {
-                DeveloperSettingsView()
-                    .tabItem {
-                        Label("開発", systemImage: "wrench.and.screwdriver")
+        VStack(spacing: 0) {
+            // タブバー
+            HStack(spacing: 0) {
+                ForEach(tabs, id: \.id) { tab in
+                    Button(action: { selectedTab = tab.id }) {
+                        VStack(spacing: 2) {
+                            Image(systemName: tab.icon)
+                                .font(.system(size: 16))
+                            Text(tab.label)
+                                .font(.system(size: 10))
+                        }
+                        .frame(width: 72, height: 44)
+                        .contentShape(Rectangle())
+                        .foregroundColor(selectedTab == tab.id ? .accentColor : .secondary)
                     }
-            }
-
-            AboutView()
-                .tabItem {
-                    Label("情報", systemImage: "info.circle")
+                    .buttonStyle(.plain)
                 }
+            }
+            .padding(.top, 4)
+
+            Divider()
+
+            // コンテンツ
+            Group {
+                switch selectedTab {
+                case "general":
+                    GeneralSettingsView()
+                case "display":
+                    DisplaySettingsView()
+                case "shortcuts":
+                    ShortcutsSettingsView()
+                case "developer":
+                    DeveloperSettingsView()
+                case "about":
+                    AboutView()
+                default:
+                    GeneralSettingsView()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 520, height: 480)
     }

@@ -105,6 +105,7 @@ enum HotkeyAction: String, CaseIterable {
     case region = "region"
     case frame = "frame"
     case gifRecording = "gifRecording"
+    case videoRecording = "videoRecording"
     case history = "history"
 
     var label: String {
@@ -113,6 +114,7 @@ enum HotkeyAction: String, CaseIterable {
         case .region: return "範囲選択キャプチャ"
         case .frame: return "キャプチャ枠を表示"
         case .gifRecording: return "GIF録画"
+        case .videoRecording: return "動画撮影"
         case .history: return "ライブラリ"
         }
     }
@@ -123,6 +125,7 @@ enum HotkeyAction: String, CaseIterable {
         case .region: return 21       // 4
         case .frame: return 22        // 6
         case .gifRecording: return 26 // 7
+        case .videoRecording: return 27 // 8
         case .history: return 37      // L
         }
     }
