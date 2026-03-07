@@ -255,4 +255,5 @@ extension Notification.Name {
     static let startVideoRecording = Notification.Name("startVideoRecording")
     static let startVideoRecordingAtRegion = Notification.Name("startVideoRecordingAtRegion")
     static let menuBarIconChanged = Notification.Name("menuBarIconChanged")
+    static let addFileToHistory = Notification.Name("addFileToHistory")
 }

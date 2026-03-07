@@ -13,6 +13,10 @@ class VideoPlayerState: ObservableObject {
     @Published var isPlaying: Bool = false
     @Published var speed: Double = 1.0
     @Published var isScrubbing: Bool = false
+    @Published var isTrimming: Bool = false
+    @Published var trimStart: Double = 0
+    @Published var trimEnd: Double = 0
+    @Published var isExporting: Bool = false
 
     private var wasPlayingBeforeScrub = false
 
@@ -132,6 +136,71 @@ class VideoPlayerState: ObservableObject {
         if isPlaying {
             player.rate = Float(newSpeed)
         }
+    }
+
+    func enterTrimMode() {
+        pause()
+        isTrimming = true
+        trimStart = 0
+        trimEnd = duration
+    }
+
+    func exitTrimMode() {
+        isTrimming = false
+    }
+
+    func setTrimStart() {
+        trimStart = max(0, min(currentTime, trimEnd - (1.0 / fps)))
+    }
+
+    func setTrimEnd() {
+        trimEnd = min(duration, max(currentTime, trimStart + (1.0 / fps)))
+    }
+
+    var trimDuration: Double {
+        trimEnd - trimStart
+    }
+
+    func exportTrimmed() async -> URL? {
+        isExporting = true
+        defer { Task { @MainActor in self.isExporting = false } }
+
+        let asset = AVAsset(url: url)
+        let startTime = CMTime(seconds: trimStart, preferredTimescale: 600)
+        let endTime = CMTime(seconds: trimEnd, preferredTimescale: 600)
+        let timeRange = CMTimeRange(start: startTime, end: endTime)
+
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
+            return nil
+        }
+
+        let ext = url.pathExtension.lowercased()
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let fileName = "Mas-Video-Trimmed-\(timestamp).\(ext)"
+
+        let saveFolder: URL
+        let autoSaveFolder = UserDefaults.standard.string(forKey: "autoSaveFolder") ?? ""
+        if !autoSaveFolder.isEmpty {
+            saveFolder = URL(fileURLWithPath: autoSaveFolder)
+        } else {
+            saveFolder = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Pictures")
+                .appendingPathComponent("Mas")
+        }
+
+        try? FileManager.default.createDirectory(at: saveFolder, withIntermediateDirectories: true)
+        let outputURL = saveFolder.appendingPathComponent(fileName)
+
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = ext == "mov" ? .mov : .mp4
+        exportSession.timeRange = timeRange
+
+        await exportSession.export()
+
+        if exportSession.status == .completed {
+            return outputURL
+        }
+        return nil
     }
 
     deinit {

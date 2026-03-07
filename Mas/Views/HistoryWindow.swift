@@ -639,7 +639,7 @@ struct HistoryEntryRow: View {
         }
     }
 
-    private static func generateVideoThumbnail(url: URL) -> NSImage? {
+    static func generateVideoThumbnail(url: URL) -> NSImage? {
         let asset = AVURLAsset(url: url)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
