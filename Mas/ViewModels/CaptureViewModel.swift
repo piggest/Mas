@@ -107,10 +107,29 @@ class CaptureViewModel: ObservableObject {
             name: .showHistory,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAddFileToHistory(_:)),
+            name: .addFileToHistory,
+            object: nil
+        )
     }
 
     @objc private func handleShowHistory() {
         showHistoryWindow()
+    }
+
+    @objc private func handleAddFileToHistory(_ notification: Notification) {
+        guard let url = notification.object as? URL else { return }
+        let ext = url.pathExtension.lowercased()
+        let isVideo = ext == "mp4" || ext == "mov"
+        let thumbnail: NSImage
+        if isVideo {
+            thumbnail = HistoryEntryRow.generateVideoThumbnail(url: url) ?? NSImage()
+        } else {
+            thumbnail = NSImage(contentsOf: url) ?? NSImage()
+        }
+        addToHistory(image: thumbnail, url: url)
     }
 
 

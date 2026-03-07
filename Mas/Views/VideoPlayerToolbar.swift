@@ -4,8 +4,19 @@ import AVFoundation
 
 struct VideoPlayerToolbarView: View {
     @ObservedObject var playerState: VideoPlayerState
+    var onTrimComplete: ((URL) -> Void)?
 
     var body: some View {
+        VStack(spacing: 6) {
+            if playerState.isTrimming {
+                trimToolbar
+            } else {
+                mainToolbar
+            }
+        }
+    }
+
+    private var mainToolbar: some View {
         HStack(spacing: 8) {
             // 前フレーム
             Button(action: { playerState.prevFrame() }) {
@@ -107,6 +118,19 @@ struct VideoPlayerToolbarView: View {
             }
             .menuStyle(.borderlessButton)
             .frame(width: 40)
+
+            Divider()
+                .frame(height: 20)
+                .background(Color.white.opacity(0.3))
+
+            // トリムボタン
+            Button(action: { playerState.enterTrimMode() }) {
+                Image(systemName: "scissors")
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.white)
+            .help("トリム")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -114,6 +138,143 @@ struct VideoPlayerToolbarView: View {
             Capsule()
                 .fill(Color.black.opacity(0.8))
         )
+    }
+
+    private var trimToolbar: some View {
+        VStack(spacing: 4) {
+            // トリム範囲バー
+            TrimRangeBar(
+                duration: playerState.duration,
+                trimStart: $playerState.trimStart,
+                trimEnd: $playerState.trimEnd,
+                onSeek: { playerState.seek(to: $0) }
+            )
+            .frame(height: 24)
+
+            HStack(spacing: 8) {
+                // 開始点設定
+                Button(action: { playerState.setTrimStart() }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "bracket.square.left.fill")
+                            .font(.system(size: 10))
+                        Text(formatTime(playerState.trimStart))
+                            .font(.system(size: 10, design: .monospaced))
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.blue.opacity(0.3))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.white)
+                .help("現在位置を開始点に設定")
+
+                // 再生コントロール
+                Button(action: { playerState.prevFrame() }) {
+                    Image(systemName: "backward.frame.fill")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.white)
+
+                Button(action: { playerState.togglePlayPause() }) {
+                    Image(systemName: playerState.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 12))
+                        .frame(width: 24, height: 24)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.white)
+
+                Button(action: { playerState.nextFrame() }) {
+                    Image(systemName: "forward.frame.fill")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.white)
+
+                // 終了点設定
+                Button(action: { playerState.setTrimEnd() }) {
+                    HStack(spacing: 3) {
+                        Text(formatTime(playerState.trimEnd))
+                            .font(.system(size: 10, design: .monospaced))
+                        Image(systemName: "bracket.square.right.fill")
+                            .font(.system(size: 10))
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.blue.opacity(0.3))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.white)
+                .help("現在位置を終了点に設定")
+
+                Divider()
+                    .frame(height: 16)
+                    .background(Color.white.opacity(0.3))
+
+                // トリム時間表示
+                Text(formatTime(playerState.trimDuration))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.6))
+
+                Divider()
+                    .frame(height: 16)
+                    .background(Color.white.opacity(0.3))
+
+                // キャンセル
+                Button(action: { playerState.exitTrimMode() }) {
+                    Text("キャンセル")
+                        .font(.system(size: 11))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.white.opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.white)
+
+                // 書き出し
+                Button(action: { exportTrimmed() }) {
+                    HStack(spacing: 3) {
+                        if playerState.isExporting {
+                            ProgressView()
+                                .controlSize(.small)
+                                .colorScheme(.dark)
+                        } else {
+                            Image(systemName: "scissors")
+                                .font(.system(size: 10))
+                        }
+                        Text("切り出し")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.blue.opacity(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.white)
+                .disabled(playerState.isExporting)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.black.opacity(0.85))
+        )
+    }
+
+    private func exportTrimmed() {
+        Task {
+            if let outputURL = await playerState.exportTrimmed() {
+                playerState.exitTrimMode()
+                onTrimComplete?(outputURL)
+            }
+        }
     }
 
     private var speedLabel: String {
@@ -126,7 +287,74 @@ struct VideoPlayerToolbarView: View {
     private func formatTime(_ seconds: Double) -> String {
         let mins = Int(seconds) / 60
         let secs = Int(seconds) % 60
-        return String(format: "%d:%02d", mins, secs)
+        let ms = Int((seconds - Double(Int(seconds))) * 10)
+        return String(format: "%d:%02d.%d", mins, secs, ms)
+    }
+}
+
+// トリム範囲を視覚的に表示・操作するバー
+struct TrimRangeBar: View {
+    let duration: Double
+    @Binding var trimStart: Double
+    @Binding var trimEnd: Double
+    let onSeek: (Double) -> Void
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let startX = duration > 0 ? CGFloat(trimStart / duration) * width : 0
+            let endX = duration > 0 ? CGFloat(trimEnd / duration) * width : width
+
+            ZStack(alignment: .leading) {
+                // 背景（範囲外をグレーに）
+                Rectangle()
+                    .fill(Color.white.opacity(0.15))
+
+                // 選択範囲
+                Rectangle()
+                    .fill(Color.blue.opacity(0.3))
+                    .frame(width: max(endX - startX, 1))
+                    .offset(x: startX)
+
+                // 開始ハンドル
+                trimHandle(color: .blue)
+                    .offset(x: startX - 6)
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                let newStart = Double(value.location.x / width) * duration
+                                trimStart = max(0, min(newStart, trimEnd - (1.0 / max(playerFps, 1))))
+                                onSeek(trimStart)
+                            }
+                    )
+
+                // 終了ハンドル
+                trimHandle(color: .blue)
+                    .offset(x: endX - 6)
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                let newEnd = Double(value.location.x / width) * duration
+                                trimEnd = min(duration, max(newEnd, trimStart + (1.0 / max(playerFps, 1))))
+                                onSeek(trimEnd)
+                            }
+                    )
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .contentShape(Rectangle())
+        }
+    }
+
+    private var playerFps: Double { 20 }
+
+    private func trimHandle(color: Color) -> some View {
+        RoundedRectangle(cornerRadius: 2)
+            .fill(color)
+            .frame(width: 12, height: 24)
+            .overlay(
+                RoundedRectangle(cornerRadius: 2)
+                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+            )
     }
 }
 
@@ -201,15 +429,15 @@ class VideoPlayerToolbarController {
     private var resizeObserver: NSObjectProtocol?
     private var cachedSize: CGSize?
 
-    func show(attachedTo parent: NSWindow, playerState: VideoPlayerState) {
+    func show(attachedTo parent: NSWindow, playerState: VideoPlayerState, onTrimComplete: ((URL) -> Void)? = nil) {
         parentWindow = parent
 
-        let toolbarView = VideoPlayerToolbarView(playerState: playerState)
+        let toolbarView = VideoPlayerToolbarView(playerState: playerState, onTrimComplete: onTrimComplete)
         let hosting = NSHostingView(rootView: toolbarView)
 
         let fittingSize = hosting.fittingSize
-        let width = max(fittingSize.width, 460)
-        let height = max(fittingSize.height, 48)
+        let width = max(fittingSize.width, 500)
+        let height: CGFloat = 80
         cachedSize = CGSize(width: width, height: height)
 
         let window = NSWindow(
@@ -280,7 +508,7 @@ class VideoPlayerToolbarController {
         guard let parent = parentWindow, let toolbar = window else { return }
 
         let parentFrame = parent.frame
-        let toolbarSize = cachedSize ?? CGSize(width: 460, height: 48)
+        let toolbarSize = cachedSize ?? CGSize(width: 500, height: 80)
 
         var toolbarX = parentFrame.midX - toolbarSize.width / 2
         var toolbarY = parentFrame.origin.y - toolbarSize.height + 4

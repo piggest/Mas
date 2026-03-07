@@ -33,7 +33,11 @@ struct VideoPlayerView: NSViewRepresentable {
         VideoLayerView(player: player)
     }
 
-    func updateNSView(_ nsView: VideoLayerView, context: Context) {}
+    func updateNSView(_ nsView: VideoLayerView, context: Context) {
+        if nsView.playerLayer.player !== player {
+            nsView.playerLayer.player = player
+        }
+    }
 }
 
 // GIFフレーム表示用（@ObservedObjectでPublished変更を監視）
@@ -420,7 +424,10 @@ struct EditorWindow: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         if let parent = self.parentWindow {
                             let controller = VideoPlayerToolbarController()
-                            controller.show(attachedTo: parent, playerState: player)
+                            controller.show(attachedTo: parent, playerState: player) { [self] trimmedURL in
+                                // トリムしたファイルで現在のウィンドウを置き換え
+                                self.replaceWithTrimmedVideo(url: trimmedURL)
+                            }
                             self.videoToolbarController = controller
                         }
                         player.play()
@@ -1821,6 +1828,41 @@ struct EditorWindow: View {
         // 8. ツールを .move に戻す
         toolboxState.selectedTool = .move
         toolbarController?.setTool(.move)
+    }
+
+    private func replaceWithTrimmedVideo(url: URL) {
+        // ツールバーを閉じる
+        videoToolbarController?.close()
+        videoToolbarController = nil
+        videoPlayerState?.pause()
+        videoPlayerState = nil
+
+        // サムネイル生成
+        let asset = AVAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        if let cgImage = try? generator.copyCGImage(at: .zero, actualTime: nil) {
+            screenshot.originalImage = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+        }
+        screenshot.savedURL = url
+
+        // 履歴に追加
+        NotificationCenter.default.post(name: .addFileToHistory, object: url)
+
+        // 新しいプレーヤーを初期化
+        if let player = VideoPlayerState(url: url) {
+            videoPlayerState = player
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                if let parent = self.parentWindow {
+                    let controller = VideoPlayerToolbarController()
+                    controller.show(attachedTo: parent, playerState: player) { [self] trimmedURL in
+                        self.replaceWithTrimmedVideo(url: trimmedURL)
+                    }
+                    self.videoToolbarController = controller
+                }
+                player.play()
+            }
+        }
     }
 
     private func closeWindow() {
