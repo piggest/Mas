@@ -447,6 +447,10 @@ struct EditorWindow: View {
             shutterPanelController = nil
         }
         .onChange(of: editMode) { newValue in
+            // 編集モード中はウィンドウのドラッグ移動を無効化
+            if let resizableWindow = parentWindow as? ResizableWindow {
+                resizableWindow.isMovableByWindowBackground = !newValue && !passThroughEnabled
+            }
             if newValue {
                 // GIF: 編集開始時に再生停止 + プレーヤーツールバーを閉じる
                 if screenshot.isGif {
