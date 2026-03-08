@@ -1,5 +1,7 @@
 import AppKit
 import AVFoundation
+import ImageIO
+import UniformTypeIdentifiers
 
 @MainActor
 class VideoPlayerState: ObservableObject {
@@ -17,6 +19,8 @@ class VideoPlayerState: ObservableObject {
     @Published var trimStart: Double = 0
     @Published var trimEnd: Double = 0
     @Published var isExporting: Bool = false
+    @Published var isExportingGif: Bool = false
+    @Published var gifExportProgress: Double = 0
 
     private var wasPlayingBeforeScrub = false
 
@@ -201,6 +205,101 @@ class VideoPlayerState: ObservableObject {
             return outputURL
         }
         return nil
+    }
+
+    /// 動画（またはトリム範囲）をGIFとしてエクスポート
+    func exportAsGif() async -> URL? {
+        let start = isTrimming ? trimStart : 0
+        let end = isTrimming ? trimEnd : duration
+        return await exportRangeAsGif(start: start, end: end)
+    }
+
+    private func exportRangeAsGif(start: Double, end: Double) async -> URL? {
+        isExportingGif = true
+        gifExportProgress = 0
+        defer { Task { @MainActor in self.isExportingGif = false } }
+
+        let gifFps: Double = 10
+        let frameDuration = 1.0 / gifFps
+        let rangeDuration = end - start
+        let frameCount = max(1, Int(rangeDuration * gifFps))
+
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.requestedTimeToleranceBefore = CMTime(seconds: frameDuration / 2, preferredTimescale: 600)
+        generator.requestedTimeToleranceAfter = CMTime(seconds: frameDuration / 2, preferredTimescale: 600)
+
+        // 出力先
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let fileName = "Mas-GIF-\(timestamp).gif"
+        let saveFolder: URL
+        let autoSaveFolder = UserDefaults.standard.string(forKey: "autoSaveFolder") ?? ""
+        if !autoSaveFolder.isEmpty {
+            saveFolder = URL(fileURLWithPath: autoSaveFolder)
+        } else {
+            saveFolder = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Pictures")
+                .appendingPathComponent("Mas")
+        }
+        try? FileManager.default.createDirectory(at: saveFolder, withIntermediateDirectories: true)
+        let outputURL = saveFolder.appendingPathComponent(fileName)
+
+        // フレーム抽出とGIF生成をバックグラウンドで
+        let srcURL = url
+        let result = await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                guard let destination = CGImageDestinationCreateWithURL(
+                    outputURL as CFURL,
+                    UTType.gif.identifier as CFString,
+                    frameCount,
+                    nil
+                ) else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let gifProperties: [String: Any] = [
+                    kCGImagePropertyGIFDictionary as String: [
+                        kCGImagePropertyGIFLoopCount as String: 0
+                    ]
+                ]
+                CGImageDestinationSetProperties(destination, gifProperties as CFDictionary)
+
+                let frameProperties: [String: Any] = [
+                    kCGImagePropertyGIFDictionary as String: [
+                        kCGImagePropertyGIFDelayTime as String: frameDuration
+                    ]
+                ]
+
+                let bgAsset = AVURLAsset(url: srcURL)
+                let bgGenerator = AVAssetImageGenerator(asset: bgAsset)
+                bgGenerator.appliesPreferredTrackTransform = true
+                bgGenerator.requestedTimeToleranceBefore = CMTime(seconds: frameDuration / 2, preferredTimescale: 600)
+                bgGenerator.requestedTimeToleranceAfter = CMTime(seconds: frameDuration / 2, preferredTimescale: 600)
+
+                for i in 0..<frameCount {
+                    let time = CMTime(seconds: start + Double(i) * frameDuration, preferredTimescale: 600)
+                    guard let cgImage = try? bgGenerator.copyCGImage(at: time, actualTime: nil) else { continue }
+                    CGImageDestinationAddImage(destination, cgImage, frameProperties as CFDictionary)
+
+                    if i % 10 == 0 {
+                        let progress = Double(i) / Double(frameCount)
+                        Task { @MainActor in
+                            self.gifExportProgress = progress
+                        }
+                    }
+                }
+
+                let success = CGImageDestinationFinalize(destination)
+                Task { @MainActor in
+                    self.gifExportProgress = 1.0
+                }
+                continuation.resume(returning: success ? outputURL : nil)
+            }
+        }
+
+        return result
     }
 
     deinit {

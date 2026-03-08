@@ -5,6 +5,7 @@ import AVFoundation
 struct VideoPlayerToolbarView: View {
     @ObservedObject var playerState: VideoPlayerState
     var onTrimComplete: ((URL) -> Void)?
+    var onGifExportComplete: ((URL) -> Void)?
 
     var body: some View {
         VStack(spacing: 6) {
@@ -131,6 +132,26 @@ struct VideoPlayerToolbarView: View {
             .buttonStyle(.plain)
             .foregroundColor(.white)
             .help("トリム")
+
+            // GIF保存ボタン
+            Button(action: { exportAsGif() }) {
+                if playerState.isExportingGif {
+                    ProgressView()
+                        .controlSize(.small)
+                        .colorScheme(.dark)
+                } else {
+                    Text("GIF")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Color.orange.opacity(0.4))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .disabled(playerState.isExportingGif)
+            .help("GIFとして保存")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -257,7 +278,32 @@ struct VideoPlayerToolbarView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(.white)
-                .disabled(playerState.isExporting)
+                .disabled(playerState.isExporting || playerState.isExportingGif)
+
+                // GIF保存（トリム範囲）
+                Button(action: { exportAsGif() }) {
+                    HStack(spacing: 3) {
+                        if playerState.isExportingGif {
+                            ProgressView()
+                                .controlSize(.small)
+                                .colorScheme(.dark)
+                        } else {
+                            Text("GIF")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        }
+                        if playerState.isExportingGif && playerState.gifExportProgress > 0 {
+                            Text("\(Int(playerState.gifExportProgress * 100))%")
+                                .font(.system(size: 9, design: .monospaced))
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.orange.opacity(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.white)
+                .disabled(playerState.isExporting || playerState.isExportingGif)
             }
         }
         .padding(.horizontal, 16)
@@ -273,6 +319,17 @@ struct VideoPlayerToolbarView: View {
             if let outputURL = await playerState.exportTrimmed() {
                 playerState.exitTrimMode()
                 onTrimComplete?(outputURL)
+            }
+        }
+    }
+
+    private func exportAsGif() {
+        Task {
+            if let outputURL = await playerState.exportAsGif() {
+                if playerState.isTrimming {
+                    playerState.exitTrimMode()
+                }
+                onGifExportComplete?(outputURL)
             }
         }
     }
@@ -429,10 +486,10 @@ class VideoPlayerToolbarController {
     private var resizeObserver: NSObjectProtocol?
     private var cachedSize: CGSize?
 
-    func show(attachedTo parent: NSWindow, playerState: VideoPlayerState, onTrimComplete: ((URL) -> Void)? = nil) {
+    func show(attachedTo parent: NSWindow, playerState: VideoPlayerState, onTrimComplete: ((URL) -> Void)? = nil, onGifExportComplete: ((URL) -> Void)? = nil) {
         parentWindow = parent
 
-        let toolbarView = VideoPlayerToolbarView(playerState: playerState, onTrimComplete: onTrimComplete)
+        let toolbarView = VideoPlayerToolbarView(playerState: playerState, onTrimComplete: onTrimComplete, onGifExportComplete: onGifExportComplete)
         let hosting = NSHostingView(rootView: toolbarView)
 
         let fittingSize = hosting.fittingSize
