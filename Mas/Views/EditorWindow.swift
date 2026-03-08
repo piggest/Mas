@@ -424,10 +424,12 @@ struct EditorWindow: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         if let parent = self.parentWindow {
                             let controller = VideoPlayerToolbarController()
-                            controller.show(attachedTo: parent, playerState: player) { [self] trimmedURL in
+                            controller.show(attachedTo: parent, playerState: player, onTrimComplete: { [self] trimmedURL in
                                 // トリムしたファイルで現在のウィンドウを置き換え
                                 self.replaceWithTrimmedVideo(url: trimmedURL)
-                            }
+                            }, onGifExportComplete: { [self] gifURL in
+                                self.handleGifExportComplete(url: gifURL)
+                            })
                             self.videoToolbarController = controller
                         }
                         player.play()
@@ -1855,14 +1857,23 @@ struct EditorWindow: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 if let parent = self.parentWindow {
                     let controller = VideoPlayerToolbarController()
-                    controller.show(attachedTo: parent, playerState: player) { [self] trimmedURL in
+                    controller.show(attachedTo: parent, playerState: player, onTrimComplete: { [self] trimmedURL in
                         self.replaceWithTrimmedVideo(url: trimmedURL)
-                    }
+                    }, onGifExportComplete: { [self] gifURL in
+                        self.handleGifExportComplete(url: gifURL)
+                    })
                     self.videoToolbarController = controller
                 }
                 player.play()
             }
         }
+    }
+
+    private func handleGifExportComplete(url: URL) {
+        // 履歴に追加
+        NotificationCenter.default.post(name: .addFileToHistory, object: url)
+        // Finderで表示
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     private func closeWindow() {
