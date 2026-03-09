@@ -300,6 +300,7 @@ struct EditorWindow: View {
     @State private var charSelStart: Int?
     @State private var charSelEnd: Int?
     private let textRecognitionService = TextRecognitionService()
+    @State private var keyMonitor: Any?
 
     // GIF再生
     @State private var gifPlayerState: GifPlayerState?
@@ -445,6 +446,10 @@ struct EditorWindow: View {
             videoToolbarController?.close()
             shutterPanelController?.close()
             shutterPanelController = nil
+            if let monitor = keyMonitor {
+                NSEvent.removeMonitor(monitor)
+                keyMonitor = nil
+            }
         }
         .onChange(of: editMode) { newValue in
             // 編集モード中はウィンドウのドラッグ移動を無効化
@@ -505,11 +510,23 @@ struct EditorWindow: View {
             // テキスト選択モードの切替
             if newTool == .textSelection {
                 startTextRecognition()
+                // Cmd+Cでコピーできるようにキーイベントモニターを設定
+                keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [self] event in
+                    if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "c" {
+                        copySelectedText()
+                        return nil
+                    }
+                    return event
+                }
             } else {
                 recognizedTexts = []
                 flatChars = []
                 charSelStart = nil
                 charSelEnd = nil
+                if let monitor = keyMonitor {
+                    NSEvent.removeMonitor(monitor)
+                    keyMonitor = nil
+                }
             }
         }
     }
@@ -721,6 +738,9 @@ struct EditorWindow: View {
             onCopyTrimRegion: { [self] rect in
                 performCopyRegion(canvasRect: rect)
             },
+            onCopyText: { [self] in
+                copySelectedText()
+            },
             imageDisplaySize: CGSize(
                 width: screenshot.captureRegion?.width ?? screenshot.originalImage.size.width,
                 height: screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
@@ -831,13 +851,27 @@ struct EditorWindow: View {
                 return i
             }
         }
-        // 近い文字を探す（閾値内）
+        // Y座標が同じ行の文字を優先的に探す（行の高さの半分以内）
         var bestIndex: Int?
         var bestDist: CGFloat = .infinity
         for (i, char) in flatChars.enumerated() {
+            let yDist = abs(point.y - char.rect.midY)
+            // 行の高さの半分以内にある文字のみ対象
+            if yDist <= char.rect.height * 0.6 {
+                let xDist = abs(point.x - char.rect.midX)
+                if xDist < bestDist {
+                    bestDist = xDist
+                    bestIndex = i
+                }
+            }
+        }
+        if bestIndex != nil { return bestIndex }
+        // 同じ行がなければ、近い文字を探す（閾値を縮小）
+        bestDist = .infinity
+        for (i, char) in flatChars.enumerated() {
             let center = CGPoint(x: char.rect.midX, y: char.rect.midY)
             let dist = hypot(point.x - center.x, point.y - center.y)
-            if dist < bestDist && dist < 40 {
+            if dist < bestDist && dist < 20 {
                 bestDist = dist
                 bestIndex = i
             }
@@ -2040,6 +2074,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let onToolChanged: ((EditTool) -> Void)?
     var onTrimRequested: ((CGRect) -> Void)?
     var onCopyTrimRegion: ((CGRect) -> Void)?
+    var onCopyText: (() -> Void)?
     var imageDisplaySize: CGSize = .zero
 
     func makeNSView(context: Context) -> AnnotationCanvas {
@@ -2186,6 +2221,10 @@ struct AnnotationCanvasView: NSViewRepresentable {
         func copyTrimRegionRequested(rect: CGRect) {
             parent.onCopyTrimRegion?(rect)
         }
+
+        func copyTextRequested() {
+            parent.onCopyText?()
+        }
     }
 }
 
@@ -2200,6 +2239,7 @@ protocol AnnotationCanvasDelegate: AnyObject {
     func doubleClickedOnEmpty()
     func trimRequested(rect: CGRect)
     func copyTrimRegionRequested(rect: CGRect)
+    func copyTextRequested()
 }
 
 // リサイズハンドルの位置
@@ -2296,8 +2336,9 @@ class AnnotationCanvas: NSView {
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        // 編集モードでない場合はヒットテストを無効にしてイベントを通過させる
-        if !isEditing {
+        // 編集モードでない場合、またはテキスト選択モードの場合はヒットテストを無効にして
+        // イベントをSwiftUIオーバーレイに通過させる
+        if !isEditing || selectedTool == .textSelection {
             return nil
         }
         return super.hitTest(point)
