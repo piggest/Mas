@@ -457,6 +457,10 @@ struct EditorWindow: View {
                 resizableWindow.isMovableByWindowBackground = !newValue && !passThroughEnabled
             }
             if newValue {
+                // テキスト選択モードのままだとアノテーション操作不能になるのでリセット
+                if toolboxState.selectedTool == .textSelection {
+                    toolboxState.selectedTool = .arrow
+                }
                 // GIF: 編集開始時に再生停止 + プレーヤーツールバーを閉じる
                 if screenshot.isGif {
                     gifPlayerState?.pause()
