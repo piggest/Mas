@@ -1751,6 +1751,20 @@ struct EditorWindow: View {
     }
 
     private func copyToClipboard() {
+        // アノテーションがある場合はアノテーション付き画像をコピー
+        if !toolboxState.annotations.isEmpty, !screenshot.isGif, !screenshot.isVideo {
+            if let image = Self.renderImageInBackground(
+                originalImage: screenshot.originalImage,
+                annotations: toolboxState.annotations,
+                captureRegion: screenshot.captureRegion
+            ) {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.writeObjects([image])
+                copiedToClipboard = true
+                return
+            }
+        }
         if viewModel.copyToClipboard() {
             copiedToClipboard = true
         }
