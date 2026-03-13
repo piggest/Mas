@@ -273,6 +273,20 @@ struct FlatTextChar {
     let isBlockEnd: Bool
 }
 
+enum CaptureActionMode: String, CaseIterable {
+    case recapture = "再キャプチャ"
+    case gif = "GIF録画"
+    case video = "動画録画"
+
+    var icon: String {
+        switch self {
+        case .recapture: return "camera.viewfinder"
+        case .gif: return "record.circle"
+        case .video: return "video.circle"
+        }
+    }
+}
+
 struct EditorWindow: View {
     @StateObject private var viewModel: EditorViewModel
     @ObservedObject var screenshot: Screenshot
@@ -283,6 +297,7 @@ struct EditorWindow: View {
     @State private var contentYOffset: CGFloat = 0
     @State private var passThroughEnabled = false
     @State private var editMode = false
+    @State private var captureActionMode: CaptureActionMode = .recapture
     @State private var currentAnnotation: (any Annotation)?
     @State private var textInput: String = ""
     @State private var showTextInput = false
@@ -328,6 +343,15 @@ struct EditorWindow: View {
         self.onPassThroughChanged = onPassThroughChanged
         self.onAnnotationsSaved = onAnnotationsSaved
         _showImage = State(initialValue: showImageInitially)
+        // 撮影モードに応じてキャプチャアクションの初期値を設定
+        switch screenshot.mode {
+        case .gifRecording:
+            _captureActionMode = State(initialValue: .gif)
+        case .videoRecording:
+            _captureActionMode = State(initialValue: .video)
+        default:
+            _captureActionMode = State(initialValue: .recapture)
+        }
     }
 
     private func getCurrentWindowRect() -> CGRect {
@@ -1093,44 +1117,6 @@ struct EditorWindow: View {
         .position(x: 24, y: geometry.size.height - 24)
     }
 
-    private var gifRecordButton: some View {
-        Button(action: {
-            let rect = getCurrentWindowRect()
-            closeWindow()
-            NotificationCenter.default.post(
-                name: .startGifRecordingAtRegion,
-                object: NSValue(rect: rect)
-            )
-        }) {
-            Image(systemName: "record.circle")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(showImage ? .white : .gray)
-                .padding(6)
-                .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
-                .clipShape(Circle())
-        }
-        .buttonStyle(NoHighlightButtonStyle())
-    }
-
-    private var videoRecordButton: some View {
-        Button(action: {
-            let rect = getCurrentWindowRect()
-            closeWindow()
-            NotificationCenter.default.post(
-                name: .startVideoRecordingAtRegion,
-                object: NSValue(rect: rect)
-            )
-        }) {
-            Image(systemName: "video.circle")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(showImage ? .white : .gray)
-                .padding(6)
-                .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
-                .clipShape(Circle())
-        }
-        .buttonStyle(NoHighlightButtonStyle())
-    }
-
     @ViewBuilder
     private func topRightButtons(geometry: GeometryProxy) -> some View {
         if screenshot.captureRegion != nil {
@@ -1138,11 +1124,62 @@ struct EditorWindow: View {
                 if !showImage {
                     passThroughButton
                 }
-                videoRecordButton
-                gifRecordButton
-                recaptureButton
+                captureActionButton
             }
-            .position(x: geometry.size.width - (showImage ? 50 : 66), y: 20)
+            .position(x: geometry.size.width - (showImage ? 24 : 46), y: 20)
+        }
+    }
+
+    private var captureActionButton: some View {
+        Button(action: {
+            executeCaptureAction(captureActionMode)
+        }) {
+            Image(systemName: captureActionMode.icon)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(showImage ? .white : .gray)
+                .padding(6)
+                .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
+                .clipShape(Circle())
+        }
+        .buttonStyle(NoHighlightButtonStyle())
+        .contextMenu {
+            ForEach(CaptureActionMode.allCases, id: \.self) { mode in
+                Button {
+                    captureActionMode = mode
+                    executeCaptureAction(mode)
+                } label: {
+                    Label(mode.rawValue, systemImage: mode.icon)
+                }
+            }
+        }
+    }
+
+    private func executeCaptureAction(_ mode: CaptureActionMode) {
+        let rect = getCurrentWindowRect()
+        switch mode {
+        case .recapture:
+            gifPlayerState?.pause()
+            gifPlayerState = nil
+            gifToolbarController?.close()
+            gifToolbarController = nil
+            onRecapture?(rect, parentWindow, true)
+            showImage = true
+            if passThroughEnabled {
+                passThroughEnabled = false
+                updatePassThrough()
+            }
+        case .gif:
+            closeWindow()
+            NotificationCenter.default.post(
+                name: .startGifRecordingAtRegion,
+                object: NSValue(rect: rect)
+            )
+        case .video:
+            closeWindow()
+            NotificationCenter.default.post(
+                name: .startVideoRecordingAtRegion,
+                object: NSValue(rect: rect)
+            )
         }
     }
 
@@ -1156,31 +1193,6 @@ struct EditorWindow: View {
                 .foregroundColor(passThroughEnabled ? .blue : .gray)
                 .padding(6)
                 .background(Color.white.opacity(0.8))
-                .clipShape(Circle())
-        }
-        .buttonStyle(NoHighlightButtonStyle())
-    }
-
-    private var recaptureButton: some View {
-        Button(action: {
-            let rect = getCurrentWindowRect()
-            // GIFプレーヤーをクリア（再キャプチャで静止画に切り替わる）
-            gifPlayerState?.pause()
-            gifPlayerState = nil
-            gifToolbarController?.close()
-            gifToolbarController = nil
-            onRecapture?(rect, parentWindow, true)
-            showImage = true
-            if passThroughEnabled {
-                passThroughEnabled = false
-                updatePassThrough()
-            }
-        }) {
-            Image(systemName: "camera.viewfinder")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(showImage ? .white : .gray)
-                .padding(6)
-                .background(showImage ? Color.black.opacity(0.5) : Color.white.opacity(0.8))
                 .clipShape(Circle())
         }
         .buttonStyle(NoHighlightButtonStyle())
