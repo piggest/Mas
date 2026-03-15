@@ -134,6 +134,42 @@ body {
   line-height: 1.6;
 }
 
+/* Install */
+.install {
+  padding: 48px 20px;
+  background: #f5f5f7;
+}
+
+.install-inner {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.install h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.install p {
+  font-size: 15px;
+  color: #6e6e73;
+  margin-bottom: 20px;
+}
+
+.install pre {
+  background: #1d1d1f;
+  color: #f5f5f7;
+  padding: 20px 28px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: "SF Mono", "Menlo", monospace;
+  text-align: left;
+  line-height: 1.7;
+  overflow-x: auto;
+}
+
 /* How it works */
 .how {
   padding: 80px 20px;
@@ -358,11 +394,20 @@ footer a:hover {
   <h1>Mas</h1>
   <p class="tagline">まるでマスですくうように<br>簡単に正確にスクリーンショットを作成します</p>
   <a class="download-btn" href="https://github.com/piggest/Mas/releases/latest">ダウンロード</a>
-  <span class="version">v2.5.0 — macOS 13.0+</span>
+  <span class="version">v3.9.0 — macOS 13.0+</span>
 </section>
 
 <section class="screenshot-section">
   <video src="images/demo.mp4" autoplay loop muted playsinline></video>
+</section>
+
+<section class="install">
+  <div class="install-inner">
+    <h2>Homebrew でインストール</h2>
+    <p>ターミナルから2行で完了</p>
+    <pre>brew tap piggest/mas
+brew install --cask mas</pre>
+  </div>
 </section>
 
 <section class="how">
@@ -506,6 +551,7 @@ footer a:hover {
   <h2>今すぐ始めよう</h2>
   <p>macOS 13.0以降対応・無料</p>
   <a class="download-btn" href="https://github.com/piggest/Mas/releases/latest">ダウンロード</a>
+  <p style="margin-top: 20px; font-size: 14px; color: #86868b;">または <code style="background: #f0f0f0; padding: 3px 8px; border-radius: 4px; font-size: 13px;">brew tap piggest/mas && brew install --cask mas</code></p>
 </section>
 
 <footer>
