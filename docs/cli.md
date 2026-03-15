@@ -37,6 +37,9 @@ mas-cli capture frame
 # GIF録画を開始
 mas-cli capture gif
 
+# 動画撮影を開始
+mas-cli capture video
+
 # 遅延付きキャプチャ（右クリックメニュー等の撮影に）
 mas-cli capture fullscreen --delay 5
 mas-cli capture region --delay 3
