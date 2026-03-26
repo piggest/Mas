@@ -220,14 +220,18 @@ class VideoRecordingService {
         let fileName = "Mas-Video-\(timestamp).mp4"
 
         if UserDefaults.standard.bool(forKey: "autoSaveEnabled"),
-           let folder = UserDefaults.standard.string(forKey: "autoSaveFolder") {
+           let folder = UserDefaults.standard.string(forKey: "autoSaveFolder"),
+           !folder.isEmpty {
             let folderURL = URL(fileURLWithPath: folder)
             if FileManager.default.fileExists(atPath: folderURL.path) {
                 return folderURL.appendingPathComponent(fileName)
             }
         }
 
-        let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!
-        return desktop.appendingPathComponent(fileName)
+        // デフォルトはピクチャフォルダ内のMasフォルダ（スクリーンショットと同じ）
+        let picturesURL = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first!
+        let masFolder = picturesURL.appendingPathComponent("Mas")
+        try? FileManager.default.createDirectory(at: masFolder, withIntermediateDirectories: true)
+        return masFolder.appendingPathComponent(fileName)
     }
 }
