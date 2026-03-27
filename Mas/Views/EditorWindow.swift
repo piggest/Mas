@@ -359,10 +359,10 @@ struct EditorWindow: View {
             return screenshot.captureRegion ?? .zero
         }
         let frame = window.frame
-        let screenHeight = NSScreen.main?.frame.height ?? 0
+        let primaryHeight = NSScreen.primaryScreenHeight
         let rect = CGRect(
             x: frame.origin.x,
-            y: screenHeight - frame.origin.y - frame.height,
+            y: primaryHeight - frame.origin.y - frame.height,
             width: frame.width,
             height: frame.height
         )
