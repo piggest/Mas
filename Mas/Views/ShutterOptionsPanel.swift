@@ -388,10 +388,20 @@ struct ShutterOptionsView: View {
         .onChange(of: programSteps) { _ in
             autoSave()
             updateRegionOverlays()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                onSizeChange?(CGSize(width: 300, height: programmableHeight()))
+            }
         }
         .onChange(of: highlightedStepId) { _ in updateRegionOverlays() }
         .onChange(of: showRegionOverlays) { _ in updateRegionOverlays() }
-        .onAppear { updateRegionOverlays() }
+        .onAppear {
+            updateRegionOverlays()
+            if !programSteps.isEmpty {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    onSizeChange?(CGSize(width: 300, height: programmableHeight()))
+                }
+            }
+        }
     }
 
     // MARK: - Save Popover
@@ -1146,21 +1156,19 @@ class ShutterOptionsPanelController {
             initialMode: mode
         )
 
-        let panelSize = ShutterOptionsView.panelSize(for: mode)
+        // プログラマブルは保存済みステップがあれば初期サイズを調整
+        var panelSize = ShutterOptionsView.panelSize(for: mode)
+        if mode == .programmable {
+            let savedSteps = ProgramStepStore.loadLastSteps()
+            if !savedSteps.isEmpty {
+                let stepsHeight = estimateStepsHeightStatic(savedSteps)
+                let baseHeight: CGFloat = 110
+                panelSize.height = min(baseHeight + stepsHeight, 500)
+            }
+        }
         cachedSize = panelSize
 
-        // プログラマブルはコンテンツが伸びるので、hostingは最大サイズで確保
-        let maxHostingSize = mode == .programmable
-            ? CGSize(width: 300, height: 500)
-            : panelSize
-
-        let wrappedView = VStack(spacing: 0) {
-            panelView
-            Spacer(minLength: 0)
-        }
-        .frame(width: maxHostingSize.width, height: maxHostingSize.height, alignment: .top)
-
-        let hosting = NSHostingView(rootView: wrappedView)
+        let hosting = NSHostingView(rootView: panelView)
         hosting.layer?.isOpaque = false
 
         let window = KeyableWindow(
@@ -1169,9 +1177,8 @@ class ShutterOptionsPanelController {
             backing: .buffered,
             defer: false
         )
-        hosting.frame = NSRect(x: 0, y: 0, width: maxHostingSize.width, height: maxHostingSize.height)
-        hosting.autoresizingMask = []
         window.contentView = hosting
+        hosting.autoresizingMask = [.width, .height]
         window.backgroundColor = .clear
         window.isOpaque = false
         window.hasShadow = false
@@ -1268,6 +1275,24 @@ class ShutterOptionsPanelController {
             width: content.width,
             height: content.height
         )
+    }
+
+    private static func estimateStepsHeightStatic(_ steps: [ProgramStep]) -> CGFloat {
+        var h: CGFloat = 0
+        for step in steps {
+            if step.type == .loop {
+                h += 32 + estimateStepsHeightStatic(step.children) + 28 + 12
+            } else {
+                h += 28
+            }
+            h += 4
+        }
+        if !steps.isEmpty { h += 20 }
+        return h
+    }
+
+    private func estimateStepsHeightStatic(_ steps: [ProgramStep]) -> CGFloat {
+        Self.estimateStepsHeightStatic(steps)
     }
 
     private func updatePanelSize(_ newSize: CGSize) {
