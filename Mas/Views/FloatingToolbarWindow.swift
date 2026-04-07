@@ -56,6 +56,11 @@ class FloatingToolbarState: ObservableObject {
     }
 }
 
+// ポップオーバー内のボタンクリックを正しく処理するためのNSPanel
+class FloatingToolbarPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+}
+
 // フローティングツールバーウィンドウを管理するクラス
 class FloatingToolbarWindowController {
     private var window: NSWindow?
@@ -214,10 +219,54 @@ class FloatingToolbarWindowController {
                 }
             }
 
-            // ツールバー → ToolboxState（lineWidth以外）
+            // 色が変わったら直接アノテーションを更新（.onChangeのColor比較が不安定なため）
+            let newColor = self.toolbarState.selectedColor
+            let oldNSColor = NSColor(state.selectedColor)
+            let newNSColor = NSColor(newColor)
+            // RGBA成分で比較（色空間の違いによる誤判定を回避）
+            let colorChanged: Bool = {
+                guard let oldCI = CIColor(color: oldNSColor),
+                      let newCI = CIColor(color: newNSColor) else { return true }
+                return abs(oldCI.red - newCI.red) > 0.01
+                    || abs(oldCI.green - newCI.green) > 0.01
+                    || abs(oldCI.blue - newCI.blue) > 0.01
+                    || abs(oldCI.alpha - newCI.alpha) > 0.01
+            }()
+            if colorChanged {
+                state.selectedColor = newColor
+                // 選択中のアノテーションの色を更新
+                if state.selectedTool == .move,
+                   let index = state.selectedAnnotationIndex,
+                   index < state.annotations.count {
+                    // CIColor経由で独立したNSColorを作成（SwiftUI状態への参照を断ち切る）
+                    if let ciColor = CIColor(color: newNSColor) {
+                        state.annotations[index].annotationColor = NSColor(
+                            calibratedRed: ciColor.red,
+                            green: ciColor.green,
+                            blue: ciColor.blue,
+                            alpha: ciColor.alpha
+                        )
+                    } else {
+                        state.annotations[index].annotationColor = newNSColor
+                    }
+                    state.objectWillChange.send()
+                }
+            }
+
+            // 縁取りが変わったら直接アノテーションを更新
+            if self.toolbarState.strokeEnabled != state.strokeEnabled {
+                state.strokeEnabled = self.toolbarState.strokeEnabled
+                // 選択中のアノテーションの縁取りを更新
+                if state.selectedTool == .move,
+                   let index = state.selectedAnnotationIndex,
+                   index < state.annotations.count {
+                    state.annotations[index].annotationStrokeEnabled = self.toolbarState.strokeEnabled
+                    state.objectWillChange.send()
+                }
+            }
+
+            // ツールバー → ToolboxState（上記以外）
             state.selectedTool = self.toolbarState.selectedTool
-            state.selectedColor = self.toolbarState.selectedColor
-            state.strokeEnabled = self.toolbarState.strokeEnabled
         }
         RunLoop.main.add(timer, forMode: .common)
         syncTimer = timer
@@ -262,9 +311,9 @@ class FloatingToolbarWindowController {
         let toolbarHeight = max(fittingSize.height, 50)
         cachedToolbarSize = CGSize(width: toolbarWidth, height: toolbarHeight)
 
-        let window = NSWindow(
+        let window = FloatingToolbarPanel(
             contentRect: NSRect(x: 0, y: 0, width: toolbarWidth, height: toolbarHeight),
-            styleMask: [.borderless],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -279,6 +328,7 @@ class FloatingToolbarWindowController {
         window.isMovableByWindowBackground = false
         window.ignoresMouseEvents = false
         window.sharingType = NSWindow.masSharingType
+        window.becomesKeyOnlyIfNeeded = true
 
         self.window = window
         self.hostingView = hosting
