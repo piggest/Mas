@@ -243,6 +243,7 @@ enum EditTool: String, CaseIterable {
     case highlight = "マーカー"
     case line = "直線"
     case arrow = "矢印"
+    case arrowText = "矢印文字"
     case rectangle = "四角"
     case ellipse = "丸"
     case text = "文字"
@@ -257,6 +258,7 @@ enum EditTool: String, CaseIterable {
         case .highlight: return "highlighter"
         case .line: return "line.diagonal"
         case .arrow: return "arrow.up.right"
+        case .arrowText: return "arrow.up.right.and.arrow.down.left.rectangle.fill"
         case .rectangle: return "rectangle"
         case .ellipse: return "circle"
         case .text: return "textformat"
@@ -307,6 +309,8 @@ struct EditorWindow: View {
     @State private var isLoadingAnnotationAttributes = false
     @State private var imageForDrag: NSImage?  // アノテーション付きドラッグ用画像
     @State private var editingTextIndex: Int?  // 編集中のテキストアノテーションのインデックス
+    @State private var arrowTextStartPoint: CGPoint?  // 矢印文字ツール：矢印の始点
+    @State private var arrowTextEndPoint: CGPoint?    // 矢印文字ツール：矢印の終点
     @State private var alwaysOnTop: Bool = true
     // テキスト選択モード（文字単位選択）
     @State private var recognizedTexts: [RecognizedTextBlock] = []
@@ -532,7 +536,7 @@ struct EditorWindow: View {
         }
         .onChange(of: toolboxState.selectedTool) { newTool in
             // テキスト入力中に別のツールに切り替えたら入力をキャンセル
-            if showTextInput && newTool != .text {
+            if showTextInput && newTool != .text && newTool != .arrowText {
                 cancelTextInput()
             }
             // テキスト選択モードの切替
@@ -739,6 +743,25 @@ struct EditorWindow: View {
             toolboxState: toolboxState,
             onTextTap: { position in
                 textPosition = position
+                showTextInput = true
+            },
+            onArrowTextDragFinished: { [self] startPoint, endPoint in
+                // 矢印アノテーションを直接追加（annotationAddedを経由するとmoveに切り替わるため）
+                let safeColor = Self.createIndependentNSColor(from: toolboxState.selectedColor)
+                let arrow = ArrowAnnotation(
+                    startPoint: startPoint,
+                    endPoint: endPoint,
+                    color: safeColor,
+                    lineWidth: toolboxState.lineWidth,
+                    strokeEnabled: toolboxState.strokeEnabled
+                )
+                toolboxState.annotations.append(arrow)
+                applyAnnotationsToImage()
+
+                arrowTextStartPoint = startPoint
+                arrowTextEndPoint = endPoint
+                textPosition = startPoint
+                textInput = ""
                 showTextInput = true
             },
             onAnnotationChanged: {
@@ -1018,7 +1041,21 @@ struct EditorWindow: View {
         if !textInput.isEmpty {
             let safeColor = Self.createIndependentNSColor(from: toolboxState.selectedColor)
 
-            if let editIndex = editingTextIndex,
+            // 矢印文字ツールの場合：テキストを矢印の始点に追加
+            if let arrowStart = arrowTextStartPoint, arrowTextEndPoint != nil {
+                let textAnnotation = TextAnnotation(
+                    position: arrowStart,
+                    text: textInput,
+                    font: .systemFont(ofSize: toolboxState.lineWidth * 5, weight: .medium),
+                    color: safeColor,
+                    strokeEnabled: toolboxState.strokeEnabled
+                )
+                toolboxState.annotations.append(textAnnotation)
+                let newIndex = toolboxState.annotations.count - 1
+                toolbarController?.setTool(.move)
+                toolboxState.selectedAnnotationIndex = newIndex
+                applyAnnotationsToImage()
+            } else if let editIndex = editingTextIndex,
                editIndex < toolboxState.annotations.count,
                let existingText = toolboxState.annotations[editIndex] as? TextAnnotation {
                 // 既存のテキストを編集
@@ -1053,6 +1090,8 @@ struct EditorWindow: View {
         textInput = ""
         showTextInput = false
         editingTextIndex = nil
+        arrowTextStartPoint = nil
+        arrowTextEndPoint = nil
     }
 
     /// SwiftUI ColorからSwiftUIへの参照を持たない独立したNSColorを作成
@@ -1078,6 +1117,8 @@ struct EditorWindow: View {
         textInput = ""
         showTextInput = false
         editingTextIndex = nil
+        arrowTextStartPoint = nil
+        arrowTextEndPoint = nil
     }
 
     @ViewBuilder
@@ -2097,6 +2138,7 @@ struct AnnotationCanvasView: NSViewRepresentable {
     let showImage: Bool
     let toolboxState: ToolboxState
     let onTextTap: (CGPoint) -> Void
+    let onArrowTextDragFinished: ((CGPoint, CGPoint) -> Void)?
     let onAnnotationChanged: () -> Void
     let onTextEdit: ((Int, TextAnnotation) -> Void)?
     let onDoubleClickEmpty: (() -> Void)?
@@ -2198,6 +2240,11 @@ struct AnnotationCanvasView: NSViewRepresentable {
             parent.onTextTap(position)
         }
 
+        func arrowTextDragFinished(startPoint: CGPoint, endPoint: CGPoint) {
+            parent.currentAnnotation = nil
+            parent.onArrowTextDragFinished?(startPoint, endPoint)
+        }
+
         func annotationMoved() {
             // canvasの配列を親に反映
             if let canvasAnnotations = canvas?.annotations {
@@ -2262,6 +2309,7 @@ protocol AnnotationCanvasDelegate: AnyObject {
     func annotationAdded(_ annotation: any Annotation)
     func currentAnnotationUpdated(_ annotation: (any Annotation)?)
     func textTapped(at position: CGPoint)
+    func arrowTextDragFinished(startPoint: CGPoint, endPoint: CGPoint)
     func annotationMoved()
     func selectionChanged(_ index: Int?)
     func deleteSelectedAnnotation()
@@ -2741,6 +2789,8 @@ class AnnotationCanvas: NSView {
             currentAnnotation = LineAnnotation(startPoint: point, endPoint: point, color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
         case .arrow:
             currentAnnotation = ArrowAnnotation(startPoint: point, endPoint: point, color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
+        case .arrowText:
+            currentAnnotation = ArrowAnnotation(startPoint: point, endPoint: point, color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
         case .rectangle:
             currentAnnotation = RectAnnotation(rect: CGRect(origin: point, size: .zero), color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
         case .ellipse:
@@ -2811,7 +2861,7 @@ class AnnotationCanvas: NSView {
             if let line = currentAnnotation as? LineAnnotation {
                 line.endPoint = point
             }
-        case .arrow:
+        case .arrow, .arrowText:
             if let arrow = currentAnnotation as? ArrowAnnotation {
                 arrow.endPoint = point
             }
@@ -2872,6 +2922,14 @@ class AnnotationCanvas: NSView {
         }
 
         if let annotation = currentAnnotation {
+            // 矢印文字ツールの場合：テキスト入力を開始（矢印はコールバック側で追加）
+            if selectedTool == .arrowText, let arrow = annotation as? ArrowAnnotation {
+                delegate?.arrowTextDragFinished(startPoint: arrow.startPoint, endPoint: arrow.endPoint)
+                currentAnnotation = nil
+                dragStart = nil
+                needsDisplay = true
+                return
+            }
             // モザイクの場合はドラッグ終了フラグを設定
             if let mosaic = annotation as? MosaicAnnotation {
                 mosaic.isDrawing = false
