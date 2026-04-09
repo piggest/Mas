@@ -475,7 +475,7 @@ struct ColorPickerButtonIndependent: View {
     @ObservedObject var state: FloatingToolbarState
     @State private var showPopover = false
 
-    private let colors: [Color] = [.red, .blue, .green, .yellow, .orange, .purple, .pink, .black, .white, .gray]
+    private let colors: [Color] = [Color(red: 1.0, green: 0.0, blue: 0.0), .blue, .green, .yellow, .orange, .purple, Color(red: 1.0, green: 0.6, blue: 0.7), .black, .white, .gray]
 
     var body: some View {
         Button(action: { showPopover = true }) {
@@ -828,7 +828,7 @@ struct ColorPickerButtonCircle: View {
     let buttonSize: CGFloat
     @State private var showPopover = false
 
-    private let colors: [Color] = [.red, .orange, .yellow, .green, .blue, .purple, .pink, .black, .white, .gray]
+    private let colors: [Color] = [Color(red: 1.0, green: 0.0, blue: 0.0), .orange, .yellow, .green, .blue, .purple, Color(red: 1.0, green: 0.6, blue: 0.7), .black, .white, .gray]
 
     var body: some View {
         Button(action: { showPopover = true }) {
