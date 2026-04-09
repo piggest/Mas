@@ -81,7 +81,7 @@ struct ToolboxContentView: View {
     @ObservedObject var state: ToolboxState
     let onUndo: () -> Void
 
-    private let colors: [Color] = [.red, .blue, .green, .yellow, .black, .white]
+    private let colors: [Color] = [Color(red: 1.0, green: 0.0, blue: 0.0), .blue, .green, .yellow, .black, .white]
 
     var body: some View {
         VStack(spacing: 12) {
