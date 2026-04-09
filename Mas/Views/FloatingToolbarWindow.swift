@@ -385,7 +385,7 @@ enum ToolGroup {
     var tools: [EditTool] {
         switch self {
         case .drawing: return [.pen, .highlight]
-        case .shapes: return [.line, .arrow, .rectangle, .ellipse]
+        case .shapes: return [.line, .arrow, .arrowText, .rectangle, .ellipse]
         }
     }
 
