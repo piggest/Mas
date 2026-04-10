@@ -312,6 +312,7 @@ struct EditorWindow: View {
     @State private var arrowTextStartPoint: CGPoint?  // 矢印文字ツール：矢印の始点
     @State private var arrowTextEndPoint: CGPoint?    // 矢印文字ツール：矢印の終点
     @State private var alwaysOnTop: Bool = true
+    @State private var contentScale: CGFloat = 1.0
     // テキスト選択モード（文字単位選択）
     @State private var recognizedTexts: [RecognizedTextBlock] = []
     @State private var isRecognizingText = false
@@ -377,6 +378,7 @@ struct EditorWindow: View {
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
                 imageContent
+                    .scaleEffect(contentScale, anchor: .topLeading)
                 closeButton
                 pinButton
                 editModeToggle(geometry: geometry)
@@ -409,6 +411,14 @@ struct EditorWindow: View {
             Button("閉じる") { closeWindow() }
             Divider()
             Button("クリップボードにコピー") { copyToClipboard() }
+            Divider()
+            Menu("コンテンツサイズ") {
+                Button("50%") { setContentScale(0.5) }
+                Button("75%") { setContentScale(0.75) }
+                Button("100%") { setContentScale(1.0) }
+                Button("150%") { setContentScale(1.5) }
+                Button("200%") { setContentScale(2.0) }
+            }
             if screenshot.captureRegion != nil {
                 Divider()
                 Menu("シャッター") {
@@ -1983,6 +1993,27 @@ struct EditorWindow: View {
         NotificationCenter.default.post(name: .addFileToHistory, object: url)
         // Finderで表示
         NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    private func setContentScale(_ scale: CGFloat) {
+        contentScale = scale
+        guard let window = parentWindow else { return }
+        let imageWidth = screenshot.captureRegion?.width ?? screenshot.originalImage.size.width
+        let imageHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
+        let scaledWidth = imageWidth * scale
+        let scaledHeight = imageHeight * scale
+        let currentFrame = window.frame
+        // コンテンツが枠より小さくなる場合のみ縮小
+        if scaledWidth < currentFrame.width || scaledHeight < currentFrame.height {
+            let newWidth = min(currentFrame.width, scaledWidth)
+            let newHeight = min(currentFrame.height, scaledHeight)
+            let newX = currentFrame.origin.x
+            let newY = currentFrame.origin.y + (currentFrame.height - newHeight)
+            window.setFrame(NSRect(x: newX, y: newY, width: newWidth, height: newHeight), display: true, animate: true)
+            if let resizableWindow = window as? ResizableWindow {
+                resizableWindow.resizeState.reset()
+            }
+        }
     }
 
     private func closeWindow() {
