@@ -668,6 +668,28 @@ class CaptureViewModel: ObservableObject {
         }
     }
 
+    func openMediaFile(url: URL) {
+        let ext = url.pathExtension.lowercased()
+        let isVideoFile = ext == "mp4" || ext == "mov"
+        let isGifFile = ext == "gif"
+        let nsImage: NSImage
+
+        if isVideoFile {
+            guard let thumbnail = generateVideoThumbnail(url: url) else { return }
+            nsImage = thumbnail
+        } else {
+            guard let image = NSImage(contentsOf: url) else { return }
+            nsImage = image
+        }
+
+        let mode: CaptureMode = isVideoFile ? .videoRecording : (isGifFile ? .gifRecording : .fullScreen)
+        let screenshot = Screenshot(image: nsImage, mode: mode)
+        screenshot.savedURL = url
+        currentScreenshot = screenshot
+        addToHistory(image: nsImage, url: url)
+        showEditorWindow(for: screenshot)
+    }
+
     func openImageFromCLI(image: NSImage, filePath: String) {
         let url = URL(fileURLWithPath: filePath)
         let screenshot = Screenshot(image: image, mode: .fullScreen)
