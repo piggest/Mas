@@ -412,6 +412,17 @@ struct EditorWindow: View {
             Divider()
             Button("クリップボードにコピー") { copyToClipboard() }
             Divider()
+            if !screenshot.isVideo {
+                Button(editMode ? "編集を終了" : "編集") {
+                    if !editMode {
+                        editMode = true
+                    } else {
+                        // editModeToggleと同じ終了処理をトリガー
+                        editMode = false
+                    }
+                }
+                Divider()
+            }
             Menu("コンテンツサイズ") {
                 Button("50%") { setContentScale(0.5) }
                 Button("75%") { setContentScale(0.75) }
@@ -1992,6 +2003,13 @@ struct EditorWindow: View {
         NotificationCenter.default.post(name: .addFileToHistory, object: url)
         // Finderで表示
         NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    private func enterEditWithTool(_ tool: EditTool) {
+        toolboxState.selectedTool = tool
+        if !editMode {
+            editMode = true
+        }
     }
 
     private func setContentScale(_ scale: CGFloat) {
