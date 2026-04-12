@@ -313,6 +313,9 @@ struct EditorWindow: View {
     @State private var arrowTextEndPoint: CGPoint?    // 矢印文字ツール：矢印の終点
     @State private var alwaysOnTop: Bool = true
     @State private var contentScale: CGFloat = 1.0
+    @State private var contentPanOffset: CGSize = .zero
+    @State private var panStartOffset: CGSize = .zero
+    @State private var isPanning: Bool = false
     // テキスト選択モード（文字単位選択）
     @State private var recognizedTexts: [RecognizedTextBlock] = []
     @State private var isRecognizingText = false
@@ -321,6 +324,7 @@ struct EditorWindow: View {
     @State private var charSelEnd: Int?
     private let textRecognitionService = TextRecognitionService()
     @State private var keyMonitor: Any?
+    @State private var middleMouseMonitor: Any?
 
     // GIF再生
     @State private var gifPlayerState: GifPlayerState?
@@ -338,7 +342,7 @@ struct EditorWindow: View {
     let onAnnotationsSaved: (([any Annotation]) -> Void)?
     weak var parentWindow: NSWindow?
 
-    init(screenshot: Screenshot, resizeState: WindowResizeState, toolboxState: ToolboxState, parentWindow: NSWindow? = nil, onRecapture: ((CGRect, NSWindow?, Bool) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil, onAnnotationsSaved: (([any Annotation]) -> Void)? = nil, showImageInitially: Bool = true) {
+    init(screenshot: Screenshot, resizeState: WindowResizeState, toolboxState: ToolboxState, parentWindow: NSWindow? = nil, onRecapture: ((CGRect, NSWindow?, Bool) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil, onAnnotationsSaved: (([any Annotation]) -> Void)? = nil, showImageInitially: Bool = true, initialContentScale: CGFloat = 1.0) {
         _viewModel = StateObject(wrappedValue: EditorViewModel(screenshot: screenshot))
         self.screenshot = screenshot
         self.resizeState = resizeState
@@ -348,6 +352,7 @@ struct EditorWindow: View {
         self.onPassThroughChanged = onPassThroughChanged
         self.onAnnotationsSaved = onAnnotationsSaved
         _showImage = State(initialValue: showImageInitially)
+        _contentScale = State(initialValue: initialContentScale)
         // 撮影モードに応じてキャプチャアクションの初期値を設定
         switch screenshot.mode {
         case .gifRecording:
@@ -378,6 +383,7 @@ struct EditorWindow: View {
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
                 imageContent
+                    .offset(contentPanOffset)
                     .scaleEffect(contentScale, anchor: .topLeading)
                 closeButton
                 pinButton
@@ -412,6 +418,17 @@ struct EditorWindow: View {
             Divider()
             Button("クリップボードにコピー") { copyToClipboard() }
             Divider()
+            if !screenshot.isVideo {
+                Button(editMode ? "編集を終了" : "編集") {
+                    if !editMode {
+                        editMode = true
+                    } else {
+                        // editModeToggleと同じ終了処理をトリガー
+                        editMode = false
+                    }
+                }
+                Divider()
+            }
             Menu("コンテンツサイズ") {
                 Button("50%") { setContentScale(0.5) }
                 Button("75%") { setContentScale(0.75) }
@@ -440,6 +457,31 @@ struct EditorWindow: View {
         .onAppear {
             toolbarController = FloatingToolbarWindowController()
             alwaysOnTop = parentWindow?.level == .floating
+
+            // 中ボタンドラッグでコンテンツパン
+            middleMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.otherMouseDown, .otherMouseDragged, .otherMouseUp]) { [self] event in
+                guard event.buttonNumber == 2,
+                      event.window === parentWindow else { return event }
+                switch event.type {
+                case .otherMouseDown:
+                    isPanning = true
+                    panStartOffset = contentPanOffset
+                case .otherMouseDragged:
+                    if isPanning {
+                        contentPanOffset = CGSize(
+                            width: panStartOffset.width + event.deltaX,
+                            height: panStartOffset.height + event.deltaY
+                        )
+                        // deltaは累積ではなく差分なので毎回更新
+                        panStartOffset = contentPanOffset
+                    }
+                case .otherMouseUp:
+                    isPanning = false
+                default:
+                    break
+                }
+                return nil // イベント消費
+            }
 
             // GIFモード: プレイヤー初期化 + ツールバー表示 + 自動再生
             if screenshot.isGif, let url = screenshot.savedURL {
@@ -487,6 +529,10 @@ struct EditorWindow: View {
             if let monitor = keyMonitor {
                 NSEvent.removeMonitor(monitor)
                 keyMonitor = nil
+            }
+            if let monitor = middleMouseMonitor {
+                NSEvent.removeMonitor(monitor)
+                middleMouseMonitor = nil
             }
         }
         .onChange(of: editMode) { newValue in
@@ -1994,20 +2040,33 @@ struct EditorWindow: View {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
+    private func enterEditWithTool(_ tool: EditTool) {
+        toolboxState.selectedTool = tool
+        if !editMode {
+            editMode = true
+        }
+    }
+
     private func setContentScale(_ scale: CGFloat) {
         contentScale = scale
+        contentPanOffset = .zero
         guard let window = parentWindow else { return }
         let imageWidth = screenshot.captureRegion?.width ?? screenshot.originalImage.size.width
         let imageHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
         let scaledWidth = imageWidth * scale
         let scaledHeight = imageHeight * scale
         let currentFrame = window.frame
-        // コンテンツが枠より小さくなる場合のみ縮小
-        if scaledWidth < currentFrame.width || scaledHeight < currentFrame.height {
-            let newWidth = min(currentFrame.width, scaledWidth)
-            let newHeight = min(currentFrame.height, scaledHeight)
-            let newX = currentFrame.origin.x
-            let newY = currentFrame.origin.y + (currentFrame.height - newHeight)
+
+        // 画面の可視領域を取得
+        let screenFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+
+        // 画面に収まる範囲でウィンドウサイズを調整
+        let newWidth = min(scaledWidth, screenFrame.width)
+        let newHeight = min(scaledHeight, screenFrame.height)
+
+        if newWidth != currentFrame.width || newHeight != currentFrame.height {
+            let newX = max(screenFrame.minX, min(currentFrame.origin.x, screenFrame.maxX - newWidth))
+            let newY = max(screenFrame.minY, min(currentFrame.origin.y + (currentFrame.height - newHeight), screenFrame.maxY - newHeight))
             window.setFrame(NSRect(x: newX, y: newY, width: newWidth, height: newHeight), display: true, animate: true)
             if let resizableWindow = window as? ResizableWindow {
                 resizableWindow.resizeState.reset()
