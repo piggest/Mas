@@ -338,7 +338,7 @@ struct EditorWindow: View {
     let onAnnotationsSaved: (([any Annotation]) -> Void)?
     weak var parentWindow: NSWindow?
 
-    init(screenshot: Screenshot, resizeState: WindowResizeState, toolboxState: ToolboxState, parentWindow: NSWindow? = nil, onRecapture: ((CGRect, NSWindow?, Bool) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil, onAnnotationsSaved: (([any Annotation]) -> Void)? = nil, showImageInitially: Bool = true) {
+    init(screenshot: Screenshot, resizeState: WindowResizeState, toolboxState: ToolboxState, parentWindow: NSWindow? = nil, onRecapture: ((CGRect, NSWindow?, Bool) -> Void)? = nil, onPassThroughChanged: ((Bool) -> Void)? = nil, onAnnotationsSaved: (([any Annotation]) -> Void)? = nil, showImageInitially: Bool = true, initialContentScale: CGFloat = 1.0) {
         _viewModel = StateObject(wrappedValue: EditorViewModel(screenshot: screenshot))
         self.screenshot = screenshot
         self.resizeState = resizeState
@@ -348,6 +348,7 @@ struct EditorWindow: View {
         self.onPassThroughChanged = onPassThroughChanged
         self.onAnnotationsSaved = onAnnotationsSaved
         _showImage = State(initialValue: showImageInitially)
+        _contentScale = State(initialValue: initialContentScale)
         // 撮影モードに応じてキャプチャアクションの初期値を設定
         switch screenshot.mode {
         case .gifRecording:
@@ -2020,12 +2021,17 @@ struct EditorWindow: View {
         let scaledWidth = imageWidth * scale
         let scaledHeight = imageHeight * scale
         let currentFrame = window.frame
-        // コンテンツが枠より小さくなる場合のみ縮小
-        if scaledWidth < currentFrame.width || scaledHeight < currentFrame.height {
-            let newWidth = min(currentFrame.width, scaledWidth)
-            let newHeight = min(currentFrame.height, scaledHeight)
-            let newX = currentFrame.origin.x
-            let newY = currentFrame.origin.y + (currentFrame.height - newHeight)
+
+        // 画面の可視領域を取得
+        let screenFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+
+        // 画面に収まる範囲でウィンドウサイズを調整
+        let newWidth = min(scaledWidth, screenFrame.width)
+        let newHeight = min(scaledHeight, screenFrame.height)
+
+        if newWidth != currentFrame.width || newHeight != currentFrame.height {
+            let newX = max(screenFrame.minX, min(currentFrame.origin.x, screenFrame.maxX - newWidth))
+            let newY = max(screenFrame.minY, min(currentFrame.origin.y + (currentFrame.height - newHeight), screenFrame.maxY - newHeight))
             window.setFrame(NSRect(x: newX, y: newY, width: newWidth, height: newHeight), display: true, animate: true)
             if let resizableWindow = window as? ResizableWindow {
                 resizableWindow.resizeState.reset()
