@@ -313,6 +313,9 @@ struct EditorWindow: View {
     @State private var arrowTextEndPoint: CGPoint?    // 矢印文字ツール：矢印の終点
     @State private var alwaysOnTop: Bool = true
     @State private var contentScale: CGFloat = 1.0
+    @State private var contentPanOffset: CGSize = .zero
+    @State private var panStartOffset: CGSize = .zero
+    @State private var isPanning: Bool = false
     // テキスト選択モード（文字単位選択）
     @State private var recognizedTexts: [RecognizedTextBlock] = []
     @State private var isRecognizingText = false
@@ -321,6 +324,7 @@ struct EditorWindow: View {
     @State private var charSelEnd: Int?
     private let textRecognitionService = TextRecognitionService()
     @State private var keyMonitor: Any?
+    @State private var middleMouseMonitor: Any?
 
     // GIF再生
     @State private var gifPlayerState: GifPlayerState?
@@ -379,6 +383,7 @@ struct EditorWindow: View {
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
                 imageContent
+                    .offset(contentPanOffset)
                     .scaleEffect(contentScale, anchor: .topLeading)
                 closeButton
                 pinButton
@@ -453,6 +458,31 @@ struct EditorWindow: View {
             toolbarController = FloatingToolbarWindowController()
             alwaysOnTop = parentWindow?.level == .floating
 
+            // 中ボタンドラッグでコンテンツパン
+            middleMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.otherMouseDown, .otherMouseDragged, .otherMouseUp]) { [self] event in
+                guard event.buttonNumber == 2,
+                      event.window === parentWindow else { return event }
+                switch event.type {
+                case .otherMouseDown:
+                    isPanning = true
+                    panStartOffset = contentPanOffset
+                case .otherMouseDragged:
+                    if isPanning {
+                        contentPanOffset = CGSize(
+                            width: panStartOffset.width + event.deltaX,
+                            height: panStartOffset.height + event.deltaY
+                        )
+                        // deltaは累積ではなく差分なので毎回更新
+                        panStartOffset = contentPanOffset
+                    }
+                case .otherMouseUp:
+                    isPanning = false
+                default:
+                    break
+                }
+                return nil // イベント消費
+            }
+
             // GIFモード: プレイヤー初期化 + ツールバー表示 + 自動再生
             if screenshot.isGif, let url = screenshot.savedURL {
                 if let player = GifPlayerState(url: url) {
@@ -499,6 +529,10 @@ struct EditorWindow: View {
             if let monitor = keyMonitor {
                 NSEvent.removeMonitor(monitor)
                 keyMonitor = nil
+            }
+            if let monitor = middleMouseMonitor {
+                NSEvent.removeMonitor(monitor)
+                middleMouseMonitor = nil
             }
         }
         .onChange(of: editMode) { newValue in
@@ -2015,6 +2049,7 @@ struct EditorWindow: View {
 
     private func setContentScale(_ scale: CGFloat) {
         contentScale = scale
+        contentPanOffset = .zero
         guard let window = parentWindow else { return }
         let imageWidth = screenshot.captureRegion?.width ?? screenshot.originalImage.size.width
         let imageHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
