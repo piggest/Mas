@@ -760,6 +760,15 @@ class CaptureViewModel: ObservableObject {
             toolboxState.annotations = annotations
         }
 
+        // 画面サイズに基づくコンテンツスケール計算
+        let targetScreen = region.flatMap { NSScreen.screenContaining(cgRect: $0) } ?? NSScreen.main
+        let screenFrame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
+        let contentWidth = region?.width ?? screenshot.originalImage.size.width
+        let contentHeight = region?.height ?? screenshot.originalImage.size.height
+        let scaleX = screenFrame.width / contentWidth
+        let scaleY = screenFrame.height / contentHeight
+        let initialContentScale = min(scaleX, scaleY, 1.0)
+
         // PassThroughContainerViewを先に作成
         let containerView = PassThroughContainerView()
 
@@ -776,7 +785,7 @@ class CaptureViewModel: ObservableObject {
             }
         }, onAnnotationsSaved: { [weak self] annotations in
             self?.saveAnnotationsToHistory(for: screenshot, annotations: annotations)
-        }, showImageInitially: showImageInitially)
+        }, showImageInitially: showImageInitially, initialContentScale: initialContentScale)
         let hostingController = NSHostingController(rootView: editorView)
 
         // PassThroughContainerViewでラップ
@@ -811,14 +820,10 @@ class CaptureViewModel: ObservableObject {
         }
         window.ignoresMouseEvents = false
 
-        // regionが属するスクリーンの可視領域を使用
-        let targetScreen = region.flatMap { NSScreen.screenContaining(cgRect: $0) } ?? NSScreen.main
-        let screenFrame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
-
-        // 範囲選択時は選択範囲と同じサイズ・位置
+        // 範囲選択時は選択範囲と同じサイズ・位置（画面に収まらない場合は縮小）
         if let region = region {
-            let windowWidth = region.width
-            let windowHeight = region.height
+            let windowWidth = region.width * initialContentScale
+            let windowHeight = region.height * initialContentScale
 
             window.setContentSize(NSSize(width: windowWidth, height: windowHeight))
 
@@ -833,8 +838,10 @@ class CaptureViewModel: ObservableObject {
 
             window.setFrameOrigin(NSPoint(x: adjustedX, y: adjustedY))
         } else {
-            let imageSize = screenshot.originalImage.size
-            window.setContentSize(NSSize(width: imageSize.width, height: imageSize.height))
+            let imageWidth = screenshot.originalImage.size.width * initialContentScale
+            let imageHeight = screenshot.originalImage.size.height * initialContentScale
+
+            window.setContentSize(NSSize(width: imageWidth, height: imageHeight))
             window.center()
         }
 
