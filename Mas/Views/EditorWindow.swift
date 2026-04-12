@@ -1269,10 +1269,9 @@ struct EditorWindow: View {
             },
             onDragSuccess: { [self] in
                 // ドラッグ成功でウインドウが閉じる前にアノテーションを適用
-                if editMode && !toolboxState.annotations.isEmpty {
+                if !toolboxState.annotations.isEmpty {
                     applyAnnotations()
                 }
-                toolboxState.annotations.removeAll()
                 toolbarController?.close()
                 shutterPanelController?.close()
                 shutterPanelController = nil
