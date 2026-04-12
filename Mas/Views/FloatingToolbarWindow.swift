@@ -210,8 +210,8 @@ class FloatingToolbarWindowController {
             // lineWidthが変わったら直接アノテーションを更新（ドラッグ中の即時反映）
             if self.toolbarState.lineWidth != state.lineWidth {
                 state.lineWidth = self.toolbarState.lineWidth
-                // 選択中のアノテーションの線幅を更新
-                if state.selectedTool == .move,
+                // 選択中のアノテーションの線幅を更新（moveツールまたはmosaicツール）
+                if (state.selectedTool == .move || state.selectedTool == .mosaic),
                    let index = state.selectedAnnotationIndex,
                    index < state.annotations.count {
                     state.annotations[index].annotationLineWidth = self.toolbarState.lineWidth
