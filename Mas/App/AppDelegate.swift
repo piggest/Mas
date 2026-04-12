@@ -19,6 +19,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupAutoUpdate()
     }
 
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            openFileURL(url)
+        }
+    }
+
+    private func openFileURL(_ url: URL) {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        let ext = url.pathExtension.lowercased()
+        let isVideo = ext == "mp4" || ext == "mov"
+        let isGif = ext == "gif"
+
+        if isVideo || isGif {
+            captureViewModel.openMediaFile(url: url)
+        } else {
+            guard let image = NSImage(contentsOf: url) else { return }
+            captureViewModel.openImageFromCLI(image: image, filePath: url.path)
+        }
+    }
+
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
@@ -27,6 +47,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.action = #selector(statusItemClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
             button.target = self
+
+            // D&D受付用ビューをかぶせる
+            let dropView = StatusItemDropView(frame: button.bounds)
+            dropView.autoresizingMask = [.width, .height]
+            dropView.onFilesDropped = { [weak self] urls in
+                for url in urls {
+                    self?.openFileURL(url)
+                }
+            }
+            button.addSubview(dropView)
         }
 
         // アイコン変更通知を監視
@@ -240,6 +270,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if UserDefaults.standard.bool(forKey: "autoUpdateEnabled") {
             UpdateService.shared.startPeriodicCheck()
         }
+    }
+}
+
+// メニューバーアイコンへのD&D受付用ビュー
+class StatusItemDropView: NSView {
+    var onFilesDropped: (([URL]) -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        guard sender.draggingPasteboard.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) else {
+            return []
+        }
+        return .copy
+    }
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        guard let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty else {
+            return false
+        }
+        onFilesDropped?(urls)
+        return true
     }
 }
 
