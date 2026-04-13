@@ -21,6 +21,12 @@ class VideoPlayerState: ObservableObject {
     @Published var isExporting: Bool = false
     @Published var isExportingGif: Bool = false
     @Published var gifExportProgress: Double = 0
+    @Published var volume: Float = 1.0 {
+        didSet { player.volume = volume }
+    }
+    @Published var isMuted: Bool = false {
+        didSet { player.isMuted = isMuted }
+    }
 
     private var wasPlayingBeforeScrub = false
 

@@ -578,6 +578,7 @@ class CaptureViewModel: ObservableObject {
 
     private func beginVideoRecording(in region: CGRect) async {
         let service = VideoRecordingService()
+        service.audioEnabled = UserDefaults.standard.bool(forKey: "videoRecordAudio")
         self.videoRecordingService = service
         self.videoRecordingRegion = region
 
