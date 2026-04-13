@@ -69,6 +69,7 @@ struct GeneralSettingsView: View {
     @AppStorage("jpegQuality") private var jpegQuality = 0.9
     @AppStorage("showCursor") private var showCursor = false
     @AppStorage("playSound") private var playSound = true
+    @AppStorage("videoRecordAudio") private var videoRecordAudio = true
     @AppStorage("autoSaveEnabled") private var autoSaveEnabled = true
     @AppStorage("autoSaveFolder") private var autoSaveFolder = ""
     @AppStorage("autoCopyToClipboard") private var autoCopyToClipboard = true
@@ -128,6 +129,9 @@ struct GeneralSettingsView: View {
                     }
                     settingRow("キャプチャ時にサウンド再生") {
                         Toggle("", isOn: $playSound).labelsHidden()
+                    }
+                    settingRow("動画録画時にシステム音声を録音") {
+                        Toggle("", isOn: $videoRecordAudio).labelsHidden()
                     }
                     settingRow("ログイン時に起動") {
                         Toggle("", isOn: $launchAtLogin)
