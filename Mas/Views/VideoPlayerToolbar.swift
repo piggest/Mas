@@ -124,6 +124,22 @@ struct VideoPlayerToolbarView: View {
                 .frame(height: 20)
                 .background(Color.white.opacity(0.3))
 
+            // 音量コントロール
+            Button(action: { playerState.isMuted.toggle() }) {
+                Image(systemName: playerState.isMuted ? "speaker.slash.fill" : volumeIcon)
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.white)
+
+            Slider(value: $playerState.volume, in: 0...1)
+                .frame(width: 50)
+                .tint(.white)
+
+            Divider()
+                .frame(height: 20)
+                .background(Color.white.opacity(0.3))
+
             // トリムボタン
             Button(action: { playerState.enterTrimMode() }) {
                 Image(systemName: "scissors")
@@ -332,6 +348,13 @@ struct VideoPlayerToolbarView: View {
                 onGifExportComplete?(outputURL)
             }
         }
+    }
+
+    private var volumeIcon: String {
+        if playerState.volume == 0 { return "speaker.slash.fill" }
+        if playerState.volume < 0.33 { return "speaker.wave.1.fill" }
+        if playerState.volume < 0.66 { return "speaker.wave.2.fill" }
+        return "speaker.wave.3.fill"
     }
 
     private var speedLabel: String {

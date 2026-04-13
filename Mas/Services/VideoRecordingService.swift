@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import CoreGraphics
+import ScreenCaptureKit
 
 @MainActor
 class VideoRecordingService {
@@ -15,6 +16,12 @@ class VideoRecordingService {
     private let captureService = ScreenCaptureService()
     private let fps: Double = 20
     private var outputURL: URL?
+
+    // システムオーディオ録音
+    private var audioInput: AVAssetWriterInput?
+    private var scStream: SCStream?
+    private var audioDelegate: AudioStreamDelegate?
+    var audioEnabled: Bool = false
 
     var elapsedTime: TimeInterval {
         guard let startTime = startTime else { return 0 }
@@ -65,6 +72,21 @@ class VideoRecordingService {
             )
 
             writer.add(input)
+
+            // オーディオ入力の設定
+            if audioEnabled {
+                let audioSettings: [String: Any] = [
+                    AVFormatIDKey: kAudioFormatMPEG4AAC,
+                    AVSampleRateKey: 48000,
+                    AVNumberOfChannelsKey: 2,
+                    AVEncoderBitRateKey: 128000,
+                ]
+                let audioWriterInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
+                audioWriterInput.expectsMediaDataInRealTime = true
+                writer.add(audioWriterInput)
+                self.audioInput = audioWriterInput
+            }
+
             writer.startWriting()
             writer.startSession(atSourceTime: .zero)
 
@@ -72,7 +94,7 @@ class VideoRecordingService {
             self.videoInput = input
             self.pixelBufferAdaptor = adaptor
         } catch {
-            print("Failed to create AVAssetWriter: \(error)")
+            print("AVAssetWriterの作成に失敗: \(error)")
             return
         }
 
@@ -88,6 +110,47 @@ class VideoRecordingService {
         }
         self.timer = timer
         timer.resume()
+
+        // システムオーディオキャプチャ開始
+        if audioEnabled {
+            Task {
+                await startSystemAudioCapture()
+            }
+        }
+    }
+
+    private func startSystemAudioCapture() async {
+        guard let audioInput = self.audioInput else { return }
+
+        do {
+            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            guard let display = content.displays.first else {
+                print("ディスプレイが見つからない")
+                return
+            }
+
+            let config = SCStreamConfiguration()
+            config.capturesAudio = true
+            config.excludesCurrentProcessAudio = true
+            // 映像は不要（映像は既存のCGWindowList方式で取得）
+            config.width = 2
+            config.height = 2
+            config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
+            config.sampleRate = 48000
+            config.channelCount = 2
+
+            let filter = SCContentFilter(display: display, excludingWindows: [])
+            let stream = SCStream(filter: filter, configuration: config, delegate: nil)
+
+            let delegate = AudioStreamDelegate(audioInput: audioInput, startTime: startTime ?? Date())
+            self.audioDelegate = delegate
+
+            try stream.addStreamOutput(delegate, type: .audio, sampleHandlerQueue: .global(qos: .userInteractive))
+            try await stream.startCapture()
+            self.scStream = stream
+        } catch {
+            print("システムオーディオキャプチャの開始に失敗: \(error)")
+        }
     }
 
     func stopRecording() async -> URL? {
@@ -97,11 +160,19 @@ class VideoRecordingService {
         timer = nil
         isRecording = false
 
+        // システムオーディオキャプチャ停止
+        if let stream = scStream {
+            try? await stream.stopCapture()
+            scStream = nil
+        }
+        audioDelegate = nil
+
         guard let writer = assetWriter, let input = videoInput else {
             return nil
         }
 
         input.markAsFinished()
+        audioInput?.markAsFinished()
 
         let url = outputURL
 
@@ -113,12 +184,13 @@ class VideoRecordingService {
 
         assetWriter = nil
         videoInput = nil
+        audioInput = nil
         pixelBufferAdaptor = nil
 
         if writer.status == .completed {
             return url
         } else {
-            print("Video writing failed: \(writer.error?.localizedDescription ?? "unknown")")
+            print("動画の書き出しに失敗: \(writer.error?.localizedDescription ?? "不明")")
             if let url = url {
                 try? FileManager.default.removeItem(at: url)
             }
@@ -131,9 +203,16 @@ class VideoRecordingService {
         timer = nil
         isRecording = false
 
+        if let stream = scStream {
+            Task { try? await stream.stopCapture() }
+            scStream = nil
+        }
+        audioDelegate = nil
+
         assetWriter?.cancelWriting()
         assetWriter = nil
         videoInput = nil
+        audioInput = nil
         pixelBufferAdaptor = nil
 
         if let url = outputURL {
@@ -173,7 +252,7 @@ class VideoRecordingService {
             adaptor.append(pixelBuffer, withPresentationTime: presentationTime)
             frameCount += 1
         } catch {
-            print("Video frame capture error: \(error)")
+            print("動画フレームキャプチャエラー: \(error)")
         }
     }
 
@@ -228,10 +307,50 @@ class VideoRecordingService {
             }
         }
 
-        // デフォルトはピクチャフォルダ内のMasフォルダ（スクリーンショットと同じ）
+        // デフォルトはピクチャフォルダ内のMasフォルダ
         let picturesURL = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first!
         let masFolder = picturesURL.appendingPathComponent("Mas")
         try? FileManager.default.createDirectory(at: masFolder, withIntermediateDirectories: true)
         return masFolder.appendingPathComponent(fileName)
+    }
+}
+
+// ScreenCaptureKitのオーディオサンプルを受け取るデリゲート
+class AudioStreamDelegate: NSObject, SCStreamOutput {
+    private let audioInput: AVAssetWriterInput
+    private let startTime: Date
+
+    init(audioInput: AVAssetWriterInput, startTime: Date) {
+        self.audioInput = audioInput
+        self.startTime = startTime
+    }
+
+    func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
+        guard type == .audio,
+              audioInput.isReadyForMoreMediaData,
+              CMSampleBufferDataIsReady(sampleBuffer) else { return }
+
+        // タイムスタンプを録画開始時刻基準に補正
+        let elapsed = Date().timeIntervalSince(startTime)
+        let newTime = CMTime(seconds: elapsed, preferredTimescale: 48000)
+
+        var timing = CMSampleTimingInfo(
+            duration: CMSampleBufferGetDuration(sampleBuffer),
+            presentationTimeStamp: newTime,
+            decodeTimeStamp: .invalid
+        )
+
+        var adjustedBuffer: CMSampleBuffer?
+        CMSampleBufferCreateCopyWithNewTiming(
+            allocator: kCFAllocatorDefault,
+            sampleBuffer: sampleBuffer,
+            sampleTimingEntryCount: 1,
+            sampleTimingArray: &timing,
+            sampleBufferOut: &adjustedBuffer
+        )
+
+        if let buffer = adjustedBuffer {
+            audioInput.append(buffer)
+        }
     }
 }
