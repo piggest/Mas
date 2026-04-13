@@ -15,5 +15,12 @@
   3. コピー: `cp -R ~/Library/Developer/Xcode/DerivedData/Mas-*/Build/Products/Debug/Mas.app /Applications/`
   4. 起動: `open /Applications/Mas.app`
 
+### リリース時のHomebrew更新
+- リリースでDMGをGitHub Releaseに添付した後、`piggest/homebrew-mas` のCaskも更新すること
+- 更新対象: `mas.rb` と `Casks/mas.rb` の2ファイル
+- 更新内容: `version` と `sha256`（DMGのハッシュ）、`url`のファイル名パターン
+- sha256はリリースに添付したDMGをダウンロードして `shasum -a 256` で取得
+- GitHub API経由で更新: `gh api repos/piggest/homebrew-mas/contents/<path> --method PUT ...`
+
 ## Git
 - プッシュ前に `gh auth switch --user piggest` でアカウントを切り替えること
