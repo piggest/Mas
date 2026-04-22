@@ -2915,7 +2915,19 @@ class AnnotationCanvas: NSView {
 
         // リサイズ中の場合
         if isResizing, let index = selectedAnnotationIndex, index < annotations.count {
-            resizeAnnotation(at: index, to: point)
+            // Shift押下時、rectangle/ellipseは対角アンカー基準の正方形に補正
+            var resizePoint = point
+            if event.modifierFlags.contains(.shift) {
+                let original: CGRect? = {
+                    if let rect = annotations[index] as? RectAnnotation { return rect.rect }
+                    if let ellipse = annotations[index] as? EllipseAnnotation { return ellipse.rect }
+                    return nil
+                }()
+                if let original = original {
+                    resizePoint = squareConstrainedResizePoint(point: point, original: original, handle: activeResizeHandle)
+                }
+            }
+            resizeAnnotation(at: index, to: resizePoint)
             needsDisplay = true
             return
         }
@@ -2932,11 +2944,26 @@ class AnnotationCanvas: NSView {
 
         guard let start = dragStart else { return }
 
+        // Shift押下時、rectangle/ellipseのみ始点基準の正方形（=正円）に補正
+        let effectiveEnd: CGPoint = {
+            guard event.modifierFlags.contains(.shift),
+                  selectedTool == .rectangle || selectedTool == .ellipse else {
+                return point
+            }
+            let dx = point.x - start.x
+            let dy = point.y - start.y
+            let size = max(abs(dx), abs(dy))
+            return CGPoint(
+                x: start.x + (dx >= 0 ? size : -size),
+                y: start.y + (dy >= 0 ? size : -size)
+            )
+        }()
+
         let newRect = CGRect(
-            x: min(start.x, point.x),
-            y: min(start.y, point.y),
-            width: abs(point.x - start.x),
-            height: abs(point.y - start.y)
+            x: min(start.x, effectiveEnd.x),
+            y: min(start.y, effectiveEnd.y),
+            width: abs(effectiveEnd.x - start.x),
+            height: abs(effectiveEnd.y - start.y)
         )
 
         switch selectedTool {
@@ -3073,6 +3100,25 @@ class AnnotationCanvas: NSView {
     }
 
     /// リサイズ後の矩形を計算
+    // Shift押下時のリサイズ用: 対角のアンカーを固定して正方形になるよう点を補正
+    private func squareConstrainedResizePoint(point: CGPoint, original: CGRect, handle: ResizeHandle) -> CGPoint {
+        let anchor: CGPoint
+        switch handle {
+        case .topLeft:     anchor = CGPoint(x: original.maxX, y: original.minY)
+        case .topRight:    anchor = CGPoint(x: original.minX, y: original.minY)
+        case .bottomLeft:  anchor = CGPoint(x: original.maxX, y: original.maxY)
+        case .bottomRight: anchor = CGPoint(x: original.minX, y: original.maxY)
+        default: return point
+        }
+        let dx = point.x - anchor.x
+        let dy = point.y - anchor.y
+        let size = max(abs(dx), abs(dy))
+        return CGPoint(
+            x: anchor.x + (dx >= 0 ? size : -size),
+            y: anchor.y + (dy >= 0 ? size : -size)
+        )
+    }
+
     private func resizedRect(original: CGRect, handle: ResizeHandle, to point: CGPoint) -> CGRect {
         var newRect = original
 
