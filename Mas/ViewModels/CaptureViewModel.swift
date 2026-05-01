@@ -344,6 +344,9 @@ class CaptureViewModel: ObservableObject {
         if hideWindow {
             // ウィンドウを一時的に隠す（sharingType=.noneにより自UIはキャプチャに写らない）
             window?.orderOut(nil)
+            // orderOut 直後の captureScreen だと AppKit/SwiftUI の更新タイミングと衝突して
+            // 移動後の新位置の内容が反映されないケースがあるため、僅かに待つ（568c8bcで削除されていた）
+            try? await Task.sleep(nanoseconds: 200_000_000)
         }
 
         do {
