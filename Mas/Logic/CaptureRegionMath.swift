@@ -11,7 +11,7 @@ enum CaptureRegionMath {
     }
 
     /// 提案されたウィンドウフレームを画面の可視領域内に収まるよう調整する。
-    /// 元のサイズが画面より大きければ画面サイズに丸め、位置がはみ出していれば中央寄せ的に詰める。
+    /// 元のサイズが画面より大きければ画面サイズに丸め、位置がはみ出していれば画面端に押し込む（端揃え）。
     static func clampedWindowFrame(proposed: CGRect, screenVisibleFrame: CGRect) -> CGRect {
         let newWidth = min(proposed.width, screenVisibleFrame.width)
         let newHeight = min(proposed.height, screenVisibleFrame.height)
@@ -27,8 +27,12 @@ enum CaptureRegionMath {
     }
 
     /// コンテンツが画面に収まるための初期スケール。1.0 を上限とする（拡大はしない）。
+    /// 異常な size（0 以下）の場合は 1.0 を返してスケール変更しない。
     static func initialContentScale(contentSize: CGSize, screenVisibleSize: CGSize) -> CGFloat {
-        guard contentSize.width > 0, contentSize.height > 0 else { return 1.0 }
+        guard contentSize.width > 0, contentSize.height > 0,
+              screenVisibleSize.width > 0, screenVisibleSize.height > 0 else {
+            return 1.0
+        }
         let scaleX = screenVisibleSize.width / contentSize.width
         let scaleY = screenVisibleSize.height / contentSize.height
         return min(scaleX, scaleY, 1.0)

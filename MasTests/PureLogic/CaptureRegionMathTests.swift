@@ -64,4 +64,22 @@ final class CaptureRegionMathTests: XCTestCase {
         )
         XCTAssertEqual(scale, 1.0)
     }
+
+    func test_clampedWindowFrame_shiftsUpWhenExceedsBottomEdge() {
+        // Y 軸方向のはみ出しも端に押し戻されること
+        let proposed = CGRect(x: 100, y: 800, width: 400, height: 500)
+        let screenFrame = CGRect(x: 0, y: 0, width: 1728, height: 1117)
+        let clamped = CaptureRegionMath.clampedWindowFrame(proposed: proposed, screenVisibleFrame: screenFrame)
+        XCTAssertEqual(clamped.origin.y, 617)  // 1117 - 500
+        XCTAssertEqual(clamped.height, 500)
+    }
+
+    func test_clampedWindowFrame_secondaryScreenWithNegativeOriginX() {
+        // マルチディスプレイでサブが左に配置されている (cg.minX = -1920) ケース
+        let proposed = CGRect(x: -3000, y: 100, width: 500, height: 400)
+        let screenFrame = CGRect(x: -1920, y: 0, width: 1920, height: 1080)
+        let clamped = CaptureRegionMath.clampedWindowFrame(proposed: proposed, screenVisibleFrame: screenFrame)
+        XCTAssertEqual(clamped.origin.x, -1920)  // 画面左端に押し戻される
+        XCTAssertEqual(clamped.width, 500)
+    }
 }
