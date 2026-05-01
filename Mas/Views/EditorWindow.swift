@@ -2512,6 +2512,12 @@ protocol AnnotationCanvasDelegate: AnyObject {
     func copyTextRequested()
 }
 
+// リサイズハンドルの位置
+enum ResizeHandle {
+    case none
+    case topLeft, topRight, bottomLeft, bottomRight
+    case startPoint, endPoint  // 矢印用
+}
 
 class AnnotationCanvas: NSView {
     weak var delegate: AnnotationCanvasDelegate?
@@ -3021,7 +3027,7 @@ class AnnotationCanvas: NSView {
                     return nil
                 }()
                 if let original = original {
-                    resizePoint = AnnotationGeometry.squareConstrainedResizePoint(point: point, original: original, handle: activeResizeHandle)
+                    resizePoint = squareConstrainedResizePoint(point: point, original: original, handle: activeResizeHandle)
                 }
             }
             resizeAnnotation(at: index, to: resizePoint)
@@ -3187,13 +3193,83 @@ class AnnotationCanvas: NSView {
                 break
             }
         } else if let rect = annotation as? RectAnnotation {
-            rect.rect = AnnotationGeometry.resizedRect(original: rect.rect, handle: activeResizeHandle, to: point)
+            rect.rect = resizedRect(original: rect.rect, handle: activeResizeHandle, to: point)
         } else if let ellipse = annotation as? EllipseAnnotation {
-            ellipse.rect = AnnotationGeometry.resizedRect(original: ellipse.rect, handle: activeResizeHandle, to: point)
+            ellipse.rect = resizedRect(original: ellipse.rect, handle: activeResizeHandle, to: point)
         } else if let mosaic = annotation as? MosaicAnnotation {
-            mosaic.rect = AnnotationGeometry.resizedRect(original: mosaic.rect, handle: activeResizeHandle, to: point)
+            mosaic.rect = resizedRect(original: mosaic.rect, handle: activeResizeHandle, to: point)
             mosaic.clearCache()
         }
+    }
+
+    /// リサイズ後の矩形を計算
+    // Shift押下時のリサイズ用: 対角のアンカーを固定して正方形になるよう点を補正
+    private func squareConstrainedResizePoint(point: CGPoint, original: CGRect, handle: ResizeHandle) -> CGPoint {
+        let anchor: CGPoint
+        switch handle {
+        case .topLeft:     anchor = CGPoint(x: original.maxX, y: original.minY)
+        case .topRight:    anchor = CGPoint(x: original.minX, y: original.minY)
+        case .bottomLeft:  anchor = CGPoint(x: original.maxX, y: original.maxY)
+        case .bottomRight: anchor = CGPoint(x: original.minX, y: original.maxY)
+        default: return point
+        }
+        let dx = point.x - anchor.x
+        let dy = point.y - anchor.y
+        let size = max(abs(dx), abs(dy))
+        return CGPoint(
+            x: anchor.x + (dx >= 0 ? size : -size),
+            y: anchor.y + (dy >= 0 ? size : -size)
+        )
+    }
+
+    private func resizedRect(original: CGRect, handle: ResizeHandle, to point: CGPoint) -> CGRect {
+        var newRect = original
+
+        switch handle {
+        case .topLeft:
+            newRect = CGRect(
+                x: point.x,
+                y: original.minY,
+                width: original.maxX - point.x,
+                height: point.y - original.minY
+            )
+        case .topRight:
+            newRect = CGRect(
+                x: original.minX,
+                y: original.minY,
+                width: point.x - original.minX,
+                height: point.y - original.minY
+            )
+        case .bottomLeft:
+            newRect = CGRect(
+                x: point.x,
+                y: point.y,
+                width: original.maxX - point.x,
+                height: original.maxY - point.y
+            )
+        case .bottomRight:
+            newRect = CGRect(
+                x: original.minX,
+                y: point.y,
+                width: point.x - original.minX,
+                height: original.maxY - point.y
+            )
+        default:
+            break
+        }
+
+        // 最小サイズを保証（幅・高さが負にならないように正規化）
+        let minSize: CGFloat = 10
+        if newRect.width < minSize || newRect.height < minSize {
+            return CGRect(
+                x: min(newRect.minX, newRect.maxX),
+                y: min(newRect.minY, newRect.maxY),
+                width: max(abs(newRect.width), minSize),
+                height: max(abs(newRect.height), minSize)
+            )
+        }
+
+        return newRect
     }
 
     // ぼかしを最背面（インデックス0）に移動
