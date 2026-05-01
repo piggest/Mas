@@ -45,11 +45,8 @@ class LineAnnotation: Annotation {
     }
 
     func boundingRect() -> CGRect {
-        let minX = min(startPoint.x, endPoint.x) - lineWidth * 3
-        let minY = min(startPoint.y, endPoint.y) - lineWidth * 3
-        let maxX = max(startPoint.x, endPoint.x) + lineWidth * 3
-        let maxY = max(startPoint.y, endPoint.y) + lineWidth * 3
-        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+        // 線幅の3倍をパディングとして使用（クリック判定に十分なマージンを確保）
+        return AnnotationGeometry.lineBoundingRect(startPoint: startPoint, endPoint: endPoint, padding: lineWidth * 3)
     }
 
     func move(by delta: CGPoint) {
