@@ -58,7 +58,7 @@ extension NSWindow {
 }
 
 @MainActor
-class ScreenCaptureService: NSObject {
+class ScreenCaptureService: NSObject, ScreenCapturing {
 
     // MARK: - 指定スクリーンのキャプチャ
 
