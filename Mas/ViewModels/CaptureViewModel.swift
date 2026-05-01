@@ -340,19 +340,21 @@ class CaptureViewModel: ObservableObject {
     }
 
     // 再キャプチャ機能（現在のウィンドウ位置で）
+    // 通常モード（sharingType=.none）では自UIは画面録画から除外されるので即時キャプチャ。
+    // 開発モード（includeOwnUI=true → sharingType=.readOnly）では自UIが映るため
+    // orderOut で隠してから 200ms 待ってキャプチャする。
     func recaptureRegion(for screenshot: Screenshot, at region: CGRect, window: NSWindow?, hideWindow: Bool = true) async {
-        if hideWindow {
-            // ウィンドウを一時的に隠す（sharingType=.noneにより自UIはキャプチャに写らない）
+        let isDevMode = UserDefaults.standard.bool(forKey: "includeOwnUI")
+        let needsHide = hideWindow && isDevMode
+        if needsHide {
             window?.orderOut(nil)
-            // orderOut 直後の captureScreen だと AppKit/SwiftUI の更新タイミングと衝突して
-            // 移動後の新位置の内容が反映されないケースがあるため、僅かに待つ（568c8bcで削除されていた）
             try? await Task.sleep(nanoseconds: 200_000_000)
         }
 
         do {
             // regionが属するスクリーンを特定してキャプチャ
             guard let screen = NSScreen.screenContaining(cgRect: region) else {
-                if hideWindow { window?.makeKeyAndOrderFront(nil) }
+                if needsHide { window?.makeKeyAndOrderFront(nil) }
                 return
             }
 
@@ -374,7 +376,7 @@ class CaptureViewModel: ObservableObject {
             let clampedRect = scaledRect.intersection(CGRect(x: 0, y: 0, width: imageWidth, height: imageHeight))
 
             guard !clampedRect.isEmpty, let croppedImage = fullScreenImage.cropping(to: clampedRect) else {
-                if hideWindow { window?.makeKeyAndOrderFront(nil) }
+                if needsHide { window?.makeKeyAndOrderFront(nil) }
                 return
             }
 
@@ -401,11 +403,11 @@ class CaptureViewModel: ObservableObject {
             // メニューのサムネイル更新を通知
             objectWillChange.send()
 
-            // ウィンドウを再表示
-            if hideWindow { window?.makeKeyAndOrderFront(nil) }
+            // 開発モードで隠していたウィンドウを再表示
+            if needsHide { window?.makeKeyAndOrderFront(nil) }
         } catch {
             print("Recapture error: \(error)")
-            if hideWindow { window?.makeKeyAndOrderFront(nil) }
+            if needsHide { window?.makeKeyAndOrderFront(nil) }
         }
     }
 
