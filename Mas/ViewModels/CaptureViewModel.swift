@@ -303,19 +303,14 @@ class CaptureViewModel: ObservableObject {
             let imageHeight = CGFloat(fullImage.height)
 
             // スケール計算（Retina対応）
-            let scale = imageWidth / screen.frame.width
+            let scale = CropMath.imageScale(imageWidth: imageWidth, screenWidth: screen.frame.width)
 
             // CGグローバル座標をスクリーン相対座標に変換してからスケール適用
             let screenCGFrame = screen.cgFrame
-            let scaledRect = CGRect(
-                x: (rect.origin.x - screenCGFrame.origin.x) * scale,
-                y: (rect.origin.y - screenCGFrame.origin.y) * scale,
-                width: rect.width * scale,
-                height: rect.height * scale
-            )
+            let scaledRect = CropMath.scaledRect(region: rect, screenCGFrame: screenCGFrame, scale: scale)
 
             // 範囲チェック
-            let clampedRect = scaledRect.intersection(CGRect(x: 0, y: 0, width: imageWidth, height: imageHeight))
+            let clampedRect = CropMath.clampedRect(scaledRect, imageSize: CGSize(width: imageWidth, height: imageHeight))
 
             guard !clampedRect.isEmpty, let croppedImage = fullImage.cropping(to: clampedRect) else {
                 errorMessage = "画像の切り取りに失敗しました"
@@ -362,18 +357,13 @@ class CaptureViewModel: ObservableObject {
 
             let imageWidth = CGFloat(fullScreenImage.width)
             let imageHeight = CGFloat(fullScreenImage.height)
-            let scale = imageWidth / screen.frame.width
+            let scale = CropMath.imageScale(imageWidth: imageWidth, screenWidth: screen.frame.width)
 
             // CGグローバル座標をスクリーン相対座標に変換
             let screenCGFrame = screen.cgFrame
-            let scaledRect = CGRect(
-                x: (region.origin.x - screenCGFrame.origin.x) * scale,
-                y: (region.origin.y - screenCGFrame.origin.y) * scale,
-                width: region.width * scale,
-                height: region.height * scale
-            )
+            let scaledRect = CropMath.scaledRect(region: region, screenCGFrame: screenCGFrame, scale: scale)
 
-            let clampedRect = scaledRect.intersection(CGRect(x: 0, y: 0, width: imageWidth, height: imageHeight))
+            let clampedRect = CropMath.clampedRect(scaledRect, imageSize: CGSize(width: imageWidth, height: imageHeight))
 
             guard !clampedRect.isEmpty, let croppedImage = fullScreenImage.cropping(to: clampedRect) else {
                 if needsHide { window?.makeKeyAndOrderFront(nil) }
@@ -771,9 +761,10 @@ class CaptureViewModel: ObservableObject {
         let screenFrame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
         let contentWidth = region?.width ?? screenshot.originalImage.size.width
         let contentHeight = region?.height ?? screenshot.originalImage.size.height
-        let scaleX = screenFrame.width / contentWidth
-        let scaleY = screenFrame.height / contentHeight
-        let initialContentScale = min(scaleX, scaleY, 1.0)
+        let initialContentScale = CaptureRegionMath.initialContentScale(
+            contentSize: CGSize(width: contentWidth, height: contentHeight),
+            screenVisibleSize: screenFrame.size
+        )
 
         // PassThroughContainerViewを先に作成
         let containerView = PassThroughContainerView()
