@@ -42,4 +42,9 @@ final class CropMathTests: XCTestCase {
         let scale = CropMath.imageScale(imageWidth: 3456, screenWidth: 1728)
         XCTAssertEqual(scale, 2.0)
     }
+
+    func test_imageScale_returnsOneWhenScreenWidthIsZero() {
+        // 異常時（width 取得不能）はスケールなしで素通し
+        XCTAssertEqual(CropMath.imageScale(imageWidth: 1000, screenWidth: 0), 1.0)
+    }
 }
