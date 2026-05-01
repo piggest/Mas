@@ -27,9 +27,11 @@
 		986D7E5538205701336FB993 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37D52126632B2D1EDC58AFBE /* Cocoa.framework */; };
 		A7AA46C384741BBB324B7D9D /* EditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DED66DF8556D1B2C7294624 /* EditorViewModel.swift */; };
 		A7C8BBEA204B26FBCDB618DA /* EditorWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D798FE0D9F51C7776EC6EE3F /* EditorWindow.swift */; };
+		AA918E06862347DA037D484D /* CropMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF68B9AE7A68486C2F593F2D /* CropMathTests.swift */; };
 		ASSETS00001BUILD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ASSETS00001FILEREF /* Assets.xcassets */; };
 		B523471DBC30AE30C3DBBF5E /* FloatingToolbarWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43B2464390781288C89F5D7F /* FloatingToolbarWindow.swift */; };
 		BB5ABB92E28A423D95400835 /* CoordinateMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D688B0A37A4677CC92FC8E35 /* CoordinateMathTests.swift */; };
+		C4E35503C60428EFC4815257 /* CropMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B87843D1657870FF4F0B47 /* CropMath.swift */; };
 		C82C7ADC3106FB2FAD876DDD /* CoordinateMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6823DE7D857C0A2D7531A09 /* CoordinateMath.swift */; };
 		CAPFLASH001BUILD /* CaptureFlashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAPFLASH001FILEREF /* CaptureFlashView.swift */; };
 		CODANNOT01BUILD /* CodableAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CODANNOT01FILEREF /* CodableAnnotation.swift */; };
@@ -93,8 +95,10 @@
 		B83CBF9F86FC5B6E405972AE /* CaptureViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureViewModel.swift; sourceTree = "<group>"; };
 		BD3B265CA8F46C67C372C189 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		C0122035751DFFAC7447DA18 /* TextAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextAnnotation.swift; sourceTree = "<group>"; };
+		C0B87843D1657870FF4F0B47 /* CropMath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CropMath.swift; sourceTree = "<group>"; };
 		C6823DE7D857C0A2D7531A09 /* CoordinateMath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CoordinateMath.swift; sourceTree = "<group>"; };
 		CAPFLASH001FILEREF /* CaptureFlashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlashView.swift; sourceTree = "<group>"; };
+		CF68B9AE7A68486C2F593F2D /* CropMathTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CropMathTests.swift; sourceTree = "<group>"; };
 		CODANNOT01FILEREF /* CodableAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodableAnnotation.swift; sourceTree = "<group>"; };
 		D688B0A37A4677CC92FC8E35 /* CoordinateMathTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CoordinateMathTests.swift; sourceTree = "<group>"; };
 		D798FE0D9F51C7776EC6EE3F /* EditorWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorWindow.swift; sourceTree = "<group>"; };
@@ -173,6 +177,7 @@
 			isa = PBXGroup;
 			children = (
 				D688B0A37A4677CC92FC8E35 /* CoordinateMathTests.swift */,
+				CF68B9AE7A68486C2F593F2D /* CropMathTests.swift */,
 			);
 			name = PureLogic;
 			path = PureLogic;
@@ -264,6 +269,7 @@
 			isa = PBXGroup;
 			children = (
 				C6823DE7D857C0A2D7531A09 /* CoordinateMath.swift */,
+				C0B87843D1657870FF4F0B47 /* CropMath.swift */,
 			);
 			name = Logic;
 			path = Logic;
@@ -402,6 +408,7 @@
 			files = (
 				135EB84C92675F7120DD5366 /* SmokeTests.swift in Sources */,
 				BB5ABB92E28A423D95400835 /* CoordinateMathTests.swift in Sources */,
+				AA918E06862347DA037D484D /* CropMathTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -455,6 +462,7 @@
 				SHUTOPT01BUILD /* ShutterOptionsPanel.swift in Sources */,
 				VIDEOSVC01BUILD /* VideoRecordingService.swift in Sources */,
 				C82C7ADC3106FB2FAD876DDD /* CoordinateMath.swift in Sources */,
+				C4E35503C60428EFC4815257 /* CropMath.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
