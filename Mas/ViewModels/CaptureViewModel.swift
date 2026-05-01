@@ -761,9 +761,10 @@ class CaptureViewModel: ObservableObject {
         let screenFrame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
         let contentWidth = region?.width ?? screenshot.originalImage.size.width
         let contentHeight = region?.height ?? screenshot.originalImage.size.height
-        let scaleX = screenFrame.width / contentWidth
-        let scaleY = screenFrame.height / contentHeight
-        let initialContentScale = min(scaleX, scaleY, 1.0)
+        let initialContentScale = CaptureRegionMath.initialContentScale(
+            contentSize: CGSize(width: contentWidth, height: contentHeight),
+            screenVisibleSize: screenFrame.size
+        )
 
         // PassThroughContainerViewを先に作成
         let containerView = PassThroughContainerView()

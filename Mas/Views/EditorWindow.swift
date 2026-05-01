@@ -372,15 +372,10 @@ struct EditorWindow: View {
         guard let window = parentWindow else {
             return screenshot.captureRegion ?? .zero
         }
-        let frame = window.frame
-        let primaryHeight = NSScreen.primaryScreenHeight
-        let rect = CGRect(
-            x: frame.origin.x,
-            y: primaryHeight - frame.origin.y - frame.height,
-            width: frame.width,
-            height: frame.height
+        return CaptureRegionMath.windowFrameToCaptureRegion(
+            nsFrame: window.frame,
+            primaryHeight: NSScreen.primaryScreenHeight
         )
-        return rect
     }
 
     // 外部からドロップされた画像ファイルを枠に取り込む
@@ -465,9 +460,10 @@ struct EditorWindow: View {
         // （これにより以後のコンテンツサイズ縮小メニューも正しく機能する）
         if let window = parentWindow, newSize.width > 0, newSize.height > 0 {
             let screenFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
-            let scaleX = screenFrame.width / newSize.width
-            let scaleY = screenFrame.height / newSize.height
-            let fitScale = min(scaleX, scaleY, 1.0)
+            let fitScale = CaptureRegionMath.initialContentScale(
+                contentSize: newSize,
+                screenVisibleSize: screenFrame.size
+            )
             setContentScale(fitScale)
         }
     }
@@ -2166,13 +2162,15 @@ struct EditorWindow: View {
         let screenFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
 
         // 画面に収まる範囲でウィンドウサイズを調整
-        let newWidth = min(scaledWidth, screenFrame.width)
-        let newHeight = min(scaledHeight, screenFrame.height)
-
-        if newWidth != currentFrame.width || newHeight != currentFrame.height {
-            let newX = max(screenFrame.minX, min(currentFrame.origin.x, screenFrame.maxX - newWidth))
-            let newY = max(screenFrame.minY, min(currentFrame.origin.y + (currentFrame.height - newHeight), screenFrame.maxY - newHeight))
-            window.setFrame(NSRect(x: newX, y: newY, width: newWidth, height: newHeight), display: true, animate: true)
+        let proposed = CGRect(
+            x: currentFrame.origin.x,
+            y: currentFrame.origin.y + (currentFrame.height - scaledHeight),
+            width: scaledWidth,
+            height: scaledHeight
+        )
+        let clamped = CaptureRegionMath.clampedWindowFrame(proposed: proposed, screenVisibleFrame: screenFrame)
+        if clamped.size != currentFrame.size {
+            window.setFrame(clamped, display: true, animate: true)
             if let resizableWindow = window as? ResizableWindow {
                 resizableWindow.resizeState.reset()
             }
