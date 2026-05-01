@@ -9,8 +9,8 @@
 /* Begin PBXBuildFile section */
 		042B782ECB5FA1E045C2236D /* Annotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0C035641F7CFE5019E75B3 /* Annotation.swift */; };
 		043C577D0F42433673F56F0A /* WindowPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */; };
+		135EB84C92675F7120DD5366 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6626ABE7AD48F84F3602D643 /* SmokeTests.swift */; };
 		1EC15D284C2030633273509B /* ArrowAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9702C9A674BA192EFF166589 /* ArrowAnnotation.swift */; };
-		LINEANNOT01BUILD /* LineAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = LINEANNOT01FILEREF /* LineAnnotation.swift */; };
 		2198BAD974BEFFEB55B1A55E /* ScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */; };
 		235776E0F0D33F6C472F6E69 /* Screenshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9909D433CD57C9C7B08E3C /* Screenshot.swift */; };
 		4073332D6F51A0FF7EBDC576 /* PermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 002A68B3D208C945FEA1D830 /* PermissionService.swift */; };
@@ -24,96 +24,122 @@
 		92CE034412FBA4DBF88385E1 /* CaptureViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B83CBF9F86FC5B6E405972AE /* CaptureViewModel.swift */; };
 		9353494101D94B282519C707 /* HighlightAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26D94A3B6CFB41C0B3E7DC1 /* HighlightAnnotation.swift */; };
 		943805E5647910512FCE5F80 /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 788C0D7CDED4A7DA6FA0F286 /* CanvasView.swift */; };
+		986D7E5538205701336FB993 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37D52126632B2D1EDC58AFBE /* Cocoa.framework */; };
 		A7AA46C384741BBB324B7D9D /* EditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DED66DF8556D1B2C7294624 /* EditorViewModel.swift */; };
 		A7C8BBEA204B26FBCDB618DA /* EditorWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D798FE0D9F51C7776EC6EE3F /* EditorWindow.swift */; };
-		'ASSETS00001BUILD' = {isa = PBXBuildFile; fileRef = ASSETS00001FILEREF; };
+		ASSETS00001BUILD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ASSETS00001FILEREF /* Assets.xcassets */; };
 		B523471DBC30AE30C3DBBF5E /* FloatingToolbarWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43B2464390781288C89F5D7F /* FloatingToolbarWindow.swift */; };
-		'CAPFLASH001BUILD' = {isa = PBXBuildFile; fileRef = CAPFLASH001FILEREF; };
+		CAPFLASH001BUILD /* CaptureFlashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAPFLASH001FILEREF /* CaptureFlashView.swift */; };
+		CODANNOT01BUILD /* CodableAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CODANNOT01FILEREF /* CodableAnnotation.swift */; };
 		D0ACC9B35EF708DAEA21900D /* ScreenshotApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4902973D365480BDC4D51F /* ScreenshotApp.swift */; };
 		D3B5C4578C90DDCE16A8BE2E /* RegionSelectionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AADE98A628BFE59D34AF3B4 /* RegionSelectionOverlay.swift */; };
 		D66BF3341C56BEA60138ECB4 /* CaptureMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9206D463AC21C096C205611 /* CaptureMode.swift */; };
 		DC72F4D5D427101A6CC14BBA /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4009DABA3E02A6EE77D22CBC /* HotkeyManager.swift */; };
 		EAF180B1DEE2403ACB271CA3 /* MosaicAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83F83616E14B03BE4E917A2E /* MosaicAnnotation.swift */; };
-		'ELLIPSE001BUILD' = {isa = PBXBuildFile; fileRef = ELLIPSE001FILEREF; };
-		'FREEHAND01BUILD' = {isa = PBXBuildFile; fileRef = FREEHAND01FILEREF; };
-		'RESIZE74158BUILD' = {isa = PBXBuildFile; fileRef = RESIZE60656FILE; };
-		'TOOLBOX001BUILD' = {isa = PBXBuildFile; fileRef = TOOLBOX001FILEREF; };
-		'HISTENTRY01BUILD' = {isa = PBXBuildFile; fileRef = HISTENTRY01FILEREF; };
-		'HISTSVC001BUILD' = {isa = PBXBuildFile; fileRef = HISTSVC001FILEREF; };
-		'HISTWIN001BUILD' = {isa = PBXBuildFile; fileRef = HISTWIN001FILEREF; };
-		'CODANNOT01BUILD' = {isa = PBXBuildFile; fileRef = CODANNOT01FILEREF; };
-		'TXTRECOG01BUILD' = {isa = PBXBuildFile; fileRef = TXTRECOG01FILEREF; };
-		GIFRECSVC01BUILD = {isa = PBXBuildFile; fileRef = GIFRECSVC01FILEREF; };
-		RECCTRLW01BUILD = {isa = PBXBuildFile; fileRef = RECCTRLW01FILEREF; };
-		GIFPLYST01BUILD = {isa = PBXBuildFile; fileRef = GIFPLYST01FILEREF; };
-		GIFPLTB01BUILD = {isa = PBXBuildFile; fileRef = GIFPLTB01FILEREF; };
-		UPDSVC001BUILD = {isa = PBXBuildFile; fileRef = UPDSVC001FILEREF; };
-		SHUTSVC01BUILD = {isa = PBXBuildFile; fileRef = SHUTSVC01FILEREF; };
-		SHUTOPT01BUILD = {isa = PBXBuildFile; fileRef = SHUTOPT01FILEREF; };
-		VIDEOSVC01BUILD = {isa = PBXBuildFile; fileRef = VIDEOSVC01FILEREF; };
-		VIDPLYST01BUILD = {isa = PBXBuildFile; fileRef = VIDPLYST01FILEREF; };
-		VIDPLTB01BUILD = {isa = PBXBuildFile; fileRef = VIDPLTB01FILEREF; };
+		ELLIPSE001BUILD /* EllipseAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ELLIPSE001FILEREF /* EllipseAnnotation.swift */; };
+		FREEHAND01BUILD /* FreehandAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FREEHAND01FILEREF /* FreehandAnnotation.swift */; };
+		GIFPLTB01BUILD /* GifPlayerToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = GIFPLTB01FILEREF /* GifPlayerToolbar.swift */; };
+		GIFPLYST01BUILD /* GifPlayerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = GIFPLYST01FILEREF /* GifPlayerState.swift */; };
+		GIFRECSVC01BUILD /* GifRecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = GIFRECSVC01FILEREF /* GifRecordingService.swift */; };
+		HISTENTRY01BUILD /* ScreenshotHistoryEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = HISTENTRY01FILEREF /* ScreenshotHistoryEntry.swift */; };
+		HISTSVC001BUILD /* HistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = HISTSVC001FILEREF /* HistoryService.swift */; };
+		HISTWIN001BUILD /* HistoryWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = HISTWIN001FILEREF /* HistoryWindow.swift */; };
+		LINEANNOT01BUILD /* LineAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = LINEANNOT01FILEREF /* LineAnnotation.swift */; };
+		RECCTRLW01BUILD /* RecordingControlWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = RECCTRLW01FILEREF /* RecordingControlWindow.swift */; };
+		RESIZE74158BUILD /* ResizableWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = RESIZE60656FILE /* ResizableWindow.swift */; };
+		SHUTOPT01BUILD /* ShutterOptionsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHUTOPT01FILEREF /* ShutterOptionsPanel.swift */; };
+		SHUTSVC01BUILD /* ShutterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHUTSVC01FILEREF /* ShutterService.swift */; };
+		TOOLBOX001BUILD /* ToolboxWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = TOOLBOX001FILEREF /* ToolboxWindow.swift */; };
+		TXTRECOG01BUILD /* TextRecognitionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = TXTRECOG01FILEREF /* TextRecognitionService.swift */; };
+		UPDSVC001BUILD /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = UPDSVC001FILEREF /* UpdateService.swift */; };
+		VIDEOSVC01BUILD /* VideoRecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = VIDEOSVC01FILEREF /* VideoRecordingService.swift */; };
+		VIDPLTB01BUILD /* VideoPlayerToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = VIDPLTB01FILEREF /* VideoPlayerToolbar.swift */; };
+		VIDPLYST01BUILD /* VideoPlayerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = VIDPLYST01FILEREF /* VideoPlayerState.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		EB95D1ABDD3FC1590FFF749F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 592B493C839A952F79E33535 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B9D8B1503E1993CAF1A5DCD1;
+			remoteInfo = ScreenshotApp;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		002A68B3D208C945FEA1D830 /* PermissionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionService.swift; sourceTree = "<group>"; };
 		13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPickerView.swift; sourceTree = "<group>"; };
 		2089CBB684BD2E5D5853CAD1 /* RectAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectAnnotation.swift; sourceTree = "<group>"; };
 		357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCaptureService.swift; sourceTree = "<group>"; };
+		37D52126632B2D1EDC58AFBE /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		4009DABA3E02A6EE77D22CBC /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
 		43B2464390781288C89F5D7F /* FloatingToolbarWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FloatingToolbarWindow.swift; path = Mas/Views/FloatingToolbarWindow.swift; sourceTree = SOURCE_ROOT; };
 		4DED66DF8556D1B2C7294624 /* EditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModel.swift; sourceTree = "<group>"; };
 		58B158848BF386BA360D112A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		62FF5E8583862D4BA967A830 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
+		6626ABE7AD48F84F3602D643 /* SmokeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
 		788C0D7CDED4A7DA6FA0F286 /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		83F83616E14B03BE4E917A2E /* MosaicAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosaicAnnotation.swift; sourceTree = "<group>"; };
-		'CODANNOT01FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodableAnnotation.swift; sourceTree = "<group>"; };
 		8E0C035641F7CFE5019E75B3 /* Annotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Annotation.swift; sourceTree = "<group>"; };
 		8F9909D433CD57C9C7B08E3C /* Screenshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Screenshot.swift; sourceTree = "<group>"; };
 		9702C9A674BA192EFF166589 /* ArrowAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrowAnnotation.swift; sourceTree = "<group>"; };
-		LINEANNOT01FILEREF /* LineAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineAnnotation.swift; sourceTree = "<group>"; };
 		9AADE98A628BFE59D34AF3B4 /* RegionSelectionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegionSelectionOverlay.swift; sourceTree = "<group>"; };
+		9CCB34FC1B085A7E3AB3D17D /* MasTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MasTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC96B8C5055AFEA295B48A8A /* ScreenshotApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ScreenshotApp.entitlements; sourceTree = "<group>"; };
-		'ASSETS00001FILEREF' = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		ASSETS00001FILEREF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B83CBF9F86FC5B6E405972AE /* CaptureViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureViewModel.swift; sourceTree = "<group>"; };
 		BD3B265CA8F46C67C372C189 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		C0122035751DFFAC7447DA18 /* TextAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextAnnotation.swift; sourceTree = "<group>"; };
-		'CAPFLASH001FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlashView.swift; sourceTree = "<group>"; };
+		CAPFLASH001FILEREF /* CaptureFlashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlashView.swift; sourceTree = "<group>"; };
+		CODANNOT01FILEREF /* CodableAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodableAnnotation.swift; sourceTree = "<group>"; };
 		D798FE0D9F51C7776EC6EE3F /* EditorWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorWindow.swift; sourceTree = "<group>"; };
 		DB50A30B9511E892D2583989 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		DF7CD689A2D65D2E6B20A238 /* ScreenshotApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ScreenshotApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E5FD798C319657988E241C66 /* FileStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileStorageService.swift; sourceTree = "<group>"; };
 		EB5AB34A4452A8C7DD8CFBFA /* ClipboardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardService.swift; sourceTree = "<group>"; };
-		'ELLIPSE001FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EllipseAnnotation.swift; sourceTree = "<group>"; };
+		ELLIPSE001FILEREF /* EllipseAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EllipseAnnotation.swift; sourceTree = "<group>"; };
 		F26D94A3B6CFB41C0B3E7DC1 /* HighlightAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlightAnnotation.swift; sourceTree = "<group>"; };
 		F9206D463AC21C096C205611 /* CaptureMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureMode.swift; sourceTree = "<group>"; };
 		FF4902973D365480BDC4D51F /* ScreenshotApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotApp.swift; sourceTree = "<group>"; };
-		'FREEHAND01FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreehandAnnotation.swift; sourceTree = "<group>"; };
-		'RESIZE60656FILE' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResizableWindow.swift; sourceTree = "<group>"; };
-		'TOOLBOX001FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolboxWindow.swift; sourceTree = "<group>"; };
-		'TXTRECOG01FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextRecognitionService.swift; sourceTree = "<group>"; };
-		'HISTENTRY01FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotHistoryEntry.swift; sourceTree = "<group>"; };
-		'HISTSVC001FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryService.swift; sourceTree = "<group>"; };
-		'HISTWIN001FILEREF' = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryWindow.swift; sourceTree = "<group>"; };
-		GIFRECSVC01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifRecordingService.swift; sourceTree = "<group>"; };
-		RECCTRLW01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingControlWindow.swift; sourceTree = "<group>"; };
-		GIFPLYST01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifPlayerState.swift; sourceTree = "<group>"; };
-		GIFPLTB01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifPlayerToolbar.swift; sourceTree = "<group>"; };
-		UPDSVC001FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
-		SHUTSVC01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShutterService.swift; sourceTree = "<group>"; };
-		SHUTOPT01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShutterOptionsPanel.swift; sourceTree = "<group>"; };
-		VIDEOSVC01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoRecordingService.swift; sourceTree = "<group>"; };
-		VIDPLYST01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerState.swift; sourceTree = "<group>"; };
-		VIDPLTB01FILEREF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerToolbar.swift; sourceTree = "<group>"; };
+		FREEHAND01FILEREF /* FreehandAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreehandAnnotation.swift; sourceTree = "<group>"; };
+		GIFPLTB01FILEREF /* GifPlayerToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifPlayerToolbar.swift; sourceTree = "<group>"; };
+		GIFPLYST01FILEREF /* GifPlayerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifPlayerState.swift; sourceTree = "<group>"; };
+		GIFRECSVC01FILEREF /* GifRecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GifRecordingService.swift; sourceTree = "<group>"; };
+		HISTENTRY01FILEREF /* ScreenshotHistoryEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotHistoryEntry.swift; sourceTree = "<group>"; };
+		HISTSVC001FILEREF /* HistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryService.swift; sourceTree = "<group>"; };
+		HISTWIN001FILEREF /* HistoryWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryWindow.swift; sourceTree = "<group>"; };
+		LINEANNOT01FILEREF /* LineAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineAnnotation.swift; sourceTree = "<group>"; };
+		RECCTRLW01FILEREF /* RecordingControlWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingControlWindow.swift; sourceTree = "<group>"; };
+		RESIZE60656FILE /* ResizableWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResizableWindow.swift; sourceTree = "<group>"; };
+		SHUTOPT01FILEREF /* ShutterOptionsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShutterOptionsPanel.swift; sourceTree = "<group>"; };
+		SHUTSVC01FILEREF /* ShutterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShutterService.swift; sourceTree = "<group>"; };
+		TOOLBOX001FILEREF /* ToolboxWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolboxWindow.swift; sourceTree = "<group>"; };
+		TXTRECOG01FILEREF /* TextRecognitionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextRecognitionService.swift; sourceTree = "<group>"; };
+		UPDSVC001FILEREF /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
+		VIDEOSVC01FILEREF /* VideoRecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoRecordingService.swift; sourceTree = "<group>"; };
+		VIDPLTB01FILEREF /* VideoPlayerToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerToolbar.swift; sourceTree = "<group>"; };
+		VIDPLYST01FILEREF /* VideoPlayerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerState.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E1604F7D6FDCD032CB9C9725 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				986D7E5538205701336FB993 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		035746E6B5C00AC6EF5712CD /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				CAPFLASH001FILEREF,
-				RESIZE60656FILE,
-				TOOLBOX001FILEREF,
+				CAPFLASH001FILEREF /* CaptureFlashView.swift */,
+				RESIZE60656FILE /* ResizableWindow.swift */,
+				TOOLBOX001FILEREF /* ToolboxWindow.swift */,
 				788C0D7CDED4A7DA6FA0F286 /* CanvasView.swift */,
 				D798FE0D9F51C7776EC6EE3F /* EditorWindow.swift */,
 				HISTWIN001FILEREF /* HistoryWindow.swift */,
@@ -156,8 +182,8 @@
 				8E0C035641F7CFE5019E75B3 /* Annotation.swift */,
 				9702C9A674BA192EFF166589 /* ArrowAnnotation.swift */,
 				LINEANNOT01FILEREF /* LineAnnotation.swift */,
-				ELLIPSE001FILEREF,
-				FREEHAND01FILEREF,
+				ELLIPSE001FILEREF /* EllipseAnnotation.swift */,
+				FREEHAND01FILEREF /* FreehandAnnotation.swift */,
 				F26D94A3B6CFB41C0B3E7DC1 /* HighlightAnnotation.swift */,
 				83F83616E14B03BE4E917A2E /* MosaicAnnotation.swift */,
 				2089CBB684BD2E5D5853CAD1 /* RectAnnotation.swift */,
@@ -170,7 +196,7 @@
 		707C970C1A9F09FCA72CE7CE /* Mas */ = {
 			isa = PBXGroup;
 			children = (
-				ASSETS00001FILEREF,
+				ASSETS00001FILEREF /* Assets.xcassets */,
 				58B158848BF386BA360D112A /* Info.plist */,
 				AC96B8C5055AFEA295B48A8A /* ScreenshotApp.entitlements */,
 				FF4902973D365480BDC4D51F /* ScreenshotApp.swift */,
@@ -192,6 +218,31 @@
 				VIDPLYST01FILEREF /* VideoPlayerState.swift */,
 			);
 			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		80C145C044A3A6BCA1ADE82E /* MasTests */ = {
+			isa = PBXGroup;
+			children = (
+				6626ABE7AD48F84F3602D643 /* SmokeTests.swift */,
+			);
+			name = MasTests;
+			path = MasTests;
+			sourceTree = "<group>";
+		};
+		8CC7AF2F8A727AC75990AD2A /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				37D52126632B2D1EDC58AFBE /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		8D8228BB8FF240B258180899 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				8CC7AF2F8A727AC75990AD2A /* OS X */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		D489285885B6EFEC6306F972 /* Services */ = {
@@ -216,6 +267,8 @@
 			children = (
 				707C970C1A9F09FCA72CE7CE /* Mas */,
 				F5916B153952D773DF2C8768 /* Products */,
+				8D8228BB8FF240B258180899 /* Frameworks */,
+				80C145C044A3A6BCA1ADE82E /* MasTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -223,6 +276,7 @@
 			isa = PBXGroup;
 			children = (
 				DF7CD689A2D65D2E6B20A238 /* ScreenshotApp.app */,
+				9CCB34FC1B085A7E3AB3D17D /* MasTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -230,20 +284,36 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		8EC1ED14FC691138A248FC4C /* MasTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F0C3BD91E5454779403E36D4 /* Build configuration list for PBXNativeTarget "MasTests" */;
+			buildPhases = (
+				54ABD726DD5BE40799DEAB3B /* Sources */,
+				E1604F7D6FDCD032CB9C9725 /* Frameworks */,
+				1FD87DBF18BB4B569B544D25 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				ED64E0425C767CF4E8DDC28F /* PBXTargetDependency */,
+			);
+			name = MasTests;
+			productName = MasTests;
+			productReference = 9CCB34FC1B085A7E3AB3D17D /* MasTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		B9D8B1503E1993CAF1A5DCD1 /* ScreenshotApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 3AFFA3B5C53B8E5C6D6A1B4F /* Build configuration list for PBXNativeTarget "ScreenshotApp" */;
 			buildPhases = (
 				B7215A09520CAF379CE59658 /* Sources */,
-				RESOURCES001PHASE,
+				RESOURCES001PHASE /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = ScreenshotApp;
-			packageProductDependencies = (
-			);
 			productName = ScreenshotApp;
 			productReference = DF7CD689A2D65D2E6B20A238 /* ScreenshotApp.app */;
 			productType = "com.apple.product-type.application";
@@ -262,7 +332,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 5E2620AB971E521ADEEBAAEB /* Build configuration list for PBXProject "ScreenshotApp" */;
+			buildConfigurationList = 5E2620AB971E521ADEEBAAEB /* Build configuration list for PBXProject "Mas" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -273,35 +343,52 @@
 			mainGroup = F49425C3A4B0BE48B1C16647;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			productRefGroup = F5916B153952D773DF2C8768 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				B9D8B1503E1993CAF1A5DCD1 /* ScreenshotApp */,
+				8EC1ED14FC691138A248FC4C /* MasTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		'RESOURCES001PHASE' = {
+		1FD87DBF18BB4B569B544D25 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ASSETS00001BUILD,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		RESOURCES001PHASE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ASSETS00001BUILD /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		54ABD726DD5BE40799DEAB3B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				135EB84C92675F7120DD5366 /* SmokeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B7215A09520CAF379CE59658 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FREEHAND01BUILD,
-				TOOLBOX001BUILD,
-				ELLIPSE001BUILD,
-				CAPFLASH001BUILD,
-				RESIZE74158BUILD,
+				FREEHAND01BUILD /* FreehandAnnotation.swift in Sources */,
+				TOOLBOX001BUILD /* ToolboxWindow.swift in Sources */,
+				ELLIPSE001BUILD /* EllipseAnnotation.swift in Sources */,
+				CAPFLASH001BUILD /* CaptureFlashView.swift in Sources */,
+				RESIZE74158BUILD /* ResizableWindow.swift in Sources */,
 				042B782ECB5FA1E045C2236D /* Annotation.swift in Sources */,
 				621F46F34B68FFB6CBA35643 /* AppDelegate.swift in Sources */,
 				1EC15D284C2030633273509B /* ArrowAnnotation.swift in Sources */,
@@ -347,7 +434,38 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		ED64E0425C767CF4E8DDC28F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = ScreenshotApp;
+			target = B9D8B1503E1993CAF1A5DCD1 /* ScreenshotApp */;
+			targetProxy = EB95D1ABDD3FC1590FFF749F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		0DC6E71867B7E92F4990EE6C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "Mas Development";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@loader_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.MasTests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.8;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mas.app/Contents/MacOS/Mas";
+			};
+			name = Debug;
+		};
 		1EB84FD5C5EBF8388D491CF5 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -358,9 +476,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = Mas/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.ScreenshotApp;
@@ -369,6 +485,28 @@
 				SWIFT_VERSION = 5.8;
 			};
 			name = Debug;
+		};
+		6246080A24EE92407156A5BD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "Mas Development";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@loader_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.MasTests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.8;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mas.app/Contents/MacOS/Mas";
+			};
+			name = Release;
 		};
 		9B3DE3F586A9236795141753 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -499,9 +637,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = Mas/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.ScreenshotApp;
@@ -523,7 +659,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		5E2620AB971E521ADEEBAAEB /* Build configuration list for PBXProject "ScreenshotApp" */ = {
+		5E2620AB971E521ADEEBAAEB /* Build configuration list for PBXProject "Mas" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C35956C79CBBADFDCE78E603 /* Debug */,
@@ -531,6 +667,15 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
+		};
+		F0C3BD91E5454779403E36D4 /* Build configuration list for PBXNativeTarget "MasTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6246080A24EE92407156A5BD /* Release */,
+				0DC6E71867B7E92F4990EE6C /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
