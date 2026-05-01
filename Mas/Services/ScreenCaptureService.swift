@@ -11,13 +11,7 @@ extension NSScreen {
 
     /// このスクリーンのCG座標系（左上原点）でのフレーム
     var cgFrame: CGRect {
-        let primaryHeight = NSScreen.primaryScreenHeight
-        return CGRect(
-            x: frame.origin.x,
-            y: primaryHeight - frame.origin.y - frame.height,
-            width: frame.width,
-            height: frame.height
-        )
+        CoordinateMath.cgFrameForScreen(nsFrame: frame, primaryHeight: NSScreen.primaryScreenHeight)
     }
 
     /// CGDirectDisplayID を取得
@@ -44,13 +38,7 @@ extension NSScreen {
 
     /// CG座標の矩形をNS座標（左下原点）に変換
     static func cgToNS(_ cgRect: CGRect) -> NSRect {
-        let primaryHeight = NSScreen.primaryScreenHeight
-        return NSRect(
-            x: cgRect.origin.x,
-            y: primaryHeight - cgRect.origin.y - cgRect.height,
-            width: cgRect.width,
-            height: cgRect.height
-        )
+        CoordinateMath.cgToNS(cgRect, primaryHeight: NSScreen.primaryScreenHeight)
     }
 }
 

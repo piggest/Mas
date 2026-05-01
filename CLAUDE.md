@@ -24,3 +24,24 @@
 
 ## Git
 - プッシュ前に `gh auth switch --user piggest` でアカウントを切り替えること
+
+## テスト
+
+### 単体テスト
+- テストターゲット: `MasTests`
+- 実行: `xcodebuild -scheme ScreenshotApp -destination 'platform=macOS' test`
+- 構造:
+  - `MasTests/PureLogic/` — 純粋ロジック（座標変換、crop計算、annotation幾何 等）
+  - `MasTests/Regression/` — 過去バグの再発防止（Phase 2 以降で追加）
+- ヘルパー: `GEM_HOME="$HOME/.gem/ruby/2.6.0" ruby scripts/add-source-file.rb <path> <target>` でファイルを Xcode ターゲットに登録（`scripts/add-mastests-target.rb` で `MasTests` ターゲット自体の追加もできる）
+
+### バグ修正時のルール【絶対厳守】
+- バグ修正コミットには **対応する単体テストを必ず追加** すること
+- 純粋ロジックで再現できるバグ → `MasTests/PureLogic/` に追加
+- タイミング/UI依存バグ → Adapter プロトコル化して `MasTests/Regression/` に追加（Phase 2 で枠を作る）
+- テスト不可能と判断する場合は PR 説明に理由を明記
+- 回帰バックログは `docs/superpowers/specs/regression-backlog.md` 参照（Phase 3 で運用開始）
+
+### リリース前必須チェック
+- リリーススキル (`release` / `minor-release` / `major-release`) は手順0で `xcodebuild test` を実行
+- 失敗時はリリース中断、修正してから再開

@@ -393,16 +393,10 @@ class ShutterService: ObservableObject {
         guard let screen = NSScreen.screenContaining(cgRect: region) else { return nil }
         do {
             let fullImage = try await captureService.captureScreen(screen)
-            let scale = CGFloat(fullImage.width) / screen.frame.width
+            let scale = CropMath.imageScale(imageWidth: CGFloat(fullImage.width), screenWidth: screen.frame.width)
             let screenCGFrame = screen.cgFrame
-            let scaledRect = CGRect(
-                x: (region.origin.x - screenCGFrame.origin.x) * scale,
-                y: (region.origin.y - screenCGFrame.origin.y) * scale,
-                width: region.width * scale,
-                height: region.height * scale
-            )
-            let imageRect = CGRect(x: 0, y: 0, width: fullImage.width, height: fullImage.height)
-            let clampedRect = scaledRect.intersection(imageRect)
+            let scaledRect = CropMath.scaledRect(region: region, screenCGFrame: screenCGFrame, scale: scale)
+            let clampedRect = CropMath.clampedRect(scaledRect, imageSize: CGSize(width: fullImage.width, height: fullImage.height))
             guard !clampedRect.isEmpty else { return nil }
             return fullImage.cropping(to: clampedRect)
         } catch {
