@@ -1,5 +1,6 @@
 import AVFoundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 // 動画プレイヤー表示用（AVPlayerLayerベース、コントロールなし）
 class VideoLayerView: NSView {
@@ -337,6 +338,9 @@ struct EditorWindow: View {
     // シャッターオプション
     @State private var shutterPanelController: ShutterOptionsPanelController?
 
+    // ファイルドロップ受け入れ状態（外部画像ファイルをドラッグ中のハイライト用）
+    @State private var isDropTargeted: Bool = false
+
     let onRecapture: ((CGRect, NSWindow?, Bool) -> Void)?
     let onPassThroughChanged: ((Bool) -> Void)?
     let onAnnotationsSaved: (([any Annotation]) -> Void)?
@@ -379,6 +383,95 @@ struct EditorWindow: View {
         return rect
     }
 
+    // 外部からドロップされた画像ファイルを枠に取り込む
+    private func handleFileDrop(providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first else { return false }
+
+        // 動画/GIFモードでは差し替えを行わない（既存プレイヤーとの整合性のため）
+        if screenshot.isVideo || screenshot.isGif {
+            return false
+        }
+
+        // ファイルURL経由（Finder からのドラッグ等）
+        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                let url: URL?
+                if let data = item as? Data {
+                    url = URL(dataRepresentation: data, relativeTo: nil)
+                } else if let u = item as? URL {
+                    url = u
+                } else {
+                    url = nil
+                }
+                guard let fileURL = url, let image = NSImage(contentsOf: fileURL) else { return }
+                DispatchQueue.main.async {
+                    applyDroppedImage(image)
+                }
+            }
+            return true
+        }
+
+        // 画像データ経由（ブラウザ等からのドラッグ）
+        if provider.canLoadObject(ofClass: NSImage.self) {
+            _ = provider.loadObject(ofClass: NSImage.self) { obj, _ in
+                guard let image = obj as? NSImage else { return }
+                DispatchQueue.main.async {
+                    applyDroppedImage(image)
+                }
+            }
+            return true
+        }
+
+        return false
+    }
+
+    // ドロップされた画像でスクリーンショットを差し替え、枠サイズも合わせる
+    private func applyDroppedImage(_ image: NSImage) {
+        // 編集モード解除
+        if editMode {
+            editMode = false
+        }
+
+        // アノテーションをリセット（旧画像用のものを残さない）
+        toolboxState.annotations.removeAll()
+        toolboxState.selectedAnnotationIndex = nil
+
+        // 画像を差し替え
+        screenshot.originalImage = image
+
+        // captureRegion のサイズを画像に合わせて更新（位置は保持）
+        let newSize = image.size
+        if let oldRegion = screenshot.captureRegion {
+            screenshot.captureRegion = CGRect(
+                x: oldRegion.origin.x,
+                y: oldRegion.origin.y,
+                width: newSize.width,
+                height: newSize.height
+            )
+        } else {
+            screenshot.captureRegion = CGRect(origin: .zero, size: newSize)
+        }
+
+        // リサイズ用オフセット状態をリセット
+        resizeState.reset()
+
+        // ドラッグ用キャッシュをクリア
+        imageForDrag = nil
+
+        // 画像を表示状態に
+        showImage = true
+
+        // 画面に収まるようスケールを計算し setContentScale 経由でウィンドウサイズと contentScale を同期
+        // （これにより以後のコンテンツサイズ縮小メニューも正しく機能する）
+        if let window = parentWindow, newSize.width > 0, newSize.height > 0 {
+            let screenFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+            let scaleX = screenFrame.width / newSize.width
+            let scaleY = screenFrame.height / newSize.height
+            let fitScale = min(scaleX, scaleY, 1.0)
+            setContentScale(fitScale)
+        }
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
@@ -401,6 +494,15 @@ struct EditorWindow: View {
                     Color.black.opacity(0.3)
                         .allowsHitTesting(false)
                 }
+
+                // 外部ファイルドロップ中のハイライト
+                if isDropTargeted {
+                    Color.accentColor.opacity(0.18)
+                        .allowsHitTesting(false)
+                    Rectangle()
+                        .strokeBorder(Color.accentColor, lineWidth: 3)
+                        .allowsHitTesting(false)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -413,6 +515,9 @@ struct EditorWindow: View {
             }
         }
         .border(Color.gray.opacity(0.5), width: 1)
+        .onDrop(of: [.fileURL, .image], isTargeted: $isDropTargeted) { providers in
+            handleFileDrop(providers: providers)
+        }
         .contextMenu {
             Button("閉じる") { closeWindow() }
             Divider()
