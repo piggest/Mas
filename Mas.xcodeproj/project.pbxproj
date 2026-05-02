@@ -15,6 +15,7 @@
 		2198BAD974BEFFEB55B1A55E /* ScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */; };
 		235776E0F0D33F6C472F6E69 /* Screenshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9909D433CD57C9C7B08E3C /* Screenshot.swift */; };
 		285E9876F3D20A793C266BA2 /* CaptureRegionMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5ABD68541EEEF670D691F0 /* CaptureRegionMathTests.swift */; };
+		304A6E6A964BED0DD3165BE8 /* RecaptureRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C700529648BD9DAAE04FC6F5 /* RecaptureRegressionTests.swift */; };
 		31E07986D3486ADE53530CD1 /* RecaptureFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BD0D385AA588AF89327A88 /* RecaptureFlow.swift */; };
 		4053612E4ECEA3E274339077 /* AnnotationGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826D2AC42CE86C68AA0ABB57 /* AnnotationGeometry.swift */; };
 		4073332D6F51A0FF7EBDC576 /* PermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 002A68B3D208C945FEA1D830 /* PermissionService.swift */; };
@@ -113,6 +114,7 @@
 		C0122035751DFFAC7447DA18 /* TextAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextAnnotation.swift; sourceTree = "<group>"; };
 		C0B87843D1657870FF4F0B47 /* CropMath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CropMath.swift; sourceTree = "<group>"; };
 		C6823DE7D857C0A2D7531A09 /* CoordinateMath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CoordinateMath.swift; sourceTree = "<group>"; };
+		C700529648BD9DAAE04FC6F5 /* RecaptureRegressionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecaptureRegressionTests.swift; sourceTree = "<group>"; };
 		CAPFLASH001FILEREF /* CaptureFlashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlashView.swift; sourceTree = "<group>"; };
 		CF68B9AE7A68486C2F593F2D /* CropMathTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CropMathTests.swift; sourceTree = "<group>"; };
 		CODANNOT01FILEREF /* CodableAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodableAnnotation.swift; sourceTree = "<group>"; };
@@ -270,12 +272,22 @@
 			path = ViewModels;
 			sourceTree = "<group>";
 		};
+		7B24278CED6698961357FB19 /* Regression */ = {
+			isa = PBXGroup;
+			children = (
+				C700529648BD9DAAE04FC6F5 /* RecaptureRegressionTests.swift */,
+			);
+			name = Regression;
+			path = Regression;
+			sourceTree = "<group>";
+		};
 		80C145C044A3A6BCA1ADE82E /* MasTests */ = {
 			isa = PBXGroup;
 			children = (
 				6626ABE7AD48F84F3602D643 /* SmokeTests.swift */,
 				12D49152181D09C4A2AFDB50 /* PureLogic */,
 				A2F4024D916CBEC546401AB2 /* Mocks */,
+				7B24278CED6698961357FB19 /* Regression */,
 			);
 			name = MasTests;
 			path = MasTests;
@@ -458,6 +470,7 @@
 				1D99EF19335EA00820C254B4 /* AnnotationGeometryTests.swift in Sources */,
 				6E9FFE04301131B39A1C8003 /* MockScreenCapturing.swift in Sources */,
 				6A7851B22D2419F43E0B89B7 /* MockSleeper.swift in Sources */,
+				304A6E6A964BED0DD3165BE8 /* RecaptureRegressionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
