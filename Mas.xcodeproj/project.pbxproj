@@ -44,6 +44,7 @@
 		9353494101D94B282519C707 /* HighlightAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26D94A3B6CFB41C0B3E7DC1 /* HighlightAnnotation.swift */; };
 		943805E5647910512FCE5F80 /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 788C0D7CDED4A7DA6FA0F286 /* CanvasView.swift */; };
 		986D7E5538205701336FB993 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37D52126632B2D1EDC58AFBE /* Cocoa.framework */; };
+		9C47DAA0C40EBE8A64A60AF7 /* CliOCRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9EE28411434A200DA8CA3A4 /* CliOCRTests.swift */; };
 		A7AA46C384741BBB324B7D9D /* EditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DED66DF8556D1B2C7294624 /* EditorViewModel.swift */; };
 		A7C8BBEA204B26FBCDB618DA /* EditorWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D798FE0D9F51C7776EC6EE3F /* EditorWindow.swift */; };
 		AA918E06862347DA037D484D /* CropMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF68B9AE7A68486C2F593F2D /* CropMathTests.swift */; };
@@ -135,6 +136,7 @@
 		C0B87843D1657870FF4F0B47 /* CropMath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CropMath.swift; sourceTree = "<group>"; };
 		C6823DE7D857C0A2D7531A09 /* CoordinateMath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CoordinateMath.swift; sourceTree = "<group>"; };
 		C700529648BD9DAAE04FC6F5 /* RecaptureRegressionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecaptureRegressionTests.swift; sourceTree = "<group>"; };
+		C9EE28411434A200DA8CA3A4 /* CliOCRTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CliOCRTests.swift; sourceTree = "<group>"; };
 		CAPFLASH001FILEREF /* CaptureFlashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlashView.swift; sourceTree = "<group>"; };
 		CF68B9AE7A68486C2F593F2D /* CropMathTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CropMathTests.swift; sourceTree = "<group>"; };
 		CODANNOT01FILEREF /* CodableAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodableAnnotation.swift; sourceTree = "<group>"; };
@@ -272,6 +274,7 @@
 				E4796065A9B209856B643C65 /* CliRunner.swift */,
 				A58ACEE3DACE8EDA15846D83 /* CliVersionStatusTests.swift */,
 				EDC2FCFED5C3B0AFF01139EA /* CliAnnotateTests.swift */,
+				C9EE28411434A200DA8CA3A4 /* CliOCRTests.swift */,
 			);
 			name = E2E;
 			path = E2E;
@@ -526,6 +529,7 @@
 				45B6A4F24F9D0B0BF2139DC1 /* CliRunner.swift in Sources */,
 				91B9E0D9CDE3737386399816 /* CliVersionStatusTests.swift in Sources */,
 				7BD09D985066B9959F2492D3 /* CliAnnotateTests.swift in Sources */,
+				9C47DAA0C40EBE8A64A60AF7 /* CliOCRTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
