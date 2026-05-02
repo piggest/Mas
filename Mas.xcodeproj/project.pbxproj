@@ -22,6 +22,7 @@
 		4073332D6F51A0FF7EBDC576 /* PermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 002A68B3D208C945FEA1D830 /* PermissionService.swift */; };
 		4A57787EEC7005B08979C362 /* ClipboardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5AB34A4452A8C7DD8CFBFA /* ClipboardService.swift */; };
 		5BE3BF7CF2F695E6924379E5 /* FileStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5FD798C319657988E241C66 /* FileStorageService.swift */; };
+		5FB3F13992B0BCE55C197F75 /* EditorVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93D858FC69A6B4DB12D2C7C /* EditorVideoView.swift */; };
 		621F46F34B68FFB6CBA35643 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB50A30B9511E892D2583989 /* AppDelegate.swift */; };
 		68AD0B97F7546C1507B04BB1 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD3B265CA8F46C67C372C189 /* MenuBarView.swift */; };
 		6A7851B22D2419F43E0B89B7 /* MockSleeper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751BBAF541BEF263C59E80D0 /* MockSleeper.swift */; };
@@ -110,6 +111,7 @@
 		994CDC1DDA9863E1025C61F7 /* MockScreenCapturing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockScreenCapturing.swift; sourceTree = "<group>"; };
 		9AADE98A628BFE59D34AF3B4 /* RegionSelectionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegionSelectionOverlay.swift; sourceTree = "<group>"; };
 		9CCB34FC1B085A7E3AB3D17D /* MasTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MasTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A93D858FC69A6B4DB12D2C7C /* EditorVideoView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EditorVideoView.swift; sourceTree = "<group>"; };
 		AC96B8C5055AFEA295B48A8A /* ScreenshotApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ScreenshotApp.entitlements; sourceTree = "<group>"; };
 		ASSETS00001FILEREF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B5D0D4DA1F6AB26CB4472623 /* ScreenCapturing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenCapturing.swift; sourceTree = "<group>"; };
@@ -342,6 +344,7 @@
 			isa = PBXGroup;
 			children = (
 				3016EC974CD3D9F617B9925F /* EditorTypes.swift */,
+				A93D858FC69A6B4DB12D2C7C /* EditorVideoView.swift */,
 			);
 			name = Editor;
 			path = Editor;
@@ -547,6 +550,7 @@
 				DE75A6AB1A334A3B7E4CACFC /* SleepProviding.swift in Sources */,
 				31E07986D3486ADE53530CD1 /* RecaptureFlow.swift in Sources */,
 				D1E770504E7BAE07E622CEA1 /* EditorTypes.swift in Sources */,
+				5FB3F13992B0BCE55C197F75 /* EditorVideoView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
