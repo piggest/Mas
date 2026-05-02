@@ -19,6 +19,7 @@
 		2F4ADE81D77D6F8EFB6415FA /* EditorDragSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A59D9A4BD6C7868943B46BF8 /* EditorDragSource.swift */; };
 		304A6E6A964BED0DD3165BE8 /* RecaptureRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C700529648BD9DAAE04FC6F5 /* RecaptureRegressionTests.swift */; };
 		31E07986D3486ADE53530CD1 /* RecaptureFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BD0D385AA588AF89327A88 /* RecaptureFlow.swift */; };
+		34CC197A840D59C2BF956A19 /* AnnotationCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7398A2B0D0B8584C4A821D /* AnnotationCanvas.swift */; };
 		4053612E4ECEA3E274339077 /* AnnotationGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826D2AC42CE86C68AA0ABB57 /* AnnotationGeometry.swift */; };
 		4073332D6F51A0FF7EBDC576 /* PermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 002A68B3D208C945FEA1D830 /* PermissionService.swift */; };
 		4A57787EEC7005B08979C362 /* ClipboardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5AB34A4452A8C7DD8CFBFA /* ClipboardService.swift */; };
@@ -114,6 +115,7 @@
 		9CCB34FC1B085A7E3AB3D17D /* MasTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MasTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A59D9A4BD6C7868943B46BF8 /* EditorDragSource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EditorDragSource.swift; sourceTree = "<group>"; };
 		A93D858FC69A6B4DB12D2C7C /* EditorVideoView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EditorVideoView.swift; sourceTree = "<group>"; };
+		AC7398A2B0D0B8584C4A821D /* AnnotationCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnnotationCanvas.swift; sourceTree = "<group>"; };
 		AC96B8C5055AFEA295B48A8A /* ScreenshotApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ScreenshotApp.entitlements; sourceTree = "<group>"; };
 		ASSETS00001FILEREF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B5D0D4DA1F6AB26CB4472623 /* ScreenCapturing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenCapturing.swift; sourceTree = "<group>"; };
@@ -348,6 +350,7 @@
 				3016EC974CD3D9F617B9925F /* EditorTypes.swift */,
 				A93D858FC69A6B4DB12D2C7C /* EditorVideoView.swift */,
 				A59D9A4BD6C7868943B46BF8 /* EditorDragSource.swift */,
+				AC7398A2B0D0B8584C4A821D /* AnnotationCanvas.swift */,
 			);
 			name = Editor;
 			path = Editor;
@@ -555,6 +558,7 @@
 				D1E770504E7BAE07E622CEA1 /* EditorTypes.swift in Sources */,
 				5FB3F13992B0BCE55C197F75 /* EditorVideoView.swift in Sources */,
 				2F4ADE81D77D6F8EFB6415FA /* EditorDragSource.swift in Sources */,
+				34CC197A840D59C2BF956A19 /* AnnotationCanvas.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
