@@ -46,6 +46,7 @@
 		CAPFLASH001BUILD /* CaptureFlashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAPFLASH001FILEREF /* CaptureFlashView.swift */; };
 		CODANNOT01BUILD /* CodableAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CODANNOT01FILEREF /* CodableAnnotation.swift */; };
 		D0ACC9B35EF708DAEA21900D /* ScreenshotApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4902973D365480BDC4D51F /* ScreenshotApp.swift */; };
+		D1E770504E7BAE07E622CEA1 /* EditorTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3016EC974CD3D9F617B9925F /* EditorTypes.swift */; };
 		D3B5C4578C90DDCE16A8BE2E /* RegionSelectionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AADE98A628BFE59D34AF3B4 /* RegionSelectionOverlay.swift */; };
 		D66BF3341C56BEA60138ECB4 /* CaptureMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9206D463AC21C096C205611 /* CaptureMode.swift */; };
 		DC72F4D5D427101A6CC14BBA /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4009DABA3E02A6EE77D22CBC /* HotkeyManager.swift */; };
@@ -87,6 +88,7 @@
 		13156674DF91D1BDB557DA4F /* AnnotationGeometryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnnotationGeometryTests.swift; sourceTree = "<group>"; };
 		13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPickerView.swift; sourceTree = "<group>"; };
 		2089CBB684BD2E5D5853CAD1 /* RectAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectAnnotation.swift; sourceTree = "<group>"; };
+		3016EC974CD3D9F617B9925F /* EditorTypes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EditorTypes.swift; sourceTree = "<group>"; };
 		357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCaptureService.swift; sourceTree = "<group>"; };
 		37D52126632B2D1EDC58AFBE /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		4009DABA3E02A6EE77D22CBC /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
@@ -182,6 +184,7 @@
 				SHUTOPT01FILEREF /* ShutterOptionsPanel.swift */,
 				13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */,
 				43B2464390781288C89F5D7F /* FloatingToolbarWindow.swift */,
+				B9B9141F499B3868F1A0576E /* Editor */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -333,6 +336,15 @@
 			);
 			name = Mocks;
 			path = Mocks;
+			sourceTree = "<group>";
+		};
+		B9B9141F499B3868F1A0576E /* Editor */ = {
+			isa = PBXGroup;
+			children = (
+				3016EC974CD3D9F617B9925F /* EditorTypes.swift */,
+			);
+			name = Editor;
+			path = Editor;
 			sourceTree = "<group>";
 		};
 		D489285885B6EFEC6306F972 /* Services */ = {
@@ -534,6 +546,7 @@
 				72933FB3C96A44E02E31276D /* ScreenCapturing.swift in Sources */,
 				DE75A6AB1A334A3B7E4CACFC /* SleepProviding.swift in Sources */,
 				31E07986D3486ADE53530CD1 /* RecaptureFlow.swift in Sources */,
+				D1E770504E7BAE07E622CEA1 /* EditorTypes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
