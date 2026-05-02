@@ -340,42 +340,39 @@ class CaptureViewModel: ObservableObject {
     // orderOut で隠してから 200ms 待ってキャプチャする。
     func recaptureRegion(for screenshot: Screenshot, at region: CGRect, window: NSWindow?, hideWindow: Bool = true) async {
         let isDevMode = UserDefaults.standard.bool(forKey: "includeOwnUI")
-        let needsHide = hideWindow && isDevMode
-        if needsHide {
-            window?.orderOut(nil)
-            try? await Task.sleep(nanoseconds: 200_000_000)
-        }
+        let flow = RecaptureFlow(
+            capturer: captureService,
+            sleeper: RealSleeper(),
+            isDevMode: isDevMode
+        )
+
+        // hideWindow フラグと isDevMode の両方が true のときのみ再表示が必要
+        let needsShowAfter = hideWindow && isDevMode
 
         do {
             // regionが属するスクリーンを特定してキャプチャ
             guard let screen = NSScreen.screenContaining(cgRect: region) else {
-                if needsHide { window?.makeKeyAndOrderFront(nil) }
+                if needsShowAfter { window?.makeKeyAndOrderFront(nil) }
                 return
             }
 
-            let fullScreenImage = try await captureService.captureScreen(screen)
+            let result = try await flow.run(
+                region: region,
+                screen: screen,
+                hideWindow: { window?.orderOut(nil) }
+            )
 
-            let imageWidth = CGFloat(fullScreenImage.width)
-            let imageHeight = CGFloat(fullScreenImage.height)
-            let scale = CropMath.imageScale(imageWidth: imageWidth, screenWidth: screen.frame.width)
-
-            // CGグローバル座標をスクリーン相対座標に変換
-            let screenCGFrame = screen.cgFrame
-            let scaledRect = CropMath.scaledRect(region: region, screenCGFrame: screenCGFrame, scale: scale)
-
-            let clampedRect = CropMath.clampedRect(scaledRect, imageSize: CGSize(width: imageWidth, height: imageHeight))
-
-            guard !clampedRect.isEmpty, let croppedImage = fullScreenImage.cropping(to: clampedRect) else {
-                if needsHide { window?.makeKeyAndOrderFront(nil) }
+            guard let result else {
+                if needsShowAfter { window?.makeKeyAndOrderFront(nil) }
                 return
             }
 
             // フラッシュアニメーション
-            captureFlash.showFlash(in: region)
+            captureFlash.showFlash(in: result.region)
 
             // 画像と範囲を更新
-            screenshot.updateImage(croppedImage)
-            screenshot.captureRegion = region
+            screenshot.updateImage(result.croppedImage)
+            screenshot.captureRegion = result.region
 
             // GIFモードだった場合はスクリーンショットモードに変更
             if screenshot.isGif {
@@ -394,10 +391,10 @@ class CaptureViewModel: ObservableObject {
             objectWillChange.send()
 
             // 開発モードで隠していたウィンドウを再表示
-            if needsHide { window?.makeKeyAndOrderFront(nil) }
+            if needsShowAfter { window?.makeKeyAndOrderFront(nil) }
         } catch {
             print("Recapture error: \(error)")
-            if needsHide { window?.makeKeyAndOrderFront(nil) }
+            if needsShowAfter { window?.makeKeyAndOrderFront(nil) }
         }
     }
 
