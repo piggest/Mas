@@ -21,6 +21,7 @@
 		304A6E6A964BED0DD3165BE8 /* RecaptureRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C700529648BD9DAAE04FC6F5 /* RecaptureRegressionTests.swift */; };
 		31E07986D3486ADE53530CD1 /* RecaptureFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BD0D385AA588AF89327A88 /* RecaptureFlow.swift */; };
 		34CC197A840D59C2BF956A19 /* AnnotationCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7398A2B0D0B8584C4A821D /* AnnotationCanvas.swift */; };
+		3A8489456DAB4C4AE6226FF0 /* EditorWindow+Trim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D23F6F01328C9CDCBC65039 /* EditorWindow+Trim.swift */; };
 		4053612E4ECEA3E274339077 /* AnnotationGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826D2AC42CE86C68AA0ABB57 /* AnnotationGeometry.swift */; };
 		4073332D6F51A0FF7EBDC576 /* PermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 002A68B3D208C945FEA1D830 /* PermissionService.swift */; };
 		4A57787EEC7005B08979C362 /* ClipboardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5AB34A4452A8C7DD8CFBFA /* ClipboardService.swift */; };
@@ -93,6 +94,7 @@
 		13156674DF91D1BDB557DA4F /* AnnotationGeometryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnnotationGeometryTests.swift; sourceTree = "<group>"; };
 		13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPickerView.swift; sourceTree = "<group>"; };
 		2089CBB684BD2E5D5853CAD1 /* RectAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectAnnotation.swift; sourceTree = "<group>"; };
+		2D23F6F01328C9CDCBC65039 /* EditorWindow+Trim.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "EditorWindow+Trim.swift"; sourceTree = "<group>"; };
 		3016EC974CD3D9F617B9925F /* EditorTypes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EditorTypes.swift; sourceTree = "<group>"; };
 		357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCaptureService.swift; sourceTree = "<group>"; };
 		37D52126632B2D1EDC58AFBE /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
@@ -357,6 +359,7 @@
 				AC7398A2B0D0B8584C4A821D /* AnnotationCanvas.swift */,
 				68ABED7B906017EBE9A2699B /* EditorWindow+TextSelection.swift */,
 				58AAEB5F06B345CE97F2455D /* EditorWindow+AnnotationRendering.swift */,
+				2D23F6F01328C9CDCBC65039 /* EditorWindow+Trim.swift */,
 			);
 			name = Editor;
 			path = Editor;
@@ -567,6 +570,7 @@
 				34CC197A840D59C2BF956A19 /* AnnotationCanvas.swift in Sources */,
 				18831FDCC4D696454F0330CF /* EditorWindow+TextSelection.swift in Sources */,
 				592815F957D647BB6E09E456 /* EditorWindow+AnnotationRendering.swift in Sources */,
+				3A8489456DAB4C4AE6226FF0 /* EditorWindow+Trim.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
