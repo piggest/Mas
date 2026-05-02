@@ -16,7 +16,7 @@
 | ✅ | `87bdbcd` | Fix frame mode recording region offset by using primaryScreenHeight | `CoordinateMathTests` の `nsToCG`/`cgFrameForScreen` でカバー（Phase 1） |
 | ✅ | `e5bcda9` | Fix window tap capture in region selection: coordinate conversion | `CoordinateMathTests` でカバー（Phase 1） |
 | ✅ | `ed5a438` | Fix multi-screen support for capture, coordinate conversion, and GIF recording (v2.2.1) | `CoordinateMath`/`CropMath` の負 origin スクリーンテストでカバー（Phase 1） |
-| 🟡 | `29d9f09` | Fix annotations not applied during drag & drop (v3.4.1) | `Screenshot.renderFinalImage()` を直接テスト。アノテーション焼き付けが正しく動くこと、はみ出し時のサイズ拡張を検証 |
+| ✅ | `29d9f09` | Fix annotations not applied during drag & drop (v3.4.1) | `AnnotationDragDropRegressionTests` でカバー（Phase 3）。`renderFinalImage()` がアノテーションを焼き付け・はみ出し時はサイズ拡張することを検証 |
 | 🟡 | `a5f8325` | Fix crash caused by leaked didResizeNotification observer (v3.4.3) | observer リーク検出は XCTest だと困難。Instruments 推奨。Skip 寄りだが `XCTestExpectation` で deinit 到達確認パターンは可能 |
 
 ## Medium

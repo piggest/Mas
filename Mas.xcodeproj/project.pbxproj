@@ -10,6 +10,7 @@
 		042B782ECB5FA1E045C2236D /* Annotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0C035641F7CFE5019E75B3 /* Annotation.swift */; };
 		043C577D0F42433673F56F0A /* WindowPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */; };
 		135EB84C92675F7120DD5366 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6626ABE7AD48F84F3602D643 /* SmokeTests.swift */; };
+		19E32536E8F45EF7FC4BA93C /* AnnotationDragDropRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65D72BF41D077B83A6D87226 /* AnnotationDragDropRegressionTests.swift */; };
 		1D99EF19335EA00820C254B4 /* AnnotationGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13156674DF91D1BDB557DA4F /* AnnotationGeometryTests.swift */; };
 		1EC15D284C2030633273509B /* ArrowAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9702C9A674BA192EFF166589 /* ArrowAnnotation.swift */; };
 		2198BAD974BEFFEB55B1A55E /* ScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */; };
@@ -94,6 +95,7 @@
 		4DED66DF8556D1B2C7294624 /* EditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModel.swift; sourceTree = "<group>"; };
 		58B158848BF386BA360D112A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		62FF5E8583862D4BA967A830 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
+		65D72BF41D077B83A6D87226 /* AnnotationDragDropRegressionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnnotationDragDropRegressionTests.swift; sourceTree = "<group>"; };
 		6626ABE7AD48F84F3602D643 /* SmokeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
 		751BBAF541BEF263C59E80D0 /* MockSleeper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockSleeper.swift; sourceTree = "<group>"; };
 		788C0D7CDED4A7DA6FA0F286 /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
@@ -276,6 +278,7 @@
 			isa = PBXGroup;
 			children = (
 				C700529648BD9DAAE04FC6F5 /* RecaptureRegressionTests.swift */,
+				65D72BF41D077B83A6D87226 /* AnnotationDragDropRegressionTests.swift */,
 			);
 			name = Regression;
 			path = Regression;
@@ -471,6 +474,7 @@
 				6E9FFE04301131B39A1C8003 /* MockScreenCapturing.swift in Sources */,
 				6A7851B22D2419F43E0B89B7 /* MockSleeper.swift in Sources */,
 				304A6E6A964BED0DD3165BE8 /* RecaptureRegressionTests.swift in Sources */,
+				19E32536E8F45EF7FC4BA93C /* AnnotationDragDropRegressionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
