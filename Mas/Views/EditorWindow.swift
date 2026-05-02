@@ -11,7 +11,7 @@ struct EditorWindow: View {
     @ObservedObject var screenshot: Screenshot
     @ObservedObject var toolboxState: ToolboxState
     @ObservedObject var resizeState: WindowResizeState
-    @State private var copiedToClipboard = false
+    @State var copiedToClipboard = false
     @State private var showImage: Bool
     @State private var contentYOffset: CGFloat = 0
     @State private var passThroughEnabled = false
@@ -34,12 +34,12 @@ struct EditorWindow: View {
     @State private var panStartOffset: CGSize = .zero
     @State private var isPanning: Bool = false
     // テキスト選択モード（文字単位選択）
-    @State private var recognizedTexts: [RecognizedTextBlock] = []
-    @State private var isRecognizingText = false
-    @State private var flatChars: [FlatTextChar] = []
-    @State private var charSelStart: Int?
-    @State private var charSelEnd: Int?
-    private let textRecognitionService = TextRecognitionService()
+    @State var recognizedTexts: [RecognizedTextBlock] = []
+    @State var isRecognizingText = false
+    @State var flatChars: [FlatTextChar] = []
+    @State var charSelStart: Int?
+    @State var charSelEnd: Int?
+    let textRecognitionService = TextRecognitionService()
     @State private var keyMonitor: Any?
     @State private var middleMouseMonitor: Any?
 
@@ -677,152 +677,8 @@ struct EditorWindow: View {
         }
     }
 
-    @ViewBuilder
-    private var textSelectionOverlay: some View {
-        let canvasHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
-        GeometryReader { geometry in
-            ZStack {
-                // テキストブロックの薄いヒント表示
-                ForEach(Array(recognizedTexts.enumerated()), id: \.offset) { _, block in
-                    let y = canvasHeight - block.rect.origin.y - block.rect.height
-                    Rectangle()
-                        .fill(Color.blue.opacity(0.04))
-                        .border(Color.blue.opacity(0.12), width: 0.5)
-                        .frame(width: block.rect.width, height: block.rect.height)
-                        .position(x: block.rect.midX, y: y + block.rect.height / 2)
-                        .allowsHitTesting(false)
-                }
-
-                // 文字単位の選択ハイライト
-                if let start = charSelStart, let end = charSelEnd, !flatChars.isEmpty {
-                    let lo = min(start, end)
-                    let hi = max(start, end)
-                    let clampedLo = max(0, lo)
-                    let clampedHi = min(flatChars.count - 1, hi)
-                    // 隣接する同じ行の文字をマージして描画
-                    let mergedRects = mergeSelectionRects(from: clampedLo, to: clampedHi)
-                    ForEach(Array(mergedRects.enumerated()), id: \.offset) { _, rect in
-                        Rectangle()
-                            .fill(Color.accentColor.opacity(0.3))
-                            .frame(width: rect.width, height: rect.height)
-                            .position(x: rect.midX, y: rect.midY)
-                            .allowsHitTesting(false)
-                    }
-                }
-
-                // ローディング表示
-                if isRecognizingText {
-                    VStack {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("テキスト認識中...")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(12)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(8)
-                }
-
-                // 選択中テキストのコピーボタン
-                if charSelStart != nil && charSelEnd != nil {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Button(action: { copySelectedText() }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "doc.on.doc")
-                                    Text("コピー")
-                                }
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color.blue)
-                                .cornerRadius(6)
-                            }
-                            .buttonStyle(.plain)
-                            .padding(8)
-                        }
-                    }
-                }
-            }
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        charSelStart = findCharIndex(at: value.startLocation)
-                        charSelEnd = findCharIndex(at: value.location)
-                    }
-                    .onEnded { value in
-                        let distance = hypot(value.location.x - value.startLocation.x,
-                                            value.location.y - value.startLocation.y)
-                        if distance < 3 {
-                            // クリック: 選択解除
-                            charSelStart = nil
-                            charSelEnd = nil
-                        }
-                    }
-            )
-        }
-    }
-
-    private func findCharIndex(at point: CGPoint) -> Int? {
-        // まず完全にヒットする文字を探す
-        for (i, char) in flatChars.enumerated() {
-            if char.rect.contains(point) {
-                return i
-            }
-        }
-        // Y座標が同じ行の文字を優先的に探す（行の高さの半分以内）
-        var bestIndex: Int?
-        var bestDist: CGFloat = .infinity
-        for (i, char) in flatChars.enumerated() {
-            let yDist = abs(point.y - char.rect.midY)
-            // 行の高さの半分以内にある文字のみ対象
-            if yDist <= char.rect.height * 0.6 {
-                let xDist = abs(point.x - char.rect.midX)
-                if xDist < bestDist {
-                    bestDist = xDist
-                    bestIndex = i
-                }
-            }
-        }
-        if bestIndex != nil { return bestIndex }
-        // 同じ行がなければ、近い文字を探す（閾値を縮小）
-        bestDist = .infinity
-        for (i, char) in flatChars.enumerated() {
-            let center = CGPoint(x: char.rect.midX, y: char.rect.midY)
-            let dist = hypot(point.x - center.x, point.y - center.y)
-            if dist < bestDist && dist < 20 {
-                bestDist = dist
-                bestIndex = i
-            }
-        }
-        return bestIndex
-    }
-
-    private func mergeSelectionRects(from lo: Int, to hi: Int) -> [CGRect] {
-        guard lo <= hi, lo >= 0, hi < flatChars.count else { return [] }
-        if lo == hi {
-            return [flatChars[lo].rect]
-        }
-        var result: [CGRect] = []
-        var current = flatChars[lo].rect
-        for i in (lo + 1)...hi {
-            let charRect = flatChars[i].rect
-            // 同じ行（Y座標が近い）なら水平方向にマージ
-            if abs(charRect.midY - current.midY) < current.height * 0.5 {
-                current = current.union(charRect)
-            } else {
-                result.append(current)
-                current = charRect
-            }
-        }
-        result.append(current)
-        return result
-    }
+    // textSelectionOverlay / findCharIndex / mergeSelectionRects は
+    // Mas/Views/Editor/EditorWindow+TextSelection.swift に移動済み
 
     private var closeButton: some View {
         Button(action: { closeWindow() }) {
@@ -1952,84 +1808,8 @@ struct EditorWindow: View {
             shutterPanelController = controller
     }
 
-    // MARK: - テキスト選択（OCR）
-
-    private func startTextRecognition() {
-        guard !isRecognizingText else { return }
-        isRecognizingText = true
-        recognizedTexts = []
-        flatChars = []
-        charSelStart = nil
-        charSelEnd = nil
-
-        let image = screenshot.originalImage
-        let canvasSize = CGSize(
-            width: screenshot.captureRegion?.width ?? image.size.width,
-            height: screenshot.captureRegion?.height ?? image.size.height
-        )
-
-        Task {
-            let blocks = await textRecognitionService.recognizeText(in: image, imageSize: canvasSize)
-            await MainActor.run {
-                recognizedTexts = blocks
-                buildFlatChars()
-                isRecognizingText = false
-            }
-        }
-    }
-
-    private func buildFlatChars() {
-        let canvasHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
-
-        // ブロックを読み順にソート（上→下、同じ行なら左→右）
-        let sortedBlocks = recognizedTexts.sorted { a, b in
-            let aTop = canvasHeight - a.rect.maxY
-            let bTop = canvasHeight - b.rect.maxY
-            let lineThreshold = min(a.rect.height, b.rect.height) * 0.5
-            if abs(aTop - bTop) > lineThreshold {
-                return aTop < bTop
-            }
-            return a.rect.minX < b.rect.minX
-        }
-
-        var chars: [FlatTextChar] = []
-        for block in sortedBlocks {
-            let text = block.text
-            for (i, charRect) in block.charRects.enumerated() {
-                let y = canvasHeight - charRect.origin.y - charRect.height
-                let swiftUIRect = CGRect(x: charRect.origin.x, y: y, width: charRect.width, height: charRect.height)
-                let charIndex = text.index(text.startIndex, offsetBy: i)
-                chars.append(FlatTextChar(
-                    character: text[charIndex],
-                    rect: swiftUIRect,
-                    isBlockEnd: i == block.charRects.count - 1
-                ))
-            }
-        }
-        flatChars = chars
-    }
-
-    private func copySelectedText() {
-        guard let start = charSelStart, let end = charSelEnd else { return }
-        let lo = min(start, end)
-        let hi = max(start, end)
-        guard lo >= 0, hi < flatChars.count else { return }
-        var result = ""
-        for i in lo...hi {
-            result.append(flatChars[i].character)
-            if flatChars[i].isBlockEnd && i < hi {
-                result.append("\n")
-            }
-        }
-        guard !result.isEmpty else { return }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(result, forType: .string)
-        copiedToClipboard = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            copiedToClipboard = false
-        }
-    }
+    // startTextRecognition / buildFlatChars / copySelectedText は
+    // Mas/Views/Editor/EditorWindow+TextSelection.swift に移動済み
 }
 
 
