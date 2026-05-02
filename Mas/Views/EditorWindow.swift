@@ -58,12 +58,7 @@ struct GifFrameView: View {
 }
 
 // タップ時に色が変わらないButtonStyle
-struct NoHighlightButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .contentShape(Rectangle())
-    }
-}
+// NoHighlightButtonStyle は Mas/Views/Editor/EditorTypes.swift に移動済み
 
 // ドラッグ可能な領域（ウィンドウ移動をブロック）
 struct DraggableImageView: NSViewRepresentable {
@@ -237,58 +232,7 @@ extension DragSourceView: NSDraggingSource {
     }
 }
 
-// 編集ツールの種類
-enum EditTool: String, CaseIterable {
-    case move = "移動"
-    case pen = "ペン"
-    case highlight = "マーカー"
-    case line = "直線"
-    case arrow = "矢印"
-    case arrowText = "矢印文字"
-    case rectangle = "四角"
-    case ellipse = "丸"
-    case text = "文字"
-    case mosaic = "ぼかし"
-    case textSelection = "テキスト選択"
-    case trim = "トリミング"
-
-    var icon: String {
-        switch self {
-        case .move: return "arrow.up.and.down.and.arrow.left.and.right"
-        case .pen: return "pencil.tip"
-        case .highlight: return "highlighter"
-        case .line: return "line.diagonal"
-        case .arrow: return "arrow.up.right"
-        case .arrowText: return "arrow.up.right.and.arrow.down.left.rectangle.fill"
-        case .rectangle: return "rectangle"
-        case .ellipse: return "circle"
-        case .text: return "textformat"
-        case .mosaic: return "drop.fill"
-        case .textSelection: return "text.viewfinder"
-        case .trim: return "square.dashed"
-        }
-    }
-}
-
-struct FlatTextChar {
-    let character: Character
-    let rect: CGRect  // SwiftUI座標系（左上原点）
-    let isBlockEnd: Bool
-}
-
-enum CaptureActionMode: String, CaseIterable {
-    case recapture = "再キャプチャ"
-    case gif = "GIF録画"
-    case video = "動画録画"
-
-    var icon: String {
-        switch self {
-        case .recapture: return "camera.viewfinder"
-        case .gif: return "record.circle"
-        case .video: return "video.circle"
-        }
-    }
-}
+// EditTool / FlatTextChar / CaptureActionMode は Mas/Views/Editor/EditorTypes.swift に移動済み
 
 struct EditorWindow: View {
     @StateObject private var viewModel: EditorViewModel
