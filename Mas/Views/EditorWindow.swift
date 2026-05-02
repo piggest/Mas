@@ -2,62 +2,7 @@ import AVFoundation
 import SwiftUI
 import UniformTypeIdentifiers
 
-// 動画プレイヤー表示用（AVPlayerLayerベース、コントロールなし）
-class VideoLayerView: NSView {
-    let playerLayer: AVPlayerLayer
-
-    init(player: AVPlayer) {
-        playerLayer = AVPlayerLayer(player: player)
-        playerLayer.videoGravity = .resizeAspect
-        super.init(frame: .zero)
-        wantsLayer = true
-        layer?.addSublayer(playerLayer)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func layout() {
-        super.layout()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        playerLayer.frame = bounds
-        CATransaction.commit()
-    }
-}
-
-struct VideoPlayerView: NSViewRepresentable {
-    let player: AVPlayer
-
-    func makeNSView(context: Context) -> VideoLayerView {
-        VideoLayerView(player: player)
-    }
-
-    func updateNSView(_ nsView: VideoLayerView, context: Context) {
-        if nsView.playerLayer.player !== player {
-            nsView.playerLayer.player = player
-        }
-    }
-}
-
-// GIFフレーム表示用（@ObservedObjectでPublished変更を監視）
-struct GifFrameView: View {
-    @ObservedObject var playerState: GifPlayerState
-    var region: CGRect?
-
-    var body: some View {
-        if let region = region {
-            Image(nsImage: playerState.currentFrameImage)
-                .resizable()
-                .frame(width: region.width, height: region.height)
-        } else {
-            Image(nsImage: playerState.currentFrameImage)
-        }
-    }
-}
-
-// タップ時に色が変わらないButtonStyle
+// VideoLayerView / VideoPlayerView / GifFrameView は Mas/Views/Editor/EditorVideoView.swift に移動済み
 // NoHighlightButtonStyle は Mas/Views/Editor/EditorTypes.swift に移動済み
 
 // ドラッグ可能な領域（ウィンドウ移動をブロック）
