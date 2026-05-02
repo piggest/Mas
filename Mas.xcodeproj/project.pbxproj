@@ -16,6 +16,7 @@
 		2198BAD974BEFFEB55B1A55E /* ScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357D37861EAB7E6A17993155 /* ScreenCaptureService.swift */; };
 		235776E0F0D33F6C472F6E69 /* Screenshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9909D433CD57C9C7B08E3C /* Screenshot.swift */; };
 		285E9876F3D20A793C266BA2 /* CaptureRegionMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5ABD68541EEEF670D691F0 /* CaptureRegionMathTests.swift */; };
+		2F4ADE81D77D6F8EFB6415FA /* EditorDragSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A59D9A4BD6C7868943B46BF8 /* EditorDragSource.swift */; };
 		304A6E6A964BED0DD3165BE8 /* RecaptureRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C700529648BD9DAAE04FC6F5 /* RecaptureRegressionTests.swift */; };
 		31E07986D3486ADE53530CD1 /* RecaptureFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BD0D385AA588AF89327A88 /* RecaptureFlow.swift */; };
 		4053612E4ECEA3E274339077 /* AnnotationGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826D2AC42CE86C68AA0ABB57 /* AnnotationGeometry.swift */; };
@@ -111,6 +112,7 @@
 		994CDC1DDA9863E1025C61F7 /* MockScreenCapturing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockScreenCapturing.swift; sourceTree = "<group>"; };
 		9AADE98A628BFE59D34AF3B4 /* RegionSelectionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegionSelectionOverlay.swift; sourceTree = "<group>"; };
 		9CCB34FC1B085A7E3AB3D17D /* MasTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MasTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A59D9A4BD6C7868943B46BF8 /* EditorDragSource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EditorDragSource.swift; sourceTree = "<group>"; };
 		A93D858FC69A6B4DB12D2C7C /* EditorVideoView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EditorVideoView.swift; sourceTree = "<group>"; };
 		AC96B8C5055AFEA295B48A8A /* ScreenshotApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ScreenshotApp.entitlements; sourceTree = "<group>"; };
 		ASSETS00001FILEREF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -345,6 +347,7 @@
 			children = (
 				3016EC974CD3D9F617B9925F /* EditorTypes.swift */,
 				A93D858FC69A6B4DB12D2C7C /* EditorVideoView.swift */,
+				A59D9A4BD6C7868943B46BF8 /* EditorDragSource.swift */,
 			);
 			name = Editor;
 			path = Editor;
@@ -551,6 +554,7 @@
 				31E07986D3486ADE53530CD1 /* RecaptureFlow.swift in Sources */,
 				D1E770504E7BAE07E622CEA1 /* EditorTypes.swift in Sources */,
 				5FB3F13992B0BCE55C197F75 /* EditorVideoView.swift in Sources */,
+				2F4ADE81D77D6F8EFB6415FA /* EditorDragSource.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
