@@ -84,6 +84,10 @@ struct EditorWindow: View {
         }
     }
 
+    // MARK: - ウィンドウ位置取得
+
+    /// 現在の親ウィンドウの位置を CG 座標系の region に変換して返す。
+    /// `parentWindow` が無い（テスト等）場合は screenshot.captureRegion をフォールバック。
     private func getCurrentWindowRect() -> CGRect {
         guard let window = parentWindow else {
             return screenshot.captureRegion ?? .zero
@@ -94,7 +98,10 @@ struct EditorWindow: View {
         )
     }
 
-    // 外部からドロップされた画像ファイルを枠に取り込む
+    // MARK: - ファイルドロップ（外部画像 → 枠の画像差し替え）
+
+    /// 外部からドロップされた画像ファイルを枠に取り込む。
+    /// fileURL（Finder）と NSImage（ブラウザ等）両対応。動画/GIF モードでは無視する。
     private func handleFileDrop(providers: [NSItemProvider]) -> Bool {
         guard let provider = providers.first else { return false }
 
@@ -136,7 +143,8 @@ struct EditorWindow: View {
         return false
     }
 
-    // ドロップされた画像でスクリーンショットを差し替え、枠サイズも合わせる
+    /// ドロップされた画像でスクリーンショットを差し替え、枠サイズ・スケールも調整する。
+    /// アノテーション・編集モード・ドラッグキャッシュをリセット。画面内に収めるよう自動スケール。
     private func applyDroppedImage(_ image: NSImage) {
         // 編集モード解除
         if editMode {
@@ -183,6 +191,12 @@ struct EditorWindow: View {
             setContentScale(fitScale)
         }
     }
+
+    // MARK: - View Body
+    //
+    // メインの SwiftUI レイアウト。`GeometryReader` 内で ZStack を組み、画像本体・
+    // 各種フロートボタン（close/pin/edit toggle/recapture/dragArea）・テキスト入力・
+    // ドロップハイライトを重ねる。`.contextMenu` から各種設定アクションへ。
 
     var body: some View {
         GeometryReader { geometry in
@@ -436,6 +450,9 @@ struct EditorWindow: View {
         }
     }
 
+    // MARK: - アノテーション編集（選択中アノテーションの属性変更・ツールバー連携）
+
+    /// 選択中アノテーションの色を更新（フローティングツールバーから呼ばれる）。
     private func updateSelectedAnnotationColor(_ color: Color) {
         guard !isLoadingAnnotationAttributes,
               toolboxState.selectedTool == .move,
@@ -447,6 +464,7 @@ struct EditorWindow: View {
         toolboxState.objectWillChange.send()
     }
 
+    /// 選択中アノテーションの線幅を更新。
     private func updateSelectedAnnotationLineWidth(_ width: CGFloat) {
         guard !isLoadingAnnotationAttributes,
               toolboxState.selectedTool == .move,
@@ -457,6 +475,7 @@ struct EditorWindow: View {
         toolboxState.objectWillChange.send()
     }
 
+    /// 選択中アノテーションの縁取り有無を切り替え。
     private func updateSelectedAnnotationStroke(_ enabled: Bool) {
         guard !isLoadingAnnotationAttributes,
               toolboxState.selectedTool == .move,
@@ -467,6 +486,8 @@ struct EditorWindow: View {
         toolboxState.objectWillChange.send()
     }
 
+    /// 選択切替時に対象アノテーションの色/線幅/縁取りを toolboxState に読み込む。
+    /// `isLoadingAnnotationAttributes` で再帰更新を防止。
     private func loadSelectedAnnotationAttributes(at index: Int?) {
         // 選択が発生した時点でmoveモードのはず（キャンバスがチェック済み）
         guard let index = index,
@@ -495,6 +516,7 @@ struct EditorWindow: View {
         isLoadingAnnotationAttributes = false
     }
 
+    /// 編集モード突入時にフローティングツールバーを生成・表示。
     private func showToolbar() {
         // 親ウィンドウにツールバーを表示
         guard let window = parentWindow else { return }
@@ -521,6 +543,7 @@ struct EditorWindow: View {
         }
     }
 
+    /// 選択中アノテーションを削除。直前のものに自動選択を移す。
     private func deleteSelectedAnnotation() {
         guard let index = toolboxState.selectedAnnotationIndex,
               index < toolboxState.annotations.count else { return }
@@ -539,6 +562,10 @@ struct EditorWindow: View {
         }
     }
 
+    // MARK: - 画像/アノテーション描画レイヤ
+
+    /// 画像本体（screenshot or gif/video）+ アノテーションキャンバスを重ねる。
+    /// resizeState.originDelta で枠リサイズ時のオフセットを反映する。
     @ViewBuilder
     private var imageContent: some View {
         let offsetX = resizeState.originDelta.x
@@ -575,6 +602,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// 画像本体の表示。動画モードは VideoPlayerView、GIF は GifFrameView、
+    /// それ以外は Image(nsImage:) に切り替える。
     @ViewBuilder
     private var screenshotImage: some View {
         if screenshot.isVideo, let playerState = videoPlayerState {
@@ -600,6 +629,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// アノテーション描画キャンバス。AnnotationCanvasView をラップして
+    /// SwiftUI 状態（toolboxState 等）と双方向バインディングする。
     private var annotationCanvas: some View {
         // SwiftUI Colorから独立したNSColorを作成（クラッシュ防止）
         let safeColor = Self.createIndependentNSColor(from: toolboxState.selectedColor)
@@ -680,6 +711,9 @@ struct EditorWindow: View {
     // textSelectionOverlay / findCharIndex / mergeSelectionRects は
     // Mas/Views/Editor/EditorWindow+TextSelection.swift に移動済み
 
+    // MARK: - フロートボタン群（左上のクローズ・ピン）
+
+    /// 左上の × ボタン。closeWindow() を呼ぶ。
     private var closeButton: some View {
         Button(action: { closeWindow() }) {
             Image(systemName: "xmark")
@@ -693,6 +727,7 @@ struct EditorWindow: View {
         .position(x: 20, y: 20)
     }
 
+    /// 左上のピンボタン。alwaysOnTop（NSWindow level）を切り替える。
     private var pinButton: some View {
         Button(action: {
             alwaysOnTop.toggle()
@@ -712,6 +747,11 @@ struct EditorWindow: View {
         .position(x: 48, y: 20)
     }
 
+    // MARK: - インラインテキスト入力（テキストアノテーション編集用）
+
+    /// 画像内に直接表示するテキスト入力フィールド。テキストアノテーション作成・
+    /// 既存テキスト編集の両方で利用される。位置は textPosition、フォントサイズは
+    /// toolboxState.lineWidth に連動。
     private var inlineTextInput: some View {
         let offsetX = resizeState.originDelta.x
         let offsetY = resizeState.originDelta.y
@@ -766,6 +806,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// テキスト入力完了時の処理。既存編集なら更新、新規なら矢印文字の有無で
+    /// ArrowAnnotation+Text or 単独 TextAnnotation を生成する。
     private func submitTextInput() {
         if !textInput.isEmpty {
             let safeColor = Self.createIndependentNSColor(from: toolboxState.selectedColor)
@@ -824,6 +866,8 @@ struct EditorWindow: View {
     }
 
     /// SwiftUI ColorからSwiftUIへの参照を持たない独立したNSColorを作成
+    /// SwiftUI Color から SwiftUI への参照を持たない独立した NSColor を作る。
+    /// 注釈オブジェクトに保持される際に SwiftUI ライフサイクル依存でクラッシュする問題を回避。
     private static func createIndependentNSColor(from color: Color) -> NSColor {
         // NSColor経由でRGB成分を抽出し、新しいNSColorを作成
         let nsColor = NSColor(color)
@@ -842,6 +886,7 @@ struct EditorWindow: View {
         )
     }
 
+    /// テキスト入力をキャンセル（Esc 等）。状態を初期化するだけ。
     private func cancelTextInput() {
         textInput = ""
         showTextInput = false
@@ -850,6 +895,9 @@ struct EditorWindow: View {
         arrowTextEndPoint = nil
     }
 
+    // MARK: - ボタンエリア（編集モード切替・右上アクション・ドラッグ領域）
+
+    /// 左下の編集モードトグルボタン。鉛筆アイコンで編集モード ON/OFF。
     @ViewBuilder
     private func editModeToggle(geometry: GeometryProxy) -> some View {
         Button(action: {
@@ -887,6 +935,8 @@ struct EditorWindow: View {
         .position(x: 24, y: geometry.size.height - 24)
     }
 
+    /// 右上のキャプチャアクション群（再キャプチャ/GIF/動画 + パススルー）。
+    /// captureRegion がある時のみ表示。
     @ViewBuilder
     private func topRightButtons(geometry: GeometryProxy) -> some View {
         if screenshot.captureRegion != nil {
@@ -900,6 +950,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// 現在の captureActionMode（再キャプチャ/GIF/動画）を表すボタン。
+    /// 右クリックで他のモードに切り替え可能。
     private var captureActionButton: some View {
         Button(action: {
             executeCaptureAction(captureActionMode)
@@ -924,6 +976,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// 右上ボタン押下時のアクションを mode に応じて実行：
+    /// 再キャプチャ → onRecapture コールバック、GIF/動画 → 通知経由で録画開始。
     private func executeCaptureAction(_ mode: CaptureActionMode) {
         let rect = getCurrentWindowRect()
         switch mode {
@@ -953,6 +1007,7 @@ struct EditorWindow: View {
         }
     }
 
+    /// パススルーモード切替ボタン。透過時はクリックを下のウィンドウに通す。
     private var passThroughButton: some View {
         Button(action: {
             passThroughEnabled.toggle()
@@ -968,6 +1023,9 @@ struct EditorWindow: View {
         .buttonStyle(NoHighlightButtonStyle())
     }
 
+    /// 右下のドラッグ領域。DraggableImageView を埋め込み、外部アプリへ画像を
+    /// ドラッグ＆ドロップでコピーできる。imageProvider はアノテーション焼き付け済み
+    /// 画像を毎回返す。
     private func dragArea(geometry: GeometryProxy) -> some View {
         let screenshotRef = screenshot
         let toolboxRef = toolboxState
@@ -1008,6 +1066,10 @@ struct EditorWindow: View {
     // Mas/Views/Editor/EditorWindow+AnnotationRendering.swift に移動済み
 
 
+    // MARK: - 保存・クリップボード・パススルー連携
+
+    /// 編集済み画像をディスクに自動保存。savedURL があれば上書き、なければ新規。
+    /// 設定で指定されたフォーマット（PNG/JPG）と保存先（デフォルト ~/Pictures/Mas）を使う。
     func saveEditedImage(_ image: NSImage) {
         // 保存先URLが指定されていればそこに上書き、なければ新規作成
         let fileURL: URL
@@ -1048,6 +1110,7 @@ struct EditorWindow: View {
         }
     }
 
+    /// 編集済み画像（アノテーション焼き付け版）をクリップボードへコピー。
     private func copyToClipboard() {
         // アノテーションがある場合はアノテーション付き画像をコピー
         if !toolboxState.annotations.isEmpty, !screenshot.isGif, !screenshot.isVideo {
@@ -1068,6 +1131,7 @@ struct EditorWindow: View {
         }
     }
 
+    /// パススルー有効/無効状態を CaptureViewModel 側に通知。
     private func updatePassThrough() {
         onPassThroughChanged?(passThroughEnabled)
     }
@@ -1076,6 +1140,9 @@ struct EditorWindow: View {
     // Mas/Views/Editor/EditorWindow+Trim.swift に移動済み
 
 
+    // MARK: - ウィンドウライフサイクル・モード切替・コンテンツスケール
+
+    /// 指定ツールで編集モードに突入する（コンテキストメニューから利用）。
     private func enterEditWithTool(_ tool: EditTool) {
         toolboxState.selectedTool = tool
         if !editMode {
@@ -1083,6 +1150,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// コンテンツサイズ（50%/100%/150% 等）を設定し、ウィンドウサイズを画面内に収まるよう調整。
+    /// CaptureRegionMath.clampedWindowFrame で画面端越境を吸収する。
     private func setContentScale(_ scale: CGFloat) {
         contentScale = scale
         contentPanOffset = .zero
@@ -1112,6 +1181,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// ウィンドウクローズ。編集中ならアノテーション焼き付け、位置を保存し、
+    /// 各種コントローラを閉じてから NSWindow.close() を呼ぶ。
     private func closeWindow() {
         if editMode && !toolboxState.annotations.isEmpty {
             applyAnnotations()
@@ -1126,6 +1197,7 @@ struct EditorWindow: View {
         NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
     }
 
+    /// 現在のウィンドウ位置/サイズを次回キャプチャ用に UserDefaults に保存。
     private func saveCurrentWindowRect() {
         let rect = getCurrentWindowRect()
         guard rect.width > 0, rect.height > 0 else { return }
@@ -1136,6 +1208,10 @@ struct EditorWindow: View {
         UserDefaults.standard.set(rectDict, forKey: "lastCaptureRect")
     }
 
+    // MARK: - シャッターモード（タイマー / インターバル / 変化検知 等）
+
+    /// 右クリックメニューや右上ボタンから呼ばれるシャッター機能パネル表示。
+    /// ShutterOptionsPanelController を生成して接続する。
     private func openShutterMode(_ mode: ShutterTab) {
         guard let window = parentWindow else { return }
         // 既に開いている場合は一度閉じる
