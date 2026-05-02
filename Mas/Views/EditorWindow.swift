@@ -2,302 +2,18 @@ import AVFoundation
 import SwiftUI
 import UniformTypeIdentifiers
 
-// 動画プレイヤー表示用（AVPlayerLayerベース、コントロールなし）
-class VideoLayerView: NSView {
-    let playerLayer: AVPlayerLayer
-
-    init(player: AVPlayer) {
-        playerLayer = AVPlayerLayer(player: player)
-        playerLayer.videoGravity = .resizeAspect
-        super.init(frame: .zero)
-        wantsLayer = true
-        layer?.addSublayer(playerLayer)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func layout() {
-        super.layout()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        playerLayer.frame = bounds
-        CATransaction.commit()
-    }
-}
-
-struct VideoPlayerView: NSViewRepresentable {
-    let player: AVPlayer
-
-    func makeNSView(context: Context) -> VideoLayerView {
-        VideoLayerView(player: player)
-    }
-
-    func updateNSView(_ nsView: VideoLayerView, context: Context) {
-        if nsView.playerLayer.player !== player {
-            nsView.playerLayer.player = player
-        }
-    }
-}
-
-// GIFフレーム表示用（@ObservedObjectでPublished変更を監視）
-struct GifFrameView: View {
-    @ObservedObject var playerState: GifPlayerState
-    var region: CGRect?
-
-    var body: some View {
-        if let region = region {
-            Image(nsImage: playerState.currentFrameImage)
-                .resizable()
-                .frame(width: region.width, height: region.height)
-        } else {
-            Image(nsImage: playerState.currentFrameImage)
-        }
-    }
-}
-
-// タップ時に色が変わらないButtonStyle
-struct NoHighlightButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .contentShape(Rectangle())
-    }
-}
-
-// ドラッグ可能な領域（ウィンドウ移動をブロック）
-struct DraggableImageView: NSViewRepresentable {
-    let image: NSImage
-    let showImage: Bool
-    var gifURL: URL? = nil
-    var imageProvider: (() -> NSImage?)? = nil
-    var onDragSuccess: (() -> Void)? = nil
-    var onDragStart: (() -> Void)? = nil
-
-    func makeNSView(context: Context) -> DragSourceView {
-        let view = DragSourceView()
-        view.image = image
-        view.showImage = showImage
-        view.gifURL = gifURL
-        view.imageProvider = imageProvider
-        view.onDragSuccess = onDragSuccess
-        view.onDragStart = onDragStart
-        return view
-    }
-
-    func updateNSView(_ nsView: DragSourceView, context: Context) {
-        nsView.image = image
-        nsView.showImage = showImage
-        nsView.gifURL = gifURL
-        nsView.imageProvider = imageProvider
-        nsView.onDragSuccess = onDragSuccess
-        nsView.onDragStart = onDragStart
-        nsView.needsDisplay = true
-    }
-}
-
-class DragSourceView: NSView {
-    var image: NSImage?
-    var showImage: Bool = true
-    var gifURL: URL?
-    var imageProvider: (() -> NSImage?)?
-    var onDragSuccess: (() -> Void)?
-    var onDragStart: (() -> Void)?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        registerForDraggedTypes([.fileURL, .png, .tiff])
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override var mouseDownCanMoveWindow: Bool {
-        return false
-    }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
-        return true
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-
-        // 背景（白で塗りつぶし）
-        let bgPath = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6)
-        NSColor.white.setFill()
-        bgPath.fill()
-
-        // 外側の黒い縁取り
-        let outerPath = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
-        outerPath.lineWidth = 1
-        NSColor.black.setStroke()
-        outerPath.stroke()
-
-        // 内側のグレー縁取り
-        let innerPath = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 5, yRadius: 5)
-        innerPath.lineWidth = 1
-        NSColor.gray.withAlphaComponent(0.5).setStroke()
-        innerPath.stroke()
-
-        // アイコン（黒で描画）
-        if let symbolImage = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: nil) {
-            let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .bold)
-            let configuredImage = symbolImage.withSymbolConfiguration(config)?
-                .withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.black]))
-            let iconSize: CGFloat = 18
-            let iconRect = NSRect(
-                x: (bounds.width - iconSize) / 2,
-                y: (bounds.height - iconSize) / 2,
-                width: iconSize,
-                height: iconSize
-            )
-            configuredImage?.draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-        }
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        onDragStart?()
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        // imageProviderで最新のアノテーション付き画像を取得（SwiftUI更新タイミングに依存しない）
-        let image = imageProvider?() ?? self.image
-        guard let image else { return }
-
-        let tempDir = FileManager.default.temporaryDirectory
-        let fileURL: URL
-
-        if let gifSource = gifURL, FileManager.default.fileExists(atPath: gifSource.path) {
-            // GIF/動画ファイルはそのままコピー
-            let ext = gifSource.pathExtension.lowercased()
-            let fileName = "Mas_Recording_\(Int(Date().timeIntervalSince1970)).\(ext)"
-            fileURL = tempDir.appendingPathComponent(fileName)
-            try? FileManager.default.copyItem(at: gifSource, to: fileURL)
-        } else {
-            let fileName = "Mas_Screenshot_\(Int(Date().timeIntervalSince1970)).png"
-            fileURL = tempDir.appendingPathComponent(fileName)
-            if let tiffData = image.tiffRepresentation,
-               let bitmapRep = NSBitmapImageRep(data: tiffData),
-               let pngData = bitmapRep.representation(using: .png, properties: [:]) {
-                try? pngData.write(to: fileURL)
-            }
-        }
-
-        let draggingItem = NSDraggingItem(pasteboardWriter: fileURL as NSURL)
-
-        let thumbnailSize = NSSize(width: 64, height: 64)
-        let thumbnail = NSImage(size: thumbnailSize)
-        thumbnail.lockFocus()
-        image.draw(in: NSRect(origin: .zero, size: thumbnailSize),
-                   from: NSRect(origin: .zero, size: image.size),
-                   operation: .copy,
-                   fraction: 0.8)
-        thumbnail.unlockFocus()
-
-        draggingItem.setDraggingFrame(bounds, contents: thumbnail)
-        beginDraggingSession(with: [draggingItem], event: event, source: self)
-    }
-}
-
-extension DragSourceView: NSDraggingSource {
-    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
-        return .copy
-    }
-
-    func draggingSession(_ session: NSDraggingSession, willBeginAt screenPoint: NSPoint) {
-        // ドラッグ開始時にウィンドウを非表示
-        window?.orderOut(nil)
-    }
-
-    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-        // ドラッグ成功時（コピー操作が行われた場合）
-        if !operation.isEmpty {
-            let closeOnDragSuccess = UserDefaults.standard.object(forKey: "closeOnDragSuccess") as? Bool ?? true
-            if closeOnDragSuccess {
-                if let frame = window?.frame {
-                    let screenHeight = NSScreen.screens.first?.frame.height ?? 0
-                    let rectDict: [String: CGFloat] = [
-                        "x": frame.origin.x,
-                        "y": screenHeight - frame.origin.y - frame.height,
-                        "width": frame.width, "height": frame.height
-                    ]
-                    UserDefaults.standard.set(rectDict, forKey: "lastCaptureRect")
-                }
-                // アノテーション適用とクリーンアップ
-                onDragSuccess?()
-                window?.close()
-                NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
-                return
-            }
-        }
-        // ドラッグ終了時にウィンドウを再表示
-        window?.makeKeyAndOrderFront(nil)
-    }
-}
-
-// 編集ツールの種類
-enum EditTool: String, CaseIterable {
-    case move = "移動"
-    case pen = "ペン"
-    case highlight = "マーカー"
-    case line = "直線"
-    case arrow = "矢印"
-    case arrowText = "矢印文字"
-    case rectangle = "四角"
-    case ellipse = "丸"
-    case text = "文字"
-    case mosaic = "ぼかし"
-    case textSelection = "テキスト選択"
-    case trim = "トリミング"
-
-    var icon: String {
-        switch self {
-        case .move: return "arrow.up.and.down.and.arrow.left.and.right"
-        case .pen: return "pencil.tip"
-        case .highlight: return "highlighter"
-        case .line: return "line.diagonal"
-        case .arrow: return "arrow.up.right"
-        case .arrowText: return "arrow.up.right.and.arrow.down.left.rectangle.fill"
-        case .rectangle: return "rectangle"
-        case .ellipse: return "circle"
-        case .text: return "textformat"
-        case .mosaic: return "drop.fill"
-        case .textSelection: return "text.viewfinder"
-        case .trim: return "square.dashed"
-        }
-    }
-}
-
-struct FlatTextChar {
-    let character: Character
-    let rect: CGRect  // SwiftUI座標系（左上原点）
-    let isBlockEnd: Bool
-}
-
-enum CaptureActionMode: String, CaseIterable {
-    case recapture = "再キャプチャ"
-    case gif = "GIF録画"
-    case video = "動画録画"
-
-    var icon: String {
-        switch self {
-        case .recapture: return "camera.viewfinder"
-        case .gif: return "record.circle"
-        case .video: return "video.circle"
-        }
-    }
-}
+// VideoLayerView / VideoPlayerView / GifFrameView は Mas/Views/Editor/EditorVideoView.swift に移動済み
+// NoHighlightButtonStyle / EditTool / FlatTextChar / CaptureActionMode は Mas/Views/Editor/EditorTypes.swift に移動済み
+// DraggableImageView / DragSourceView は Mas/Views/Editor/EditorDragSource.swift に移動済み
 
 struct EditorWindow: View {
     @StateObject private var viewModel: EditorViewModel
     @ObservedObject var screenshot: Screenshot
     @ObservedObject var toolboxState: ToolboxState
     @ObservedObject var resizeState: WindowResizeState
-    @State private var copiedToClipboard = false
+    @State var copiedToClipboard = false
     @State private var showImage: Bool
-    @State private var contentYOffset: CGFloat = 0
+    @State var contentYOffset: CGFloat = 0
     @State private var passThroughEnabled = false
     @State private var editMode = false
     @State private var captureActionMode: CaptureActionMode = .recapture
@@ -306,9 +22,9 @@ struct EditorWindow: View {
     @State private var showTextInput = false
     @State private var textPosition: CGPoint = .zero
     @FocusState private var isTextFieldFocused: Bool
-    @State private var toolbarController: FloatingToolbarWindowController?
+    @State var toolbarController: FloatingToolbarWindowController?
     @State private var isLoadingAnnotationAttributes = false
-    @State private var imageForDrag: NSImage?  // アノテーション付きドラッグ用画像
+    @State var imageForDrag: NSImage?  // アノテーション付きドラッグ用画像
     @State private var editingTextIndex: Int?  // 編集中のテキストアノテーションのインデックス
     @State private var arrowTextStartPoint: CGPoint?  // 矢印文字ツール：矢印の始点
     @State private var arrowTextEndPoint: CGPoint?    // 矢印文字ツール：矢印の終点
@@ -318,22 +34,22 @@ struct EditorWindow: View {
     @State private var panStartOffset: CGSize = .zero
     @State private var isPanning: Bool = false
     // テキスト選択モード（文字単位選択）
-    @State private var recognizedTexts: [RecognizedTextBlock] = []
-    @State private var isRecognizingText = false
-    @State private var flatChars: [FlatTextChar] = []
-    @State private var charSelStart: Int?
-    @State private var charSelEnd: Int?
-    private let textRecognitionService = TextRecognitionService()
+    @State var recognizedTexts: [RecognizedTextBlock] = []
+    @State var isRecognizingText = false
+    @State var flatChars: [FlatTextChar] = []
+    @State var charSelStart: Int?
+    @State var charSelEnd: Int?
+    let textRecognitionService = TextRecognitionService()
     @State private var keyMonitor: Any?
     @State private var middleMouseMonitor: Any?
 
     // GIF再生
-    @State private var gifPlayerState: GifPlayerState?
+    @State var gifPlayerState: GifPlayerState?
     @State private var gifToolbarController: GifPlayerToolbarController?
 
     // 動画再生
-    @State private var videoPlayerState: VideoPlayerState?
-    @State private var videoToolbarController: VideoPlayerToolbarController?
+    @State var videoPlayerState: VideoPlayerState?
+    @State var videoToolbarController: VideoPlayerToolbarController?
 
     // シャッターオプション
     @State private var shutterPanelController: ShutterOptionsPanelController?
@@ -368,6 +84,10 @@ struct EditorWindow: View {
         }
     }
 
+    // MARK: - ウィンドウ位置取得
+
+    /// 現在の親ウィンドウの位置を CG 座標系の region に変換して返す。
+    /// `parentWindow` が無い（テスト等）場合は screenshot.captureRegion をフォールバック。
     private func getCurrentWindowRect() -> CGRect {
         guard let window = parentWindow else {
             return screenshot.captureRegion ?? .zero
@@ -378,7 +98,10 @@ struct EditorWindow: View {
         )
     }
 
-    // 外部からドロップされた画像ファイルを枠に取り込む
+    // MARK: - ファイルドロップ（外部画像 → 枠の画像差し替え）
+
+    /// 外部からドロップされた画像ファイルを枠に取り込む。
+    /// fileURL（Finder）と NSImage（ブラウザ等）両対応。動画/GIF モードでは無視する。
     private func handleFileDrop(providers: [NSItemProvider]) -> Bool {
         guard let provider = providers.first else { return false }
 
@@ -420,7 +143,8 @@ struct EditorWindow: View {
         return false
     }
 
-    // ドロップされた画像でスクリーンショットを差し替え、枠サイズも合わせる
+    /// ドロップされた画像でスクリーンショットを差し替え、枠サイズ・スケールも調整する。
+    /// アノテーション・編集モード・ドラッグキャッシュをリセット。画面内に収めるよう自動スケール。
     private func applyDroppedImage(_ image: NSImage) {
         // 編集モード解除
         if editMode {
@@ -467,6 +191,12 @@ struct EditorWindow: View {
             setContentScale(fitScale)
         }
     }
+
+    // MARK: - View Body
+    //
+    // メインの SwiftUI レイアウト。`GeometryReader` 内で ZStack を組み、画像本体・
+    // 各種フロートボタン（close/pin/edit toggle/recapture/dragArea）・テキスト入力・
+    // ドロップハイライトを重ねる。`.contextMenu` から各種設定アクションへ。
 
     var body: some View {
         GeometryReader { geometry in
@@ -720,6 +450,9 @@ struct EditorWindow: View {
         }
     }
 
+    // MARK: - アノテーション編集（選択中アノテーションの属性変更・ツールバー連携）
+
+    /// 選択中アノテーションの色を更新（フローティングツールバーから呼ばれる）。
     private func updateSelectedAnnotationColor(_ color: Color) {
         guard !isLoadingAnnotationAttributes,
               toolboxState.selectedTool == .move,
@@ -731,6 +464,7 @@ struct EditorWindow: View {
         toolboxState.objectWillChange.send()
     }
 
+    /// 選択中アノテーションの線幅を更新。
     private func updateSelectedAnnotationLineWidth(_ width: CGFloat) {
         guard !isLoadingAnnotationAttributes,
               toolboxState.selectedTool == .move,
@@ -741,6 +475,7 @@ struct EditorWindow: View {
         toolboxState.objectWillChange.send()
     }
 
+    /// 選択中アノテーションの縁取り有無を切り替え。
     private func updateSelectedAnnotationStroke(_ enabled: Bool) {
         guard !isLoadingAnnotationAttributes,
               toolboxState.selectedTool == .move,
@@ -751,6 +486,8 @@ struct EditorWindow: View {
         toolboxState.objectWillChange.send()
     }
 
+    /// 選択切替時に対象アノテーションの色/線幅/縁取りを toolboxState に読み込む。
+    /// `isLoadingAnnotationAttributes` で再帰更新を防止。
     private func loadSelectedAnnotationAttributes(at index: Int?) {
         // 選択が発生した時点でmoveモードのはず（キャンバスがチェック済み）
         guard let index = index,
@@ -779,6 +516,7 @@ struct EditorWindow: View {
         isLoadingAnnotationAttributes = false
     }
 
+    /// 編集モード突入時にフローティングツールバーを生成・表示。
     private func showToolbar() {
         // 親ウィンドウにツールバーを表示
         guard let window = parentWindow else { return }
@@ -805,6 +543,7 @@ struct EditorWindow: View {
         }
     }
 
+    /// 選択中アノテーションを削除。直前のものに自動選択を移す。
     private func deleteSelectedAnnotation() {
         guard let index = toolboxState.selectedAnnotationIndex,
               index < toolboxState.annotations.count else { return }
@@ -823,6 +562,10 @@ struct EditorWindow: View {
         }
     }
 
+    // MARK: - 画像/アノテーション描画レイヤ
+
+    /// 画像本体（screenshot or gif/video）+ アノテーションキャンバスを重ねる。
+    /// resizeState.originDelta で枠リサイズ時のオフセットを反映する。
     @ViewBuilder
     private var imageContent: some View {
         let offsetX = resizeState.originDelta.x
@@ -859,6 +602,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// 画像本体の表示。動画モードは VideoPlayerView、GIF は GifFrameView、
+    /// それ以外は Image(nsImage:) に切り替える。
     @ViewBuilder
     private var screenshotImage: some View {
         if screenshot.isVideo, let playerState = videoPlayerState {
@@ -884,6 +629,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// アノテーション描画キャンバス。AnnotationCanvasView をラップして
+    /// SwiftUI 状態（toolboxState 等）と双方向バインディングする。
     private var annotationCanvas: some View {
         // SwiftUI Colorから独立したNSColorを作成（クラッシュ防止）
         let safeColor = Self.createIndependentNSColor(from: toolboxState.selectedColor)
@@ -961,153 +708,12 @@ struct EditorWindow: View {
         }
     }
 
-    @ViewBuilder
-    private var textSelectionOverlay: some View {
-        let canvasHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
-        GeometryReader { geometry in
-            ZStack {
-                // テキストブロックの薄いヒント表示
-                ForEach(Array(recognizedTexts.enumerated()), id: \.offset) { _, block in
-                    let y = canvasHeight - block.rect.origin.y - block.rect.height
-                    Rectangle()
-                        .fill(Color.blue.opacity(0.04))
-                        .border(Color.blue.opacity(0.12), width: 0.5)
-                        .frame(width: block.rect.width, height: block.rect.height)
-                        .position(x: block.rect.midX, y: y + block.rect.height / 2)
-                        .allowsHitTesting(false)
-                }
+    // textSelectionOverlay / findCharIndex / mergeSelectionRects は
+    // Mas/Views/Editor/EditorWindow+TextSelection.swift に移動済み
 
-                // 文字単位の選択ハイライト
-                if let start = charSelStart, let end = charSelEnd, !flatChars.isEmpty {
-                    let lo = min(start, end)
-                    let hi = max(start, end)
-                    let clampedLo = max(0, lo)
-                    let clampedHi = min(flatChars.count - 1, hi)
-                    // 隣接する同じ行の文字をマージして描画
-                    let mergedRects = mergeSelectionRects(from: clampedLo, to: clampedHi)
-                    ForEach(Array(mergedRects.enumerated()), id: \.offset) { _, rect in
-                        Rectangle()
-                            .fill(Color.accentColor.opacity(0.3))
-                            .frame(width: rect.width, height: rect.height)
-                            .position(x: rect.midX, y: rect.midY)
-                            .allowsHitTesting(false)
-                    }
-                }
+    // MARK: - フロートボタン群（左上のクローズ・ピン）
 
-                // ローディング表示
-                if isRecognizingText {
-                    VStack {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("テキスト認識中...")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(12)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(8)
-                }
-
-                // 選択中テキストのコピーボタン
-                if charSelStart != nil && charSelEnd != nil {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Button(action: { copySelectedText() }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "doc.on.doc")
-                                    Text("コピー")
-                                }
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color.blue)
-                                .cornerRadius(6)
-                            }
-                            .buttonStyle(.plain)
-                            .padding(8)
-                        }
-                    }
-                }
-            }
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        charSelStart = findCharIndex(at: value.startLocation)
-                        charSelEnd = findCharIndex(at: value.location)
-                    }
-                    .onEnded { value in
-                        let distance = hypot(value.location.x - value.startLocation.x,
-                                            value.location.y - value.startLocation.y)
-                        if distance < 3 {
-                            // クリック: 選択解除
-                            charSelStart = nil
-                            charSelEnd = nil
-                        }
-                    }
-            )
-        }
-    }
-
-    private func findCharIndex(at point: CGPoint) -> Int? {
-        // まず完全にヒットする文字を探す
-        for (i, char) in flatChars.enumerated() {
-            if char.rect.contains(point) {
-                return i
-            }
-        }
-        // Y座標が同じ行の文字を優先的に探す（行の高さの半分以内）
-        var bestIndex: Int?
-        var bestDist: CGFloat = .infinity
-        for (i, char) in flatChars.enumerated() {
-            let yDist = abs(point.y - char.rect.midY)
-            // 行の高さの半分以内にある文字のみ対象
-            if yDist <= char.rect.height * 0.6 {
-                let xDist = abs(point.x - char.rect.midX)
-                if xDist < bestDist {
-                    bestDist = xDist
-                    bestIndex = i
-                }
-            }
-        }
-        if bestIndex != nil { return bestIndex }
-        // 同じ行がなければ、近い文字を探す（閾値を縮小）
-        bestDist = .infinity
-        for (i, char) in flatChars.enumerated() {
-            let center = CGPoint(x: char.rect.midX, y: char.rect.midY)
-            let dist = hypot(point.x - center.x, point.y - center.y)
-            if dist < bestDist && dist < 20 {
-                bestDist = dist
-                bestIndex = i
-            }
-        }
-        return bestIndex
-    }
-
-    private func mergeSelectionRects(from lo: Int, to hi: Int) -> [CGRect] {
-        guard lo <= hi, lo >= 0, hi < flatChars.count else { return [] }
-        if lo == hi {
-            return [flatChars[lo].rect]
-        }
-        var result: [CGRect] = []
-        var current = flatChars[lo].rect
-        for i in (lo + 1)...hi {
-            let charRect = flatChars[i].rect
-            // 同じ行（Y座標が近い）なら水平方向にマージ
-            if abs(charRect.midY - current.midY) < current.height * 0.5 {
-                current = current.union(charRect)
-            } else {
-                result.append(current)
-                current = charRect
-            }
-        }
-        result.append(current)
-        return result
-    }
-
+    /// 左上の × ボタン。closeWindow() を呼ぶ。
     private var closeButton: some View {
         Button(action: { closeWindow() }) {
             Image(systemName: "xmark")
@@ -1121,6 +727,7 @@ struct EditorWindow: View {
         .position(x: 20, y: 20)
     }
 
+    /// 左上のピンボタン。alwaysOnTop（NSWindow level）を切り替える。
     private var pinButton: some View {
         Button(action: {
             alwaysOnTop.toggle()
@@ -1140,6 +747,11 @@ struct EditorWindow: View {
         .position(x: 48, y: 20)
     }
 
+    // MARK: - インラインテキスト入力（テキストアノテーション編集用）
+
+    /// 画像内に直接表示するテキスト入力フィールド。テキストアノテーション作成・
+    /// 既存テキスト編集の両方で利用される。位置は textPosition、フォントサイズは
+    /// toolboxState.lineWidth に連動。
     private var inlineTextInput: some View {
         let offsetX = resizeState.originDelta.x
         let offsetY = resizeState.originDelta.y
@@ -1194,6 +806,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// テキスト入力完了時の処理。既存編集なら更新、新規なら矢印文字の有無で
+    /// ArrowAnnotation+Text or 単独 TextAnnotation を生成する。
     private func submitTextInput() {
         if !textInput.isEmpty {
             let safeColor = Self.createIndependentNSColor(from: toolboxState.selectedColor)
@@ -1252,6 +866,8 @@ struct EditorWindow: View {
     }
 
     /// SwiftUI ColorからSwiftUIへの参照を持たない独立したNSColorを作成
+    /// SwiftUI Color から SwiftUI への参照を持たない独立した NSColor を作る。
+    /// 注釈オブジェクトに保持される際に SwiftUI ライフサイクル依存でクラッシュする問題を回避。
     private static func createIndependentNSColor(from color: Color) -> NSColor {
         // NSColor経由でRGB成分を抽出し、新しいNSColorを作成
         let nsColor = NSColor(color)
@@ -1270,6 +886,7 @@ struct EditorWindow: View {
         )
     }
 
+    /// テキスト入力をキャンセル（Esc 等）。状態を初期化するだけ。
     private func cancelTextInput() {
         textInput = ""
         showTextInput = false
@@ -1278,6 +895,9 @@ struct EditorWindow: View {
         arrowTextEndPoint = nil
     }
 
+    // MARK: - ボタンエリア（編集モード切替・右上アクション・ドラッグ領域）
+
+    /// 左下の編集モードトグルボタン。鉛筆アイコンで編集モード ON/OFF。
     @ViewBuilder
     private func editModeToggle(geometry: GeometryProxy) -> some View {
         Button(action: {
@@ -1315,6 +935,8 @@ struct EditorWindow: View {
         .position(x: 24, y: geometry.size.height - 24)
     }
 
+    /// 右上のキャプチャアクション群（再キャプチャ/GIF/動画 + パススルー）。
+    /// captureRegion がある時のみ表示。
     @ViewBuilder
     private func topRightButtons(geometry: GeometryProxy) -> some View {
         if screenshot.captureRegion != nil {
@@ -1328,6 +950,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// 現在の captureActionMode（再キャプチャ/GIF/動画）を表すボタン。
+    /// 右クリックで他のモードに切り替え可能。
     private var captureActionButton: some View {
         Button(action: {
             executeCaptureAction(captureActionMode)
@@ -1352,6 +976,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// 右上ボタン押下時のアクションを mode に応じて実行：
+    /// 再キャプチャ → onRecapture コールバック、GIF/動画 → 通知経由で録画開始。
     private func executeCaptureAction(_ mode: CaptureActionMode) {
         let rect = getCurrentWindowRect()
         switch mode {
@@ -1381,6 +1007,7 @@ struct EditorWindow: View {
         }
     }
 
+    /// パススルーモード切替ボタン。透過時はクリックを下のウィンドウに通す。
     private var passThroughButton: some View {
         Button(action: {
             passThroughEnabled.toggle()
@@ -1396,6 +1023,9 @@ struct EditorWindow: View {
         .buttonStyle(NoHighlightButtonStyle())
     }
 
+    /// 右下のドラッグ領域。DraggableImageView を埋め込み、外部アプリへ画像を
+    /// ドラッグ＆ドロップでコピーできる。imageProvider はアノテーション焼き付け済み
+    /// 画像を毎回返す。
     private func dragArea(geometry: GeometryProxy) -> some View {
         let screenshotRef = screenshot
         let toolboxRef = toolboxState
@@ -1432,494 +1062,15 @@ struct EditorWindow: View {
         .position(x: geometry.size.width - 24, y: geometry.size.height - 24)
     }
 
-    // アノテーションがはみ出した場合にウィンドウを自動拡張
-    private func expandWindowForAnnotations() {
-        guard let window = parentWindow else { return }
-        let imageWidth = screenshot.captureRegion?.width ?? screenshot.originalImage.size.width
-        let imageHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
-        let imageRect = CGRect(origin: .zero, size: CGSize(width: imageWidth, height: imageHeight))
+    // expandWindowForAnnotations / applyAnnotationsToImage 系 / renderImageInBackground 系 / drawScaledAnnotationStatic は
+    // Mas/Views/Editor/EditorWindow+AnnotationRendering.swift に移動済み
 
-        var expandedRect = imageRect
-        for annotation in toolboxState.annotations {
-            expandedRect = expandedRect.union(annotation.boundingRect())
-        }
 
-        // 各方向のはみ出し量（NSView非flipped座標系: y=0が下端、上方向に増加）
-        let overflowUp = max(0, expandedRect.maxY - imageHeight)    // 視覚的な上はみ出し
-        let overflowDown = max(0, -expandedRect.origin.y)           // 視覚的な下はみ出し
-        let overflowLeft = max(0, -expandedRect.origin.x)
-        let overflowRight = max(0, expandedRect.maxX - imageWidth)
+    // MARK: - 保存・クリップボード・パススルー連携
 
-        let maxOverflowX = max(overflowLeft, overflowRight)
-        let maxOverflowY = max(overflowUp, overflowDown)
-
-        let requiredWidth = imageWidth + maxOverflowX
-        let requiredHeight = imageHeight + maxOverflowY
-
-        let currentFrame = window.frame
-        guard requiredWidth > currentFrame.width || requiredHeight > currentFrame.height else { return }
-
-        let newWidth = max(currentFrame.width, requiredWidth)
-        let newHeight = max(currentFrame.height, requiredHeight)
-        let deltaH = newHeight - currentFrame.height
-
-        // 上方向に拡張 + contentYOffsetで画像位置を補正
-        let newFrame = NSRect(
-            x: currentFrame.origin.x,
-            y: currentFrame.origin.y,
-            width: newWidth,
-            height: newHeight
-        )
-        window.setFrame(newFrame, display: true, animate: false)
-        contentYOffset += deltaH
-    }
-
-    // アノテーションを画像に反映して自動保存（アノテーションは保持）
-    private func applyAnnotationsToImage() {
-        guard !toolboxState.annotations.isEmpty else { return }
-        // GIF/動画モードでは中間保存しない
-        if screenshot.isGif || screenshot.isVideo { return }
-
-        // アノテーションデータを保存
-        onAnnotationsSaved?(toolboxState.annotations)
-
-        // 同期的に画像をレンダリング（アノテーションの参照が有効な間に処理）
-        let renderedImage = Self.renderImageInBackground(
-            originalImage: screenshot.originalImage,
-            annotations: toolboxState.annotations,
-            captureRegion: screenshot.captureRegion
-        )
-
-        guard let image = renderedImage else { return }
-
-        // ドラッグ用画像を更新
-        imageForDrag = image
-
-        let savedURL = screenshot.savedURL
-
-        // バックグラウンドで保存処理
-        DispatchQueue.global(qos: .userInitiated).async {
-            let autoSaveEnabled = UserDefaults.standard.object(forKey: "autoSaveEnabled") as? Bool ?? true
-            if autoSaveEnabled {
-                Self.saveImageToFile(image, url: savedURL)
-            }
-        }
-
-        let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
-        if autoCopyToClipboard {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.writeObjects([image])
-        }
-    }
-
-    // SwiftUI状態に依存しない安全なレンダリング処理
-    private func applyAnnotationsToImageSafe(annotations: [any Annotation], originalImage: NSImage, captureRegion: CGRect?, savedURL: URL?) {
-        guard !annotations.isEmpty else { return }
-
-        // アノテーションデータを保存（クリア前に）
-        onAnnotationsSaved?(annotations)
-
-        let renderedImage = Self.renderImageInBackground(
-            originalImage: originalImage,
-            annotations: annotations,
-            captureRegion: captureRegion
-        )
-
-        guard let image = renderedImage else { return }
-
-        // screenshot.originalImageを更新（ドラッグ時に使用される）
-        if let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-            screenshot.updateImage(cgImage)
-        }
-
-        // アノテーションをクリア（画像に適用済み）
-        toolboxState.annotations.removeAll()
-
-        // ドラッグ用一時画像をクリア（originalImageが更新されたため不要）
-        imageForDrag = nil
-
-        // バックグラウンドで保存処理
-        DispatchQueue.global(qos: .userInitiated).async {
-            let autoSaveEnabled = UserDefaults.standard.object(forKey: "autoSaveEnabled") as? Bool ?? true
-            if autoSaveEnabled {
-                Self.saveImageToFile(image, url: savedURL)
-            }
-        }
-
-        let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
-        if autoCopyToClipboard {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.writeObjects([image])
-        }
-    }
-
-    // GIF全フレームにアノテーションを焼き込んで再保存
-    private func applyAnnotationsToGif() {
-        guard let player = gifPlayerState, !toolboxState.annotations.isEmpty else { return }
-
-        let annotations = toolboxState.annotations
-        let captureRegion = screenshot.captureRegion
-
-        // 各フレームにアノテーションを描画
-        var annotatedFrames: [NSImage] = []
-        for frame in player.frames {
-            if let rendered = Self.renderImageInBackground(
-                originalImage: frame,
-                annotations: annotations,
-                captureRegion: captureRegion
-            ) {
-                annotatedFrames.append(rendered)
-            } else {
-                annotatedFrames.append(frame)
-            }
-        }
-
-        // フレームを更新
-        player.replaceFrames(annotatedFrames)
-
-        // アノテーションをクリア
-        toolboxState.annotations.removeAll()
-        imageForDrag = nil
-
-        // GIFファイルを再エンコードして保存
-        if let savedURL = screenshot.savedURL {
-            DispatchQueue.global(qos: .userInitiated).async {
-                Self.reencodeGif(frames: annotatedFrames, delays: player.frameDelays, to: savedURL)
-            }
-        }
-    }
-
-    // GIFフレームをファイルに再エンコード
-    private static func reencodeGif(frames: [NSImage], delays: [Double], to url: URL) {
-        guard let destination = CGImageDestinationCreateWithURL(
-            url as CFURL,
-            "com.compuserve.gif" as CFString,
-            frames.count,
-            nil
-        ) else { return }
-
-        let gifProperties: [String: Any] = [
-            kCGImagePropertyGIFDictionary as String: [
-                kCGImagePropertyGIFLoopCount as String: 0
-            ]
-        ]
-        CGImageDestinationSetProperties(destination, gifProperties as CFDictionary)
-
-        for (i, frame) in frames.enumerated() {
-            guard let cgImage = frame.cgImage(forProposedRect: nil, context: nil, hints: nil) else { continue }
-            let delay = i < delays.count ? delays[i] : 0.1
-            let frameProperties: [String: Any] = [
-                kCGImagePropertyGIFDictionary as String: [
-                    kCGImagePropertyGIFDelayTime as String: delay
-                ]
-            ]
-            CGImageDestinationAddImage(destination, cgImage, frameProperties as CFDictionary)
-        }
-
-        CGImageDestinationFinalize(destination)
-    }
-
-    // バックグラウンドで画像をレンダリング
-    private static func renderImageInBackground(originalImage: NSImage, annotations: [any Annotation], captureRegion: CGRect?) -> NSImage? {
-        let imageSize = originalImage.size
-        let canvasSize = captureRegion?.size ?? imageSize
-        let scale = imageSize.width / canvasSize.width
-
-        // アノテーションのはみ出しを含む拡張キャンバスを計算
-        var expandedCanvas = CGRect(origin: .zero, size: canvasSize)
-        for annotation in annotations {
-            expandedCanvas = expandedCanvas.union(annotation.boundingRect())
-        }
-        let offset = CGPoint(x: -expandedCanvas.origin.x * scale, y: -expandedCanvas.origin.y * scale)
-        let expandedImageSize = NSSize(
-            width: expandedCanvas.width * scale,
-            height: expandedCanvas.height * scale
-        )
-
-        // モザイク効果を適用
-        var baseImage = originalImage
-        for annotation in annotations {
-            if let mosaic = annotation as? MosaicAnnotation {
-                let scaledRect = CGRect(
-                    x: mosaic.rect.origin.x * scale,
-                    y: mosaic.rect.origin.y * scale,
-                    width: mosaic.rect.width * scale,
-                    height: mosaic.rect.height * scale
-                )
-                let scaledMosaic = MosaicAnnotation(
-                    rect: scaledRect,
-                    pixelSize: max(Int(CGFloat(mosaic.pixelSize) * scale), 5)
-                )
-                baseImage = scaledMosaic.applyBlurToImage(baseImage, in: scaledRect)
-            }
-        }
-
-        // NSImageのlockFocusを使用して描画（フリップキャンバスに合わせる）
-        let resultImage = NSImage(size: expandedImageSize)
-        resultImage.lockFocus()
-
-        // はみ出し領域を白で塗りつぶし
-        if expandedImageSize != imageSize {
-            NSColor.white.setFill()
-            NSRect(origin: .zero, size: expandedImageSize).fill()
-        }
-
-        // モザイク適用済み画像をオフセット付きで描画
-        baseImage.draw(in: NSRect(origin: CGPoint(x: offset.x, y: offset.y), size: imageSize))
-
-        // その他のアノテーションを描画
-        for annotation in annotations {
-            if !(annotation is MosaicAnnotation) {
-                Self.drawScaledAnnotationStatic(annotation, scale: scale, imageHeight: imageSize.height, canvasHeight: canvasSize.height, offset: offset)
-            }
-        }
-
-        resultImage.unlockFocus()
-        return resultImage
-    }
-
-    // ファイルに保存（バックグラウンド用）
-    private static func saveImageToFile(_ image: NSImage, url: URL?) {
-        // 保存先URLが指定されていればそこに上書き、なければ新規作成
-        let fileURL: URL
-        if let existingURL = url {
-            fileURL = existingURL
-        } else {
-            let saveFolder = UserDefaults.standard.string(forKey: "autoSaveFolder") ?? "~/Pictures/Mas"
-            let expandedPath = NSString(string: saveFolder).expandingTildeInPath
-            let folderURL = URL(fileURLWithPath: expandedPath)
-
-            let formatString = UserDefaults.standard.string(forKey: "defaultFormat") ?? "PNG"
-            let fileExtension = formatString.lowercased()
-
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
-            let fileName = "Mas_\(dateFormatter.string(from: Date())).\(fileExtension)"
-            fileURL = folderURL.appendingPathComponent(fileName)
-        }
-
-        guard let tiffData = image.tiffRepresentation,
-              let bitmapRep = NSBitmapImageRep(data: tiffData) else { return }
-
-        // ファイル拡張子から形式を判断
-        let isJpeg = fileURL.pathExtension.lowercased() == "jpg" || fileURL.pathExtension.lowercased() == "jpeg"
-
-        let imageData: Data?
-        if isJpeg {
-            let quality = UserDefaults.standard.double(forKey: "jpegQuality")
-            imageData = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: quality > 0 ? quality : 0.9])
-        } else {
-            imageData = bitmapRep.representation(using: .png, properties: [:])
-        }
-
-        try? imageData?.write(to: fileURL)
-    }
-
-    // 画像とアノテーションを合成した画像を生成
-    private func renderImageWithAnnotations() -> NSImage {
-        let imageSize = screenshot.originalImage.size
-        let canvasSize = screenshot.captureRegion?.size ?? imageSize
-        let scale = imageSize.width / canvasSize.width
-
-        // アノテーションのはみ出しを含む拡張キャンバスを計算
-        var expandedCanvas = CGRect(origin: .zero, size: canvasSize)
-        for annotation in toolboxState.annotations {
-            expandedCanvas = expandedCanvas.union(annotation.boundingRect())
-        }
-        let offset = CGPoint(x: -expandedCanvas.origin.x * scale, y: -expandedCanvas.origin.y * scale)
-        let expandedImageSize = NSSize(
-            width: expandedCanvas.width * scale,
-            height: expandedCanvas.height * scale
-        )
-
-        // まずモザイク効果を適用
-        var baseImage = screenshot.originalImage
-        for annotation in toolboxState.annotations {
-            if let mosaic = annotation as? MosaicAnnotation {
-                let scaledRect = CGRect(
-                    x: mosaic.rect.origin.x * scale,
-                    y: mosaic.rect.origin.y * scale,
-                    width: mosaic.rect.width * scale,
-                    height: mosaic.rect.height * scale
-                )
-                let scaledMosaic = MosaicAnnotation(
-                    rect: scaledRect,
-                    pixelSize: max(Int(CGFloat(mosaic.pixelSize) * scale), 5)
-                )
-                baseImage = scaledMosaic.applyBlurToImage(baseImage, in: scaledRect)
-            }
-        }
-
-        let newImage = NSImage(size: expandedImageSize)
-        newImage.lockFocus()
-
-        // はみ出し領域を白で塗りつぶし
-        if expandedImageSize != imageSize {
-            NSColor.white.setFill()
-            NSRect(origin: .zero, size: expandedImageSize).fill()
-        }
-
-        baseImage.draw(in: NSRect(origin: CGPoint(x: offset.x, y: offset.y), size: imageSize))
-
-        for annotation in toolboxState.annotations {
-            if !(annotation is MosaicAnnotation) {
-                Self.drawScaledAnnotationStatic(annotation, scale: scale, imageHeight: imageSize.height, canvasHeight: canvasSize.height, offset: offset)
-            }
-        }
-
-        newImage.unlockFocus()
-        return newImage
-    }
-
-    private func applyAnnotations() {
-        guard !toolboxState.annotations.isEmpty else { return }
-
-        // アノテーションデータを保存（クリア前に）
-        onAnnotationsSaved?(toolboxState.annotations)
-
-        let newImage = renderImageWithAnnotations()
-
-        if let cgImage = newImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-            screenshot.updateImage(cgImage)
-        }
-
-        let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
-        if autoCopyToClipboard {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.writeObjects([newImage])
-        }
-
-        let autoSaveEnabled = UserDefaults.standard.object(forKey: "autoSaveEnabled") as? Bool ?? true
-        if autoSaveEnabled {
-            saveEditedImage(newImage)
-        }
-
-        toolboxState.annotations.removeAll()
-    }
-
-    private static func drawScaledAnnotationStatic(_ annotation: any Annotation, scale: CGFloat, imageHeight: CGFloat, canvasHeight: CGFloat, offset: CGPoint = .zero) {
-        // 単純にスケーリング + オフセット（NSViewとNSImageは同じ左下原点座標系）
-        let ox = offset.x
-        let oy = offset.y
-        if let line = annotation as? LineAnnotation {
-            let startPoint = CGPoint(
-                x: line.startPoint.x * scale + ox,
-                y: line.startPoint.y * scale + oy
-            )
-            let endPoint = CGPoint(
-                x: line.endPoint.x * scale + ox,
-                y: line.endPoint.y * scale + oy
-            )
-            let scaledLine = LineAnnotation(
-                startPoint: startPoint,
-                endPoint: endPoint,
-                color: line.color.copy() as! NSColor,
-                lineWidth: line.lineWidth * scale,
-                strokeEnabled: line.strokeEnabled
-            )
-            scaledLine.draw(in: .zero)
-        } else if let arrow = annotation as? ArrowAnnotation {
-            let startPoint = CGPoint(
-                x: arrow.startPoint.x * scale + ox,
-                y: arrow.startPoint.y * scale + oy
-            )
-            let endPoint = CGPoint(
-                x: arrow.endPoint.x * scale + ox,
-                y: arrow.endPoint.y * scale + oy
-            )
-            let scaledArrow = ArrowAnnotation(
-                startPoint: startPoint,
-                endPoint: endPoint,
-                color: arrow.color.copy() as! NSColor,
-                lineWidth: arrow.lineWidth * scale,
-                strokeEnabled: arrow.strokeEnabled
-            )
-            scaledArrow.draw(in: .zero)
-        } else if let rect = annotation as? RectAnnotation {
-            let scaledRect = CGRect(
-                x: rect.rect.origin.x * scale + ox,
-                y: rect.rect.origin.y * scale + oy,
-                width: rect.rect.width * scale,
-                height: rect.rect.height * scale
-            )
-            let scaledAnnotation = RectAnnotation(
-                rect: scaledRect,
-                color: rect.color.copy() as! NSColor,
-                lineWidth: rect.lineWidth * scale,
-                strokeEnabled: rect.strokeEnabled
-            )
-            scaledAnnotation.draw(in: .zero)
-        } else if let ellipse = annotation as? EllipseAnnotation {
-            let scaledRect = CGRect(
-                x: ellipse.rect.origin.x * scale + ox,
-                y: ellipse.rect.origin.y * scale + oy,
-                width: ellipse.rect.width * scale,
-                height: ellipse.rect.height * scale
-            )
-            let scaledAnnotation = EllipseAnnotation(
-                rect: scaledRect,
-                color: ellipse.color.copy() as! NSColor,
-                lineWidth: ellipse.lineWidth * scale,
-                strokeEnabled: ellipse.strokeEnabled
-            )
-            scaledAnnotation.draw(in: .zero)
-        } else if let text = annotation as? TextAnnotation {
-            let scaledFont = NSFont.systemFont(ofSize: text.font.pointSize * scale, weight: .medium)
-            let scaledPosition = CGPoint(
-                x: text.position.x * scale + ox,
-                y: text.position.y * scale + oy
-            )
-            let scaledAnnotation = TextAnnotation(
-                position: scaledPosition,
-                text: String(text.text),
-                font: scaledFont,
-                color: text.color.copy() as! NSColor,
-                strokeEnabled: text.strokeEnabled
-            )
-            scaledAnnotation.draw(in: .zero)
-        } else if let highlight = annotation as? HighlightAnnotation {
-            let scaledRect = CGRect(
-                x: highlight.rect.origin.x * scale + ox,
-                y: highlight.rect.origin.y * scale + oy,
-                width: highlight.rect.width * scale,
-                height: highlight.rect.height * scale
-            )
-            let scaledAnnotation = HighlightAnnotation(
-                rect: scaledRect,
-                color: highlight.color.copy() as! NSColor
-            )
-            scaledAnnotation.draw(in: .zero)
-        } else if let mosaic = annotation as? MosaicAnnotation {
-            let scaledRect = CGRect(
-                x: mosaic.rect.origin.x * scale + ox,
-                y: mosaic.rect.origin.y * scale + oy,
-                width: mosaic.rect.width * scale,
-                height: mosaic.rect.height * scale
-            )
-            let scaledAnnotation = MosaicAnnotation(
-                rect: scaledRect,
-                pixelSize: Int(CGFloat(mosaic.pixelSize) * scale)
-            )
-            scaledAnnotation.draw(in: .zero)
-        } else if let freehand = annotation as? FreehandAnnotation {
-            let scaledPoints = freehand.points.map { point in
-                CGPoint(x: point.x * scale + ox, y: point.y * scale + oy)
-            }
-            let scaledAnnotation = FreehandAnnotation(
-                points: scaledPoints,
-                color: freehand.color.copy() as! NSColor,
-                lineWidth: freehand.lineWidth * scale,
-                isHighlighter: freehand.isHighlighter,
-                strokeEnabled: freehand.strokeEnabled
-            )
-            scaledAnnotation.draw(in: .zero)
-        }
-    }
-
-    private func saveEditedImage(_ image: NSImage) {
+    /// 編集済み画像をディスクに自動保存。savedURL があれば上書き、なければ新規。
+    /// 設定で指定されたフォーマット（PNG/JPG）と保存先（デフォルト ~/Pictures/Mas）を使う。
+    func saveEditedImage(_ image: NSImage) {
         // 保存先URLが指定されていればそこに上書き、なければ新規作成
         let fileURL: URL
         if let existingURL = screenshot.savedURL {
@@ -1959,6 +1110,7 @@ struct EditorWindow: View {
         }
     }
 
+    /// 編集済み画像（アノテーション焼き付け版）をクリップボードへコピー。
     private func copyToClipboard() {
         // アノテーションがある場合はアノテーション付き画像をコピー
         if !toolboxState.annotations.isEmpty, !screenshot.isGif, !screenshot.isVideo {
@@ -1979,168 +1131,18 @@ struct EditorWindow: View {
         }
     }
 
+    /// パススルー有効/無効状態を CaptureViewModel 側に通知。
     private func updatePassThrough() {
         onPassThroughChanged?(passThroughEnabled)
     }
 
-    private func performCopyRegion(canvasRect: CGRect) {
-        let imageSize = screenshot.originalImage.size
-        let canvasSize = screenshot.captureRegion?.size ?? imageSize
-        guard canvasSize.width > 0, canvasSize.height > 0 else { return }
-        let scale = imageSize.width / canvasSize.width
+    // performCopyRegion / performTrim / replaceWithTrimmedVideo / handleGifExportComplete は
+    // Mas/Views/Editor/EditorWindow+Trim.swift に移動済み
 
-        // キャンバス座標→ピクセル座標に変換（左下原点→左上原点）
-        let pixelX = canvasRect.origin.x * scale
-        let pixelY = (canvasSize.height - canvasRect.origin.y - canvasRect.height) * scale
-        let pixelWidth = canvasRect.width * scale
-        let pixelHeight = canvasRect.height * scale
 
-        let imageBounds = CGRect(x: 0, y: 0, width: imageSize.width, height: imageSize.height)
-        let cropRect = CGRect(x: pixelX, y: pixelY, width: pixelWidth, height: pixelHeight)
-            .integral
-            .intersection(imageBounds)
+    // MARK: - ウィンドウライフサイクル・モード切替・コンテンツスケール
 
-        guard cropRect.width > 0, cropRect.height > 0 else { return }
-
-        guard let cgImage = screenshot.originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
-              let croppedCGImage = cgImage.cropping(to: cropRect) else { return }
-
-        let croppedImage = NSImage(cgImage: croppedCGImage, size: NSSize(width: cropRect.width, height: cropRect.height))
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.writeObjects([croppedImage])
-    }
-
-    private func performTrim(canvasRect: CGRect) {
-        // 1. 既存アノテーションがあれば先に画像に焼き込み
-        if !toolboxState.annotations.isEmpty {
-            applyAnnotations()
-        }
-
-        let imageSize = screenshot.originalImage.size
-        let canvasSize = screenshot.captureRegion?.size ?? imageSize
-        guard canvasSize.width > 0, canvasSize.height > 0 else { return }
-        let scale = imageSize.width / canvasSize.width
-
-        // 2. キャンバス座標→ピクセル座標に変換
-        // AnnotationCanvas は左下原点、CGImage は左上原点
-        let pixelX = canvasRect.origin.x * scale
-        let pixelY = (canvasSize.height - canvasRect.origin.y - canvasRect.height) * scale
-        let pixelWidth = canvasRect.width * scale
-        let pixelHeight = canvasRect.height * scale
-
-        // 画像範囲内にclamp
-        let imageBounds = CGRect(x: 0, y: 0, width: imageSize.width, height: imageSize.height)
-        let cropRect = CGRect(x: pixelX, y: pixelY, width: pixelWidth, height: pixelHeight)
-            .integral
-            .intersection(imageBounds)
-
-        guard cropRect.width > 0, cropRect.height > 0 else { return }
-
-        // 3. CGImage.cropping(to:) で切り取り
-        guard let cgImage = screenshot.originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
-              let croppedCGImage = cgImage.cropping(to: cropRect) else { return }
-
-        // 4. screenshot.updateImage() で画像更新
-        screenshot.updateImage(croppedCGImage)
-
-        // 5. captureRegion を新サイズに更新（トリミング後のキャンバスサイズ）
-        let newCanvasWidth = cropRect.width / scale
-        let newCanvasHeight = cropRect.height / scale
-        let oldRegion = screenshot.captureRegion ?? CGRect(origin: .zero, size: imageSize)
-        screenshot.captureRegion = CGRect(
-            x: oldRegion.origin.x,
-            y: oldRegion.origin.y,
-            width: newCanvasWidth,
-            height: newCanvasHeight
-        )
-
-        // 6. ウィンドウをトリミング範囲のスクリーン位置に移動＆リサイズ
-        // canvasRect.originはキャンバス座標（左下原点）でのトリミング範囲の左下
-        // originDelta: SwiftUIの.offset()によるキャンバスのシフト量
-        let dx = resizeState.originDelta.x
-        let dy = resizeState.originDelta.y
-        if let window = parentWindow {
-            let oldFrame = window.frame
-            // キャンバスの左下のスクリーン座標 = ウィンドウ上端 - dy - canvasHeight
-            // トリミング範囲の左下のスクリーン座標:
-            let screenX = oldFrame.origin.x + dx + canvasRect.origin.x
-            let screenY = oldFrame.origin.y + oldFrame.height - dy - canvasSize.height + canvasRect.origin.y
-            let newFrame = NSRect(
-                x: screenX,
-                y: screenY,
-                width: newCanvasWidth,
-                height: newCanvasHeight
-            )
-            window.setFrame(newFrame, display: true)
-        }
-        resizeState.reset()
-
-        // 7. 自動保存・クリップボードコピー（設定に応じて）
-        let newImage = screenshot.originalImage
-        let autoSaveEnabled = UserDefaults.standard.object(forKey: "autoSaveEnabled") as? Bool ?? true
-        if autoSaveEnabled {
-            saveEditedImage(newImage)
-        }
-        let autoCopyToClipboard = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
-        if autoCopyToClipboard {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.writeObjects([newImage])
-        }
-
-        // ドラッグ用画像をクリア
-        imageForDrag = nil
-
-        // 8. ツールを .move に戻す
-        toolboxState.selectedTool = .move
-        toolbarController?.setTool(.move)
-    }
-
-    private func replaceWithTrimmedVideo(url: URL) {
-        // ツールバーを閉じる
-        videoToolbarController?.close()
-        videoToolbarController = nil
-        videoPlayerState?.pause()
-        videoPlayerState = nil
-
-        // サムネイル生成
-        let asset = AVAsset(url: url)
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-        if let cgImage = try? generator.copyCGImage(at: .zero, actualTime: nil) {
-            screenshot.originalImage = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-        }
-        screenshot.savedURL = url
-
-        // 履歴に追加
-        NotificationCenter.default.post(name: .addFileToHistory, object: url)
-
-        // 新しいプレーヤーを初期化
-        if let player = VideoPlayerState(url: url) {
-            videoPlayerState = player
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                if let parent = self.parentWindow {
-                    let controller = VideoPlayerToolbarController()
-                    controller.show(attachedTo: parent, playerState: player, onTrimComplete: { [self] trimmedURL in
-                        self.replaceWithTrimmedVideo(url: trimmedURL)
-                    }, onGifExportComplete: { [self] gifURL in
-                        self.handleGifExportComplete(url: gifURL)
-                    })
-                    self.videoToolbarController = controller
-                }
-                player.play()
-            }
-        }
-    }
-
-    private func handleGifExportComplete(url: URL) {
-        // 履歴に追加
-        NotificationCenter.default.post(name: .addFileToHistory, object: url)
-        // Finderで表示
-        NSWorkspace.shared.activateFileViewerSelecting([url])
-    }
-
+    /// 指定ツールで編集モードに突入する（コンテキストメニューから利用）。
     private func enterEditWithTool(_ tool: EditTool) {
         toolboxState.selectedTool = tool
         if !editMode {
@@ -2148,6 +1150,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// コンテンツサイズ（50%/100%/150% 等）を設定し、ウィンドウサイズを画面内に収まるよう調整。
+    /// CaptureRegionMath.clampedWindowFrame で画面端越境を吸収する。
     private func setContentScale(_ scale: CGFloat) {
         contentScale = scale
         contentPanOffset = .zero
@@ -2177,6 +1181,8 @@ struct EditorWindow: View {
         }
     }
 
+    /// ウィンドウクローズ。編集中ならアノテーション焼き付け、位置を保存し、
+    /// 各種コントローラを閉じてから NSWindow.close() を呼ぶ。
     private func closeWindow() {
         if editMode && !toolboxState.annotations.isEmpty {
             applyAnnotations()
@@ -2191,6 +1197,7 @@ struct EditorWindow: View {
         NotificationCenter.default.post(name: .editorWindowClosed, object: nil)
     }
 
+    /// 現在のウィンドウ位置/サイズを次回キャプチャ用に UserDefaults に保存。
     private func saveCurrentWindowRect() {
         let rect = getCurrentWindowRect()
         guard rect.width > 0, rect.height > 0 else { return }
@@ -2201,6 +1208,10 @@ struct EditorWindow: View {
         UserDefaults.standard.set(rectDict, forKey: "lastCaptureRect")
     }
 
+    // MARK: - シャッターモード（タイマー / インターバル / 変化検知 等）
+
+    /// 右クリックメニューや右上ボタンから呼ばれるシャッター機能パネル表示。
+    /// ShutterOptionsPanelController を生成して接続する。
     private func openShutterMode(_ mode: ShutterTab) {
         guard let window = parentWindow else { return }
         // 既に開いている場合は一度閉じる
@@ -2236,1021 +1247,11 @@ struct EditorWindow: View {
             shutterPanelController = controller
     }
 
-    // MARK: - テキスト選択（OCR）
-
-    private func startTextRecognition() {
-        guard !isRecognizingText else { return }
-        isRecognizingText = true
-        recognizedTexts = []
-        flatChars = []
-        charSelStart = nil
-        charSelEnd = nil
-
-        let image = screenshot.originalImage
-        let canvasSize = CGSize(
-            width: screenshot.captureRegion?.width ?? image.size.width,
-            height: screenshot.captureRegion?.height ?? image.size.height
-        )
-
-        Task {
-            let blocks = await textRecognitionService.recognizeText(in: image, imageSize: canvasSize)
-            await MainActor.run {
-                recognizedTexts = blocks
-                buildFlatChars()
-                isRecognizingText = false
-            }
-        }
-    }
-
-    private func buildFlatChars() {
-        let canvasHeight = screenshot.captureRegion?.height ?? screenshot.originalImage.size.height
-
-        // ブロックを読み順にソート（上→下、同じ行なら左→右）
-        let sortedBlocks = recognizedTexts.sorted { a, b in
-            let aTop = canvasHeight - a.rect.maxY
-            let bTop = canvasHeight - b.rect.maxY
-            let lineThreshold = min(a.rect.height, b.rect.height) * 0.5
-            if abs(aTop - bTop) > lineThreshold {
-                return aTop < bTop
-            }
-            return a.rect.minX < b.rect.minX
-        }
-
-        var chars: [FlatTextChar] = []
-        for block in sortedBlocks {
-            let text = block.text
-            for (i, charRect) in block.charRects.enumerated() {
-                let y = canvasHeight - charRect.origin.y - charRect.height
-                let swiftUIRect = CGRect(x: charRect.origin.x, y: y, width: charRect.width, height: charRect.height)
-                let charIndex = text.index(text.startIndex, offsetBy: i)
-                chars.append(FlatTextChar(
-                    character: text[charIndex],
-                    rect: swiftUIRect,
-                    isBlockEnd: i == block.charRects.count - 1
-                ))
-            }
-        }
-        flatChars = chars
-    }
-
-    private func copySelectedText() {
-        guard let start = charSelStart, let end = charSelEnd else { return }
-        let lo = min(start, end)
-        let hi = max(start, end)
-        guard lo >= 0, hi < flatChars.count else { return }
-        var result = ""
-        for i in lo...hi {
-            result.append(flatChars[i].character)
-            if flatChars[i].isBlockEnd && i < hi {
-                result.append("\n")
-            }
-        }
-        guard !result.isEmpty else { return }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(result, forType: .string)
-        copiedToClipboard = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            copiedToClipboard = false
-        }
-    }
+    // startTextRecognition / buildFlatChars / copySelectedText は
+    // Mas/Views/Editor/EditorWindow+TextSelection.swift に移動済み
 }
 
 
-// 注釈描画キャンバス
-struct AnnotationCanvasView: NSViewRepresentable {
-    @Binding var annotations: [any Annotation]
-    @Binding var currentAnnotation: (any Annotation)?
-    let selectedTool: EditTool
-    let selectedColor: NSColor
-    let lineWidth: CGFloat
-    let strokeEnabled: Bool
-    let sourceImage: NSImage
-    let isEditing: Bool
-    let showImage: Bool
-    let toolboxState: ToolboxState
-    let onTextTap: (CGPoint) -> Void
-    let onArrowTextDragFinished: ((CGPoint, CGPoint) -> Void)?
-    let onAnnotationChanged: () -> Void
-    let onTextEdit: ((Int, TextAnnotation) -> Void)?
-    let onDoubleClickEmpty: (() -> Void)?
-    let onSelectionChanged: ((Int?) -> Void)?
-    let onToolChanged: ((EditTool) -> Void)?
-    var onTrimRequested: ((CGRect) -> Void)?
-    var onCopyTrimRegion: ((CGRect) -> Void)?
-    var onCopyText: (() -> Void)?
-    var imageDisplaySize: CGSize = .zero
 
-    func makeNSView(context: Context) -> AnnotationCanvas {
-        let canvas = AnnotationCanvas()
-        canvas.delegate = context.coordinator
-        canvas.sourceImage = sourceImage
-        canvas.imageDisplaySize = imageDisplaySize
-        context.coordinator.canvas = canvas
-        return canvas
-    }
-
-    func updateNSView(_ nsView: AnnotationCanvas, context: Context) {
-        // ツール変更時にトリミング選択範囲をクリア
-        if nsView.selectedTool != selectedTool {
-            nsView.trimRect = nil
-        }
-        nsView.annotations = annotations
-        nsView.currentAnnotation = currentAnnotation
-        nsView.selectedTool = selectedTool
-        nsView.selectedColor = selectedColor
-        nsView.lineWidth = lineWidth
-        nsView.strokeEnabled = strokeEnabled
-        nsView.sourceImage = sourceImage
-        nsView.imageDisplaySize = imageDisplaySize
-        nsView.isEditing = isEditing
-        nsView.showImage = showImage
-        // 編集モード終了時に選択をクリア
-        if !isEditing {
-            nsView.clearSelection()
-            // 状態変更を次のRunLoopサイクルに遅延（クラッシュ防止）
-            if toolboxState.selectedAnnotationIndex != nil {
-                let state = toolboxState
-                DispatchQueue.main.async {
-                    state.selectedAnnotationIndex = nil
-                }
-            }
-        } else {
-            // ToolboxStateの選択状態をCanvasに同期
-            nsView.setSelectedIndex(toolboxState.selectedAnnotationIndex)
-        }
-        // ウィンドウフレームを更新
-        nsView.updateWindowFrame()
-        // リアルタイムキャプチャモードのタイマー制御
-        nsView.updateRefreshTimer(hasMosaicAnnotations: annotations.contains { $0 is MosaicAnnotation })
-        nsView.needsDisplay = true
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, AnnotationCanvasDelegate {
-        var parent: AnnotationCanvasView
-        weak var canvas: AnnotationCanvas?
-
-        init(_ parent: AnnotationCanvasView) {
-            self.parent = parent
-        }
-
-        func annotationAdded(_ annotation: any Annotation) {
-            // モザイクは常に後ろ（配列の先頭）に追加
-            let newIndex: Int
-            if annotation is MosaicAnnotation {
-                parent.annotations.insert(annotation, at: 0)
-                newIndex = 0
-            } else {
-                parent.annotations.append(annotation)
-                newIndex = parent.annotations.count - 1
-            }
-            // 直接canvasの配列も更新（同期問題を回避）
-            canvas?.annotations = parent.annotations
-            canvas?.needsDisplay = true
-
-            parent.currentAnnotation = nil
-            parent.onAnnotationChanged()
-
-            // ペン・マーカー以外の場合のみ選択モードに切り替え
-            if !(annotation is FreehandAnnotation) {
-                parent.onToolChanged?(.move)
-                parent.toolboxState.selectedAnnotationIndex = newIndex
-                canvas?.setSelectedIndex(newIndex)
-                canvas?.needsDisplay = true
-            }
-        }
-
-        func currentAnnotationUpdated(_ annotation: (any Annotation)?) {
-            parent.currentAnnotation = annotation
-        }
-
-        func textTapped(at position: CGPoint) {
-            parent.onTextTap(position)
-        }
-
-        func arrowTextDragFinished(startPoint: CGPoint, endPoint: CGPoint) {
-            parent.currentAnnotation = nil
-            parent.onArrowTextDragFinished?(startPoint, endPoint)
-        }
-
-        func annotationMoved() {
-            // canvasの配列を親に反映
-            if let canvasAnnotations = canvas?.annotations {
-                parent.annotations = canvasAnnotations
-            }
-            parent.onAnnotationChanged()
-        }
-
-        func selectionChanged(_ index: Int?) {
-            parent.toolboxState.selectedAnnotationIndex = index
-            // 選択時にアノテーションの属性をツールボックスに読み込み
-            parent.onSelectionChanged?(index)
-        }
-
-        func deleteSelectedAnnotation() {
-            guard let index = parent.toolboxState.selectedAnnotationIndex,
-                  index < parent.annotations.count else { return }
-            parent.annotations.remove(at: index)
-            canvas?.annotations = parent.annotations
-
-            // 削除後に次のアノテーションを自動選択
-            let newIndex: Int?
-            if parent.annotations.isEmpty {
-                newIndex = nil
-            } else if index < parent.annotations.count {
-                // 同じ位置に次のアノテーションがあればそれを選択
-                newIndex = index
-            } else {
-                // 最後の要素だった場合は一つ前を選択
-                newIndex = parent.annotations.count - 1
-            }
-
-            canvas?.setSelectedIndex(newIndex)
-            parent.toolboxState.selectedAnnotationIndex = newIndex
-            canvas?.needsDisplay = true
-            parent.onAnnotationChanged()
-        }
-
-        func editTextAnnotation(at index: Int, annotation: TextAnnotation) {
-            parent.onTextEdit?(index, annotation)
-        }
-
-        func doubleClickedOnEmpty() {
-            parent.onDoubleClickEmpty?()
-        }
-
-        func trimRequested(rect: CGRect) {
-            parent.onTrimRequested?(rect)
-        }
-
-        func copyTrimRegionRequested(rect: CGRect) {
-            parent.onCopyTrimRegion?(rect)
-        }
-
-        func copyTextRequested() {
-            parent.onCopyText?()
-        }
-    }
-}
-
-protocol AnnotationCanvasDelegate: AnyObject {
-    func annotationAdded(_ annotation: any Annotation)
-    func currentAnnotationUpdated(_ annotation: (any Annotation)?)
-    func textTapped(at position: CGPoint)
-    func arrowTextDragFinished(startPoint: CGPoint, endPoint: CGPoint)
-    func annotationMoved()
-    func selectionChanged(_ index: Int?)
-    func deleteSelectedAnnotation()
-    func editTextAnnotation(at index: Int, annotation: TextAnnotation)
-    func doubleClickedOnEmpty()
-    func trimRequested(rect: CGRect)
-    func copyTrimRegionRequested(rect: CGRect)
-    func copyTextRequested()
-}
-
-// ResizeHandle は Mas/Logic/AnnotationGeometry.swift に移動済み
-
-class AnnotationCanvas: NSView {
-    weak var delegate: AnnotationCanvasDelegate?
-    var annotations: [any Annotation] = []
-    var currentAnnotation: (any Annotation)?
-    var selectedTool: EditTool = .arrow
-    var selectedColor: NSColor = .red
-    var lineWidth: CGFloat = 3
-    var strokeEnabled: Bool = true
-    var sourceImage: NSImage?
-    var imageDisplaySize: CGSize = .zero  // 画像の表示サイズ（モザイクのスケール計算用）
-    var isEditing: Bool = false
-    var showImage: Bool = true
-    private var dragStart: CGPoint?
-    private var selectedAnnotationIndex: Int?
-    private var lastDragPoint: CGPoint?
-    private var didMoveAnnotation: Bool = false
-    private var windowFrame: CGRect = .zero
-    private var refreshTimer: Timer?
-    private var activeResizeHandle: ResizeHandle = .none
-    private var isResizing: Bool = false
-    var trimRect: CGRect?
-    private var trimDragStart: CGPoint?
-
-    /// キャンバス内の画像領域オフセット（全方向パディング対応）
-    private var canvasPadding: CGPoint {
-        guard imageDisplaySize.width > 0, imageDisplaySize.height > 0 else { return .zero }
-        let px = max(0, (bounds.width - imageDisplaySize.width) / 2)
-        let py = max(0, (bounds.height - imageDisplaySize.height) / 2)
-        return CGPoint(x: px, y: py)
-    }
-
-    /// マウスイベント座標を画像座標系に変換
-    private func imagePoint(from event: NSEvent) -> CGPoint {
-        let raw = convert(event.locationInWindow, from: nil)
-        let pad = canvasPadding
-        return CGPoint(x: raw.x - pad.x, y: raw.y - pad.y)
-    }
-
-    override var acceptsFirstResponder: Bool { true }
-
-    override var mouseDownCanMoveWindow: Bool { !isEditing }
-
-    func clearSelection() {
-        selectedAnnotationIndex = nil
-    }
-
-    func setSelectedIndex(_ index: Int?) {
-        selectedAnnotationIndex = index
-    }
-
-    func updateWindowFrame() {
-        if let windowFrame = window?.frame {
-            self.windowFrame = windowFrame
-        }
-    }
-
-    private var needsRefreshTimer: Bool = false
-
-    private func startRefreshTimer() {
-        guard refreshTimer == nil else { return }
-        // 約30fpsでリアルタイム更新
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            guard let self = self, self.needsRefreshTimer else { return }
-            // モザイクのキャッシュをクリアして再描画
-            for annotation in self.annotations {
-                if let mosaic = annotation as? MosaicAnnotation {
-                    mosaic.clearCache()
-                }
-            }
-            self.needsDisplay = true
-        }
-    }
-
-    private func stopRefreshTimer() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
-    }
-
-    func updateRefreshTimer(hasMosaicAnnotations: Bool) {
-        needsRefreshTimer = !showImage && hasMosaicAnnotations
-        if needsRefreshTimer {
-            startRefreshTimer()
-        }
-        // タイマーは停止しない（再開コストが高いため）
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        // 編集モードでない場合、またはテキスト選択モードの場合はヒットテストを無効にして
-        // イベントをSwiftUIオーバーレイに通過させる
-        if !isEditing || selectedTool == .textSelection {
-            return nil
-        }
-        return super.hitTest(point)
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-
-        // ウィンドウフレームを更新
-        updateWindowFrame()
-        let winNum = window?.windowNumber ?? 0
-        // モザイクのスケール計算には画像表示サイズを使用
-        let imgSize = imageDisplaySize.width > 0 ? imageDisplaySize : bounds.size
-        let imgBounds = NSRect(origin: .zero, size: imgSize)
-
-        // キャンバスが画像より大きい場合、描画を画像領域にオフセット（全方向パディング対応）
-        let pad = canvasPadding
-        let hasPadding = pad.x > 0 || pad.y > 0
-        if hasPadding {
-            NSGraphicsContext.current?.cgContext.saveGState()
-            NSGraphicsContext.current?.cgContext.translateBy(x: pad.x, y: pad.y)
-        }
-
-        // 配列の順序通りに描画（インデックス0が最背面、最後が最前面）
-        for (index, annotation) in annotations.enumerated() {
-            // モザイクアノテーションの場合、リアルタイムキャプチャモードを設定
-            if let mosaic = annotation as? MosaicAnnotation {
-                mosaic.useRealTimeCapture = !showImage
-                mosaic.windowFrame = windowFrame
-                mosaic.windowNumber = winNum
-                mosaic.canvasSize = imgSize
-            }
-            annotation.draw(in: imgBounds)
-            // 編集モード中の移動モードのみバウンディングボックスを描画
-            if isEditing && selectedTool == .move {
-                let isSelected = index == selectedAnnotationIndex
-                drawBoundingBox(for: annotation, isSelected: isSelected)
-            }
-        }
-
-        // 現在描画中のアノテーション
-        if let current = currentAnnotation {
-            if let mosaic = current as? MosaicAnnotation {
-                mosaic.useRealTimeCapture = !showImage
-                mosaic.windowFrame = windowFrame
-                mosaic.windowNumber = winNum
-                mosaic.canvasSize = imgSize
-            }
-            current.draw(in: imgBounds)
-        }
-
-        // トリミング選択範囲の描画
-        if selectedTool == .trim, let trimRect = trimRect {
-            drawTrimOverlay(trimRect: trimRect)
-        }
-
-        if hasPadding {
-            NSGraphicsContext.current?.cgContext.restoreGState()
-        }
-    }
-
-    private func drawTrimOverlay(trimRect: CGRect) {
-        // 選択範囲外を半透明黒でオーバーレイ
-        let overlayPath = NSBezierPath(rect: bounds)
-        overlayPath.appendRect(trimRect)
-        overlayPath.windingRule = .evenOdd
-        NSColor.black.withAlphaComponent(0.5).setFill()
-        overlayPath.fill()
-
-        // 選択範囲に白枠
-        let borderPath = NSBezierPath(rect: trimRect)
-        borderPath.lineWidth = 1.5
-        NSColor.white.setStroke()
-        borderPath.stroke()
-
-        // 選択範囲に青点線
-        let dashPath = NSBezierPath(rect: trimRect)
-        dashPath.lineWidth = 1.5
-        let dashPattern: [CGFloat] = [6, 4]
-        dashPath.setLineDash(dashPattern, count: 2, phase: 0)
-        NSColor.systemBlue.setStroke()
-        dashPath.stroke()
-
-        // 右下にサイズ表示
-        let width = Int(trimRect.width)
-        let height = Int(trimRect.height)
-        let sizeText = "\(width) x \(height)" as NSString
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-            .foregroundColor: NSColor.white,
-            .backgroundColor: NSColor.black.withAlphaComponent(0.7)
-        ]
-        let textSize = sizeText.size(withAttributes: attributes)
-        let textPoint = NSPoint(
-            x: trimRect.maxX - textSize.width - 4,
-            y: trimRect.minY + 4
-        )
-        sizeText.draw(at: textPoint, withAttributes: attributes)
-    }
-
-    private func drawBoundingBox(for annotation: any Annotation, isSelected: Bool) {
-        let highlightPath = NSBezierPath()
-        highlightPath.lineWidth = isSelected ? 2 : 1
-
-        var boundingRect: CGRect = .zero
-
-        if let line = annotation as? LineAnnotation {
-            boundingRect = line.boundingRect()
-            highlightPath.appendRect(boundingRect)
-        } else if let arrow = annotation as? ArrowAnnotation {
-            boundingRect = arrow.boundingRect()
-            highlightPath.appendRect(boundingRect)
-        } else if let rect = annotation as? RectAnnotation {
-            boundingRect = rect.rect.insetBy(dx: -3, dy: -3)
-            highlightPath.appendRect(boundingRect)
-        } else if let ellipse = annotation as? EllipseAnnotation {
-            boundingRect = ellipse.rect.insetBy(dx: -3, dy: -3)
-            highlightPath.appendRect(boundingRect)
-        } else if let text = annotation as? TextAnnotation {
-            let size = text.textSize()
-            let drawY = text.position.y - text.font.ascender
-            boundingRect = CGRect(origin: CGPoint(x: text.position.x - 3, y: drawY - 3), size: CGSize(width: size.width + 6, height: size.height + 6))
-            highlightPath.appendRect(boundingRect)
-        } else if let mosaic = annotation as? MosaicAnnotation {
-            boundingRect = mosaic.rect.insetBy(dx: -3, dy: -3)
-            highlightPath.appendRect(boundingRect)
-        } else if let freehand = annotation as? FreehandAnnotation {
-            boundingRect = freehand.boundingRect()
-            highlightPath.appendRect(boundingRect)
-        } else if let highlight = annotation as? HighlightAnnotation {
-            boundingRect = highlight.rect.insetBy(dx: -3, dy: -3)
-            highlightPath.appendRect(boundingRect)
-        }
-
-        let dashPattern: [CGFloat] = [4, 4]
-        highlightPath.setLineDash(dashPattern, count: 2, phase: 0)
-
-        if isSelected {
-            NSColor.systemBlue.setStroke()
-        } else {
-            NSColor.gray.withAlphaComponent(0.6).setStroke()
-        }
-        highlightPath.stroke()
-
-        // 選択中のアノテーションにリサイズハンドルを描画
-        if isSelected {
-            if let line = annotation as? LineAnnotation {
-                // 直線は始点と終点にハンドル
-                drawResizeHandle(at: line.startPoint)
-                drawResizeHandle(at: line.endPoint)
-            } else if let arrow = annotation as? ArrowAnnotation {
-                // 矢印は始点と終点にハンドル
-                drawResizeHandle(at: arrow.startPoint)
-                drawResizeHandle(at: arrow.endPoint)
-            } else if annotation is RectAnnotation || annotation is EllipseAnnotation || annotation is MosaicAnnotation {
-                // 四角形系は四隅にハンドル
-                drawResizeHandle(at: CGPoint(x: boundingRect.minX, y: boundingRect.minY))
-                drawResizeHandle(at: CGPoint(x: boundingRect.maxX, y: boundingRect.minY))
-                drawResizeHandle(at: CGPoint(x: boundingRect.minX, y: boundingRect.maxY))
-                drawResizeHandle(at: CGPoint(x: boundingRect.maxX, y: boundingRect.maxY))
-            }
-        }
-    }
-
-    private func drawResizeHandle(at point: CGPoint) {
-        let handleSize: CGFloat = 8
-        let handleRect = CGRect(x: point.x - handleSize / 2, y: point.y - handleSize / 2, width: handleSize, height: handleSize)
-        NSColor.white.setFill()
-        NSBezierPath(ovalIn: handleRect).fill()
-        NSColor.systemBlue.setStroke()
-        let path = NSBezierPath(ovalIn: handleRect)
-        path.lineWidth = 1.5
-        path.stroke()
-    }
-
-    /// リサイズハンドルのヒットテスト
-    private func hitTestResizeHandle(at point: CGPoint) -> ResizeHandle {
-        guard let index = selectedAnnotationIndex, index < annotations.count else {
-            return .none
-        }
-
-        let handleSize: CGFloat = 12  // ヒットエリアは少し大きめに
-        let annotation = annotations[index]
-
-        if let line = annotation as? LineAnnotation {
-            // 直線は始点と終点をチェック
-            if CGRect(x: line.startPoint.x - handleSize / 2, y: line.startPoint.y - handleSize / 2, width: handleSize, height: handleSize).contains(point) {
-                return .startPoint
-            }
-            if CGRect(x: line.endPoint.x - handleSize / 2, y: line.endPoint.y - handleSize / 2, width: handleSize, height: handleSize).contains(point) {
-                return .endPoint
-            }
-        } else if let arrow = annotation as? ArrowAnnotation {
-            // 矢印は始点と終点をチェック
-            if CGRect(x: arrow.startPoint.x - handleSize / 2, y: arrow.startPoint.y - handleSize / 2, width: handleSize, height: handleSize).contains(point) {
-                return .startPoint
-            }
-            if CGRect(x: arrow.endPoint.x - handleSize / 2, y: arrow.endPoint.y - handleSize / 2, width: handleSize, height: handleSize).contains(point) {
-                return .endPoint
-            }
-        } else if let rect = annotation as? RectAnnotation {
-            return hitTestCorners(rect: rect.rect.insetBy(dx: -3, dy: -3), point: point, handleSize: handleSize)
-        } else if let ellipse = annotation as? EllipseAnnotation {
-            return hitTestCorners(rect: ellipse.rect.insetBy(dx: -3, dy: -3), point: point, handleSize: handleSize)
-        } else if let mosaic = annotation as? MosaicAnnotation {
-            return hitTestCorners(rect: mosaic.rect.insetBy(dx: -3, dy: -3), point: point, handleSize: handleSize)
-        }
-
-        return .none
-    }
-
-    /// 四隅のハンドルをヒットテスト
-    private func hitTestCorners(rect: CGRect, point: CGPoint, handleSize: CGFloat) -> ResizeHandle {
-        let corners: [(CGPoint, ResizeHandle)] = [
-            (CGPoint(x: rect.minX, y: rect.minY), .bottomLeft),
-            (CGPoint(x: rect.maxX, y: rect.minY), .bottomRight),
-            (CGPoint(x: rect.minX, y: rect.maxY), .topLeft),
-            (CGPoint(x: rect.maxX, y: rect.maxY), .topRight)
-        ]
-
-        for (cornerPoint, handle) in corners {
-            let hitRect = CGRect(x: cornerPoint.x - handleSize / 2, y: cornerPoint.y - handleSize / 2, width: handleSize, height: handleSize)
-            if hitRect.contains(point) {
-                return handle
-            }
-        }
-        return .none
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        guard isEditing else { return }
-        // テキスト選択モードはSwiftUIオーバーレイで処理
-        if selectedTool == .textSelection { return }
-
-        let point = imagePoint(from: event)
-        dragStart = point
-        lastDragPoint = point
-
-        // ダブルクリック処理
-        if event.clickCount == 2 {
-            // 移動モードでテキストアノテーション上ならテキスト編集
-            if selectedTool == .move {
-                for (index, annotation) in annotations.enumerated().reversed() {
-                    if let textAnnotation = annotation as? TextAnnotation,
-                       textAnnotation.contains(point: point) {
-                        delegate?.editTextAnnotation(at: index, annotation: textAnnotation)
-                        return
-                    }
-                }
-            }
-            // 空白部分のダブルクリック - 画像を非表示
-            let hitAnnotation = annotations.contains { $0.contains(point: point) }
-            if !hitAnnotation {
-                delegate?.doubleClickedOnEmpty()
-                return
-            }
-        }
-
-        // トリミングモードの場合
-        if selectedTool == .trim {
-            trimDragStart = point
-            trimRect = nil
-            needsDisplay = true
-            return
-        }
-
-        // 移動モードの場合
-        if selectedTool == .move {
-            // まずリサイズハンドルのヒットテストを行う
-            let handle = hitTestResizeHandle(at: point)
-            if handle != .none {
-                activeResizeHandle = handle
-                isResizing = true
-                return
-            }
-
-            // 前の選択状態を記録（インデックスが有効な場合のみ）
-            let previousSelectedIndex = selectedAnnotationIndex
-            let previousWasMosaic: Bool = {
-                guard let index = previousSelectedIndex, index < annotations.count else { return false }
-                return annotations[index] is MosaicAnnotation
-            }()
-
-            // クリックした位置にあるアノテーションを探す（配列のインデックス順）
-            let clickedIndices = annotations.enumerated()
-                .filter { $0.element.contains(point: point) }
-                .map { $0.offset }
-
-            if clickedIndices.isEmpty {
-                // 何もない場所をクリック - 選択解除してウィンドウドラッグ開始
-                // ぼかしが選択されていたら最背面に移動
-                if previousWasMosaic, let prevIndex = previousSelectedIndex {
-                    moveMosaicToBack(at: prevIndex)
-                }
-                selectedAnnotationIndex = nil
-                delegate?.selectionChanged(nil)
-                needsDisplay = true
-                // ウィンドウドラッグを開始
-                window?.performDrag(with: event)
-                return
-            } else if let currentIndex = previousSelectedIndex, clickedIndices.contains(currentIndex) {
-                // 選択中のオブジェクトがクリックされた場合 - サイクル選択
-                // 現在選択中の要素を後ろに移動（ただしぼかしより後ろには行かない）
-                let movedAnnotation = annotations.remove(at: currentIndex)
-
-                if movedAnnotation is MosaicAnnotation {
-                    // ぼかしの場合は最背面（インデックス0）に移動
-                    annotations.insert(movedAnnotation, at: 0)
-                } else {
-                    // ぼかし以外の場合、ぼかしの直後に移動
-                    let mosaicCount = annotations.filter { $0 is MosaicAnnotation }.count
-                    annotations.insert(movedAnnotation, at: mosaicCount)
-                }
-
-                // インデックスを再計算してクリック位置のオブジェクトを探す
-                let newClickedIndices = annotations.enumerated()
-                    .filter { $0.element.contains(point: point) }
-                    .map { $0.offset }
-
-                // 一番上のオブジェクトを選択
-                if let topIndex = newClickedIndices.last {
-                    selectedAnnotationIndex = topIndex
-                    // ぼかしが選択された場合は最前面に移動
-                    if annotations[topIndex] is MosaicAnnotation {
-                        moveMosaicToFront(at: topIndex)
-                    }
-                } else {
-                    selectedAnnotationIndex = nil
-                }
-
-                // 配列が変更されたのでcanvasを更新
-                delegate?.annotationMoved()
-            } else {
-                // 新しいオブジェクトを選択
-                // 前に選択していたぼかしは最背面に移動
-                if previousWasMosaic, let prevIndex = previousSelectedIndex {
-                    moveMosaicToBack(at: prevIndex)
-                }
-
-                // 一番上のオブジェクトを選択（インデックスが最大のもの）
-                if let topIndex = clickedIndices.last {
-                    selectedAnnotationIndex = topIndex
-                    // ぼかしが選択された場合は最前面に移動
-                    if annotations[topIndex] is MosaicAnnotation {
-                        moveMosaicToFront(at: topIndex)
-                    }
-                }
-            }
-            delegate?.selectionChanged(selectedAnnotationIndex)
-            needsDisplay = true
-            return
-        }
-
-        if selectedTool == .text {
-            delegate?.textTapped(at: point)
-            return
-        }
-
-        // 色を完全にコピーして使用（SwiftUI状態への参照を断ち切る）
-        let safeColor = (selectedColor.copy() as? NSColor) ?? .systemRed
-
-        switch selectedTool {
-        case .move:
-            break
-        case .pen:
-            currentAnnotation = FreehandAnnotation(points: [point], color: safeColor, lineWidth: lineWidth, isHighlighter: false, strokeEnabled: strokeEnabled)
-        case .highlight:
-            currentAnnotation = FreehandAnnotation(points: [point], color: safeColor, lineWidth: lineWidth, isHighlighter: true, strokeEnabled: strokeEnabled)
-        case .line:
-            currentAnnotation = LineAnnotation(startPoint: point, endPoint: point, color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
-        case .arrow:
-            currentAnnotation = ArrowAnnotation(startPoint: point, endPoint: point, color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
-        case .arrowText:
-            currentAnnotation = ArrowAnnotation(startPoint: point, endPoint: point, color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
-        case .rectangle:
-            currentAnnotation = RectAnnotation(rect: CGRect(origin: point, size: .zero), color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
-        case .ellipse:
-            currentAnnotation = EllipseAnnotation(rect: CGRect(origin: point, size: .zero), color: safeColor, lineWidth: lineWidth, strokeEnabled: strokeEnabled)
-        case .text:
-            break
-        case .mosaic:
-            // 太さ1→2, 太さ5→8, 太さ10→14 くらいの緩やかな変化
-            currentAnnotation = MosaicAnnotation(rect: CGRect(origin: point, size: .zero), pixelSize: max(Int(lineWidth * 1.2 + 1), 2), sourceImage: sourceImage)
-        case .textSelection, .trim:
-            break
-        }
-        delegate?.currentAnnotationUpdated(currentAnnotation)
-        needsDisplay = true
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        guard isEditing else { return }
-
-        let point = imagePoint(from: event)
-
-        // トリミングモードの場合
-        if selectedTool == .trim, let start = trimDragStart {
-            trimRect = CGRect(
-                x: min(start.x, point.x),
-                y: min(start.y, point.y),
-                width: abs(point.x - start.x),
-                height: abs(point.y - start.y)
-            )
-            needsDisplay = true
-            return
-        }
-
-        // リサイズ中の場合
-        if isResizing, let index = selectedAnnotationIndex, index < annotations.count {
-            // Shift押下時、rectangle/ellipseは対角アンカー基準の正方形に補正
-            var resizePoint = point
-            if event.modifierFlags.contains(.shift) {
-                let original: CGRect? = {
-                    if let rect = annotations[index] as? RectAnnotation { return rect.rect }
-                    if let ellipse = annotations[index] as? EllipseAnnotation { return ellipse.rect }
-                    return nil
-                }()
-                if let original = original {
-                    resizePoint = AnnotationGeometry.squareConstrainedResizePoint(point: point, original: original, handle: activeResizeHandle)
-                }
-            }
-            resizeAnnotation(at: index, to: resizePoint)
-            needsDisplay = true
-            return
-        }
-
-        // 移動モードで選択中のアノテーションがある場合
-        if selectedTool == .move, let index = selectedAnnotationIndex, let lastPoint = lastDragPoint {
-            let delta = CGPoint(x: point.x - lastPoint.x, y: point.y - lastPoint.y)
-            annotations[index].move(by: delta)
-            lastDragPoint = point
-            didMoveAnnotation = true
-            needsDisplay = true
-            return
-        }
-
-        guard let start = dragStart else { return }
-
-        // Shift押下時、rectangle/ellipseのみ始点基準の正方形（=正円）に補正
-        let effectiveEnd: CGPoint = {
-            guard event.modifierFlags.contains(.shift),
-                  selectedTool == .rectangle || selectedTool == .ellipse else {
-                return point
-            }
-            let dx = point.x - start.x
-            let dy = point.y - start.y
-            let size = max(abs(dx), abs(dy))
-            return CGPoint(
-                x: start.x + (dx >= 0 ? size : -size),
-                y: start.y + (dy >= 0 ? size : -size)
-            )
-        }()
-
-        let newRect = CGRect(
-            x: min(start.x, effectiveEnd.x),
-            y: min(start.y, effectiveEnd.y),
-            width: abs(effectiveEnd.x - start.x),
-            height: abs(effectiveEnd.y - start.y)
-        )
-
-        switch selectedTool {
-        case .move:
-            break
-        case .pen, .highlight:
-            if let freehand = currentAnnotation as? FreehandAnnotation {
-                freehand.addPoint(point)
-            }
-        case .line:
-            if let line = currentAnnotation as? LineAnnotation {
-                line.endPoint = point
-            }
-        case .arrow, .arrowText:
-            if let arrow = currentAnnotation as? ArrowAnnotation {
-                arrow.endPoint = point
-            }
-        case .rectangle:
-            if let rect = currentAnnotation as? RectAnnotation {
-                rect.rect = newRect
-            }
-        case .ellipse:
-            if let ellipse = currentAnnotation as? EllipseAnnotation {
-                ellipse.rect = newRect
-            }
-        case .text:
-            break
-        case .mosaic:
-            if let mosaic = currentAnnotation as? MosaicAnnotation {
-                mosaic.rect = newRect
-            }
-        case .textSelection, .trim:
-            break
-        }
-        delegate?.currentAnnotationUpdated(currentAnnotation)
-        needsDisplay = true
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        guard isEditing else { return }
-
-        // トリミングモードの場合
-        if selectedTool == .trim {
-            trimDragStart = nil
-            // 小さすぎる矩形（10px未満）はクリア
-            if let rect = trimRect, rect.width < 10 || rect.height < 10 {
-                trimRect = nil
-            }
-            needsDisplay = true
-            return
-        }
-
-        // リサイズ終了
-        if isResizing {
-            isResizing = false
-            activeResizeHandle = .none
-            delegate?.annotationMoved()
-            needsDisplay = true
-            return
-        }
-
-        // 移動モードでアノテーションを移動した場合（選択は保持）
-        if selectedTool == .move && selectedAnnotationIndex != nil {
-            // 実際に移動した場合のみ保存
-            if didMoveAnnotation {
-                delegate?.annotationMoved()
-                didMoveAnnotation = false
-            }
-            lastDragPoint = nil
-            needsDisplay = true
-            return
-        }
-
-        if let annotation = currentAnnotation {
-            // 矢印文字ツールの場合：テキスト入力を開始（矢印はコールバック側で追加）
-            if selectedTool == .arrowText, let arrow = annotation as? ArrowAnnotation {
-                delegate?.arrowTextDragFinished(startPoint: arrow.startPoint, endPoint: arrow.endPoint)
-                currentAnnotation = nil
-                dragStart = nil
-                needsDisplay = true
-                return
-            }
-            // モザイクの場合はドラッグ終了フラグを設定
-            if let mosaic = annotation as? MosaicAnnotation {
-                mosaic.isDrawing = false
-            }
-            delegate?.annotationAdded(annotation)
-        }
-        currentAnnotation = nil
-        dragStart = nil
-        needsDisplay = true
-    }
-
-    override func keyDown(with event: NSEvent) {
-        // Delete (51) または Backspace (117) キー
-        if event.keyCode == 51 || event.keyCode == 117 {
-            if selectedAnnotationIndex != nil {
-                delegate?.deleteSelectedAnnotation()
-            }
-        } else {
-            super.keyDown(with: event)
-        }
-    }
-
-    /// アノテーションのリサイズ処理
-    private func resizeAnnotation(at index: Int, to point: CGPoint) {
-        let annotation = annotations[index]
-
-        if let line = annotation as? LineAnnotation {
-            switch activeResizeHandle {
-            case .startPoint:
-                line.startPoint = point
-            case .endPoint:
-                line.endPoint = point
-            default: break
-            }
-        } else if let arrow = annotation as? ArrowAnnotation {
-            switch activeResizeHandle {
-            case .startPoint:
-                arrow.startPoint = point
-            case .endPoint:
-                arrow.endPoint = point
-            default:
-                break
-            }
-        } else if let rect = annotation as? RectAnnotation {
-            rect.rect = AnnotationGeometry.resizedRect(original: rect.rect, handle: activeResizeHandle, to: point)
-        } else if let ellipse = annotation as? EllipseAnnotation {
-            ellipse.rect = AnnotationGeometry.resizedRect(original: ellipse.rect, handle: activeResizeHandle, to: point)
-        } else if let mosaic = annotation as? MosaicAnnotation {
-            mosaic.rect = AnnotationGeometry.resizedRect(original: mosaic.rect, handle: activeResizeHandle, to: point)
-            mosaic.clearCache()
-        }
-    }
-
-    // resizedRect / squareConstrainedResizePoint は Mas/Logic/AnnotationGeometry.swift に移動済み
-
-    // ぼかしを最背面（インデックス0）に移動
-    private func moveMosaicToBack(at index: Int) {
-        guard index < annotations.count, annotations[index] is MosaicAnnotation else { return }
-        let mosaic = annotations.remove(at: index)
-        annotations.insert(mosaic, at: 0)
-        delegate?.annotationMoved()
-    }
-
-    // ぼかしを最前面（配列の最後）に移動
-    private func moveMosaicToFront(at index: Int) {
-        guard index < annotations.count, annotations[index] is MosaicAnnotation else { return }
-        let mosaic = annotations.remove(at: index)
-        annotations.append(mosaic)
-        selectedAnnotationIndex = annotations.count - 1
-        delegate?.annotationMoved()
-    }
-
-    // MARK: - トリミング右クリックメニュー
-
-    override func menu(for event: NSEvent) -> NSMenu? {
-        guard selectedTool == .trim, let trimRect = trimRect,
-              trimRect.width >= 10, trimRect.height >= 10 else {
-            return nil
-        }
-
-        let menu = NSMenu()
-        let trimItem = NSMenuItem(title: "トリミング", action: #selector(executeTrim), keyEquivalent: "")
-        trimItem.target = self
-        menu.addItem(trimItem)
-
-        let copyItem = NSMenuItem(title: "コピー", action: #selector(executeCopy), keyEquivalent: "")
-        copyItem.target = self
-        menu.addItem(copyItem)
-
-        return menu
-    }
-
-    @objc private func executeTrim() {
-        guard let trimRect = trimRect else { return }
-        delegate?.trimRequested(rect: trimRect)
-        self.trimRect = nil
-        needsDisplay = true
-    }
-
-    @objc private func executeCopy() {
-        guard let trimRect = trimRect else { return }
-        delegate?.copyTrimRegionRequested(rect: trimRect)
-    }
-
-    @objc private func cancelTrim() {
-        trimRect = nil
-        needsDisplay = true
-    }
-}
-
+// AnnotationCanvasView / AnnotationCanvasDelegate / AnnotationCanvas は
+// Mas/Views/Editor/AnnotationCanvas.swift に移動済み
