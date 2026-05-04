@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import Vision
+import VisionKit
 import ImageIO
 import CoreGraphics
 
@@ -384,84 +385,59 @@ func handleCapture(_ args: [String]) {
     }
 }
 
-func handleOCR(_ args: [String]) {
+/// OCR コマンドのエントリポイント。
+/// VisionKit の `ImageAnalyzer`（Live Text）を利用するため `@MainActor` 必須。
+/// 縦書き日本語・表組みなど Vision の `VNRecognizeTextRequest` で取れない領域もカバーできる。
+@MainActor
+func handleOCR(_ args: [String]) async {
     guard let imagePath = args.first else {
         printError("Usage: mas-cli ocr <image-path> [--json]")
         exit(1)
     }
     let jsonOutput = args.contains("--json")
     let absPath = (imagePath as NSString).expandingTildeInPath
-    let url = URL(fileURLWithPath: absPath)
 
     guard FileManager.default.fileExists(atPath: absPath) else {
         printError("ファイルが見つかりません: \(imagePath)")
         exit(1)
     }
 
-    guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
-          let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
+    guard let nsImage = NSImage(contentsOfFile: absPath) else {
         printError("画像の読み込みに失敗しました: \(imagePath)")
         exit(1)
     }
 
-    let semaphore = DispatchSemaphore(value: 0)
-    var recognizedTexts: [(text: String, x: Double, y: Double, w: Double, h: Double)] = []
+    let analyzer = ImageAnalyzer()
+    let configuration = ImageAnalyzer.Configuration([.text])
 
-    let request = VNRecognizeTextRequest { request, error in
-        defer { semaphore.signal() }
-        if let error = error {
-            printError("OCRエラー: \(error.localizedDescription)")
-            return
-        }
-        guard let observations = request.results as? [VNRecognizedTextObservation] else { return }
-
-        let imageWidth = Double(cgImage.width)
-        let imageHeight = Double(cgImage.height)
-
-        for observation in observations {
-            guard let candidate = observation.topCandidates(1).first else { continue }
-            let box = observation.boundingBox
-            recognizedTexts.append((
-                text: candidate.string,
-                x: box.origin.x * imageWidth,
-                y: box.origin.y * imageHeight,
-                w: box.width * imageWidth,
-                h: box.height * imageHeight
-            ))
-        }
-    }
-    request.recognitionLanguages = ["ja", "en"]
-    request.recognitionLevel = .accurate
-
-    let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+    let analysis: ImageAnalysis
     do {
-        try handler.perform([request])
+        analysis = try await analyzer.analyze(nsImage, orientation: .up, configuration: configuration)
     } catch {
-        printError("OCR実行エラー: \(error.localizedDescription)")
+        printError("OCR 実行エラー: \(error.localizedDescription)")
         exit(1)
     }
-    semaphore.wait()
 
-    if recognizedTexts.isEmpty {
+    let transcript = analysis.transcript
+    if transcript.isEmpty {
         print("テキストが検出されませんでした")
         return
     }
 
     if jsonOutput {
-        let jsonArray = recognizedTexts.map { item -> [String: Any] in
-            [
-                "text": item.text,
-                "rect": ["x": item.x, "y": item.y, "width": item.w, "height": item.h]
-            ]
+        // 各テキスト行を 1 要素として配列化。Live Text の transcript は改行区切りでまとめて返るため、
+        // 行単位で配列化して旧フォーマット（[{text, rect}]）に近い形を保つ。rect は Live Text からは
+        // 個別取得できないため省略。
+        let lines = transcript.split(separator: "\n", omittingEmptySubsequences: true).map { String($0) }
+        let jsonArray = lines.map { line -> [String: Any] in
+            ["text": line]
         }
         if let jsonData = try? JSONSerialization.data(withJSONObject: jsonArray, options: .prettyPrinted),
            let jsonString = String(data: jsonData, encoding: .utf8) {
             print(jsonString)
         }
     } else {
-        for item in recognizedTexts {
-            print(item.text)
-        }
+        print(transcript)
     }
 }
 
@@ -1114,7 +1090,14 @@ case "capture":
 case "annotate":
     handleAnnotate(Array(args.dropFirst()))
 case "ocr":
-    handleOCR(Array(args.dropFirst()))
+    // handleOCR は @MainActor + async（VisionKit ImageAnalyzer のため）。
+    // メインスレッドを Semaphore で block すると MainActor の Task と deadlock するため、
+    // RunLoop を回しつつ Task 完了で exit(0) する形にする。
+    Task { @MainActor in
+        await handleOCR(Array(args.dropFirst()))
+        exit(0)
+    }
+    RunLoop.main.run()
 case "history":
     handleHistory(Array(args.dropFirst()))
 case "settings":
