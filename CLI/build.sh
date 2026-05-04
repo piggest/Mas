@@ -9,6 +9,7 @@ swiftc \
   -framework Foundation \
   -framework AppKit \
   -framework Vision \
+  -framework VisionKit \
   -framework ImageIO \
   -framework CoreImage \
   "$SCRIPT_DIR/mas_cli.swift" \
