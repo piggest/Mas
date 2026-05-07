@@ -23,7 +23,12 @@
 - GitHub API経由で更新: `gh api repos/piggest/homebrew-mas/contents/<path> --method PUT ...`
 
 ## Git
+- **コミットは必ず `piggest` アカウントで行うこと**（contributors を piggest に統一するため）
+  - コミット前に git config を確認: `git config user.name` が `piggest`、`git config user.email` が `5483577+piggest@users.noreply.github.com` になっていること
+  - 異なる場合はリポジトリローカルで設定: `git config user.name piggest && git config user.email 5483577+piggest@users.noreply.github.com`
+  - `norifumi-okumura` 名義でコミットしないこと
 - プッシュ前に `gh auth switch --user piggest` でアカウントを切り替えること
+- 作業完了後は `gh auth switch --user norifumi-okumura` で元のアカウントに戻すこと
 
 ## テスト
 
