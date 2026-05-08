@@ -1,18 +1,25 @@
 import AppKit
 import SwiftUI
 
-private class KeyableWindow: NSWindow {
-    override var canBecomeKey: Bool { true }
-}
-
 class RegionSelectionOverlay {
     private var overlayWindows: [NSWindow] = []
-    private var selectionView: SelectionView?
+    private var selectionEntries: [(screen: NSScreen, view: SelectionView)] = []
+    private var dragOriginScreen: NSScreen?
+    private var escMonitor: Any?
+    private let accessibility: AccessibilityChecking
+    private let eventTap: MouseEventTapping
     private let onComplete: (CGRect) -> Void
     private let onCancel: (() -> Void)?
     private static var currentOverlay: RegionSelectionOverlay?
 
-    init(onComplete: @escaping (CGRect) -> Void, onCancel: (() -> Void)? = nil) {
+    init(
+        accessibility: AccessibilityChecking = SystemAccessibility(),
+        eventTap: MouseEventTapping = MouseEventTap(),
+        onComplete: @escaping (CGRect) -> Void,
+        onCancel: (() -> Void)? = nil
+    ) {
+        self.accessibility = accessibility
+        self.eventTap = eventTap
         self.onComplete = onComplete
         self.onCancel = onCancel
     }
@@ -21,20 +28,7 @@ class RegionSelectionOverlay {
         RegionSelectionOverlay.currentOverlay = self
 
         for screen in NSScreen.screens {
-            let window = KeyableWindow(
-                contentRect: screen.frame,
-                styleMask: .borderless,
-                backing: .buffered,
-                defer: false
-            )
-            window.level = .statusBar + 1
-            window.backgroundColor = NSColor.clear
-            window.isOpaque = false
-            window.hasShadow = false
-            window.ignoresMouseEvents = false
-            window.acceptsMouseMovedEvents = true
-            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            window.sharingType = NSWindow.masSharingType
+            let panel = OverlayWindowFactory.makeOverlayPanel(for: screen)
 
             let selectionView = SelectionView(frame: NSRect(origin: .zero, size: screen.frame.size)) { [weak self] rect in
                 self?.handleSelection(rect, on: screen)
@@ -42,16 +36,95 @@ class RegionSelectionOverlay {
                 self?.dismiss(cancelled: true)
             }
 
-            window.contentView = selectionView
-            self.selectionView = selectionView
-
-            window.makeKeyAndOrderFront(nil)
-            window.makeFirstResponder(selectionView)
-            overlayWindows.append(window)
+            panel.contentView = selectionView
+            panel.orderFrontRegardless()
+            overlayWindows.append(panel)
+            selectionEntries.append((screen, selectionView))
         }
 
-        NSApp.activate(ignoringOtherApps: true)
+        // メイン経路: アクセシビリティ権限がある → CGEventTap で他アプリ（NSMenu の
+        // メニュートラッキングループ含む）に届く前にマウスイベントを横取りする。
+        // これで右クリックメニューを表示したまま範囲選択ドラッグできる。
+        let installed = accessibility.isTrusted() && installEventTap()
+
+        if !installed {
+            // フォールバック: AX 未許可。NSPanel 上のクリックでドラッグするモード。
+            // 右クリックメニュー保持はできない（macOS の制約）。
+            // パネルへのマウスイベント受信を有効化する。
+            for window in overlayWindows {
+                window.ignoresMouseEvents = false
+            }
+            // ESC は NSEvent local monitor で受ける（パネル non-key のため keyDown は届かない）
+            escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                if event.keyCode == 53 {
+                    self?.dismiss(cancelled: true)
+                    return nil
+                }
+                return event
+            }
+
+            // 初回のみ AX 許可を要求（システムの権限ダイアログを出す）。
+            // 次回起動時に許可済みなら CGEventTap が使えるようになる。
+            _ = accessibility.requestAccessibility()
+        } else {
+            // CGEventTap でイベント横取りするので、パネル自体はマウスを受け取らない
+            for window in overlayWindows {
+                window.ignoresMouseEvents = true
+            }
+        }
+
         NSCursor.crosshair.push()
+    }
+
+    private func installEventTap() -> Bool {
+        return eventTap.install { [weak self] event in
+            // tap callback は別スレッド（CGEventTap の RunLoop）から呼ばれる可能性があるため
+            // UI 操作は main にディスパッチ
+            DispatchQueue.main.async {
+                self?.handleTapEvent(event)
+            }
+        }
+    }
+
+    private func handleTapEvent(_ event: MouseEventTapEvent) {
+        switch event {
+        case .mouseDown(let point):
+            guard let entry = entry(forGlobalPoint: point) else { return }
+            dragOriginScreen = entry.screen
+            entry.view.externalBeginSelection(at: viewPoint(from: point, screen: entry.screen))
+        case .mouseDragged(let point):
+            guard let originScreen = dragOriginScreen,
+                  let entry = entry(forScreen: originScreen) else { return }
+            entry.view.externalUpdateSelection(to: viewPoint(from: point, screen: entry.screen))
+        case .mouseUp(let point):
+            guard let originScreen = dragOriginScreen,
+                  let entry = entry(forScreen: originScreen) else { return }
+            entry.view.externalEndSelection(at: viewPoint(from: point, screen: entry.screen))
+            dragOriginScreen = nil
+        case .mouseMoved:
+            // ドラッグ中以外のマウス移動は今は使わない（描画に必要なら拡張）
+            break
+        case .escKeyDown:
+            dismiss(cancelled: true)
+        }
+    }
+
+    /// グローバル CG 座標を含むスクリーンのエントリを返す。
+    private func entry(forGlobalPoint point: CGPoint) -> (screen: NSScreen, view: SelectionView)? {
+        return selectionEntries.first { $0.screen.cgFrame.contains(point) }
+    }
+
+    private func entry(forScreen screen: NSScreen) -> (screen: NSScreen, view: SelectionView)? {
+        return selectionEntries.first { $0.screen === screen }
+    }
+
+    /// グローバル CG 座標 → 指定スクリーン上の SelectionView ローカル座標（左上原点）。
+    private func viewPoint(from globalPoint: CGPoint, screen: NSScreen) -> CGPoint {
+        let cgFrame = screen.cgFrame
+        return CGPoint(
+            x: globalPoint.x - cgFrame.origin.x,
+            y: globalPoint.y - cgFrame.origin.y
+        )
     }
 
     private func handleSelection(_ rect: CGRect, on screen: NSScreen) {
@@ -70,12 +143,28 @@ class RegionSelectionOverlay {
         onComplete(globalRect)
     }
 
+    private func removeEscMonitor() {
+        if let monitor = escMonitor {
+            NSEvent.removeMonitor(monitor)
+            escMonitor = nil
+        }
+    }
+
+    /// テスト用: 外部から強制 dismiss するためのフック。本番コードからは使わない。
+    func cancelForTest() {
+        dismiss(cancelled: true)
+    }
+
     private func dismiss(cancelled: Bool = false) {
+        eventTap.uninstall()
+        removeEscMonitor()
         NSCursor.pop()
         for window in overlayWindows {
             window.orderOut(nil)
         }
         overlayWindows.removeAll()
+        selectionEntries.removeAll()
+        dragOriginScreen = nil
         RegionSelectionOverlay.currentOverlay = nil
         if cancelled {
             onCancel?()
@@ -110,27 +199,44 @@ class SelectionView: NSView {
         return true
     }
 
+    // パネルが key/main にならない（NSMenu を保つため）状態でも、
+    // 最初のクリックを「ドラッグ開始」として処理するために必須。
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func mouseDown(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        startPoint = point
-        currentPoint = point
+        externalBeginSelection(at: convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        externalUpdateSelection(to: convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        externalEndSelection(at: convert(event.locationInWindow, from: nil))
+    }
+
+    // MARK: - 外部駆動API（CGEventTap 経由でグローバル座標を変換した結果を受け取る）
+
+    /// 選択開始。CGEventTap callback もしくはローカル mouseDown から呼ばれる。
+    /// `viewPoint` はビュー内ローカル座標（左上原点）。
+    func externalBeginSelection(at viewPoint: CGPoint) {
+        startPoint = viewPoint
+        currentPoint = viewPoint
         selectionRect = nil
         needsDisplay = true
     }
 
-    override func mouseDragged(with event: NSEvent) {
-        currentPoint = convert(event.locationInWindow, from: nil)
+    func externalUpdateSelection(to viewPoint: CGPoint) {
+        currentPoint = viewPoint
         updateSelectionRect()
         needsDisplay = true
     }
 
-    override func mouseUp(with event: NSEvent) {
-        let upPoint = convert(event.locationInWindow, from: nil)
-
-        // startPointとの距離でクリック/ドラッグを判定（トラックパッドの微小ドラッグ対策）
+    func externalEndSelection(at viewPoint: CGPoint) {
+        // startPoint との距離でクリック/ドラッグを判定（トラックパッドの微小ドラッグ対策）
         let isClick: Bool
         if let start = startPoint {
-            isClick = hypot(upPoint.x - start.x, upPoint.y - start.y) <= 20
+            isClick = hypot(viewPoint.x - start.x, viewPoint.y - start.y) <= 20
         } else {
             isClick = true
         }
@@ -142,7 +248,7 @@ class SelectionView: NSView {
         }
 
         // クリックの場合、その位置にあるウィンドウを検出
-        if let windowRect = findWindowAtPoint(upPoint) {
+        if let windowRect = findWindowAtPoint(viewPoint) {
             onComplete(windowRect)
         } else {
             onCancel()
