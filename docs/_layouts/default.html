@@ -134,39 +134,96 @@ body {
 
 .sidebar-toc li { margin: 0; padding: 0; }
 
-.sidebar-toc a {
-  display: block;
-  padding: 5px 10px;
-  font-size: 13px;
-  color: #424245;
-  text-decoration: none;
+.sidebar-toc .toc-h2 {
+  display: flex;
+  align-items: stretch;
   border-radius: 6px;
   border-left: 2px solid transparent;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-  line-height: 1.5;
+  transition: background 0.15s, border-color 0.15s;
+  margin-top: 2px;
 }
 
-.sidebar-toc a:hover {
+.sidebar-toc .toc-h2:hover {
   background: #faf7f0;
-  color: #1d1d1f;
-  text-decoration: none;
 }
 
-.sidebar-toc a.active {
+.sidebar-toc .toc-h2.active {
   background: linear-gradient(90deg, rgba(196,153,58,0.08), transparent);
-  color: #8b6914;
-  font-weight: 600;
   border-left-color: #c4993a;
 }
 
-.sidebar-toc a.h3 {
-  padding-left: 22px;
-  font-size: 12.5px;
-  color: #6e6e73;
+.sidebar-toc .toc-h2 > a {
+  flex: 1;
+  display: block;
+  padding: 6px 4px 6px 10px;
+  font-size: 13px;
+  color: #424245;
+  text-decoration: none;
+  line-height: 1.5;
+  min-width: 0;
 }
 
-.sidebar-toc a.h3.active {
-  padding-left: 22px;
+.sidebar-toc .toc-h2 > a:hover { color: #1d1d1f; text-decoration: none; }
+.sidebar-toc .toc-h2.active > a { color: #8b6914; font-weight: 600; }
+
+.sidebar-toc .toc-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 10px 0 4px;
+  color: #86868b;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.sidebar-toc .toc-toggle:hover { color: #1d1d1f; }
+.sidebar-toc .toc-toggle::before {
+  content: "▶";
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+.sidebar-toc .toc-h2.expanded .toc-toggle::before { transform: rotate(90deg); }
+
+.sidebar-toc .toc-children {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+
+.sidebar-toc .toc-h2.expanded + .toc-children {
+  max-height: 1200px;
+  margin-bottom: 4px;
+}
+
+.sidebar-toc .toc-children a {
+  display: block;
+  padding: 4px 10px 4px 28px;
+  font-size: 12.5px;
+  color: #6e6e73;
+  text-decoration: none;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  margin-left: 12px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  line-height: 1.45;
+}
+
+.sidebar-toc .toc-children a:hover {
+  background: #faf7f0;
+  color: #1d1d1f;
+}
+
+.sidebar-toc .toc-children a.active {
+  color: #8b6914;
+  font-weight: 600;
+  border-left-color: #c4993a;
+  background: linear-gradient(90deg, rgba(196,153,58,0.08), transparent);
 }
 
 .content-main {
@@ -192,7 +249,6 @@ body {
     margin: 24px 0 0;
   }
   .sidebar-inner { padding: 16px 14px; }
-  .sidebar-toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px; }
 }
 
 @media (max-width: 640px) {
@@ -434,7 +490,7 @@ footer a:hover { color: #1d1d1f; }
 
 <script>
 (function() {
-  // 目次自動生成: コンテンツ内の h2/h3 から TOC を構築
+  // 目次自動生成: コンテンツ内の h2/h3 から階層構造の TOC を構築
   var content = document.getElementById('content');
   var tocEl = document.getElementById('sidebar-toc');
   if (!content || !tocEl) return;
@@ -445,39 +501,112 @@ footer a:hover { color: #1d1d1f; }
     return;
   }
 
-  var tocLinks = [];
+  // h2 をグループの親、h3 を子としてツリー化
+  var tree = [];
+  var currentGroup = null;
   headings.forEach(function(h) {
     var text = h.textContent.trim();
-    // ページ内の「目次」見出しはサイドバーと重複するためスキップ
-    if (text === '目次') return;
+    if (text === '目次') return; // 自身を載せない
     if (!h.id) {
-      // Kramdown 自動生成 id がない場合のフォールバック
       var id = text.toLowerCase().replace(/[\s\/]+/g, '-').replace(/[^\w\-぀-ヿ一-鿿]/g, '');
-      h.id = id || 'section-' + tocLinks.length;
+      h.id = id || 'section-' + tree.length;
     }
-    var li = document.createElement('li');
-    var a = document.createElement('a');
-    a.href = '#' + h.id;
-    a.textContent = text;
-    a.className = h.tagName.toLowerCase();
-    li.appendChild(a);
-    tocEl.appendChild(li);
-    tocLinks.push({ link: a, target: h });
+    if (h.tagName === 'H2') {
+      currentGroup = { heading: h, text: text, children: [] };
+      tree.push(currentGroup);
+    } else if (h.tagName === 'H3') {
+      if (!currentGroup) {
+        // h2 が前置されていない孤立 h3 は単独項目として扱う
+        currentGroup = { heading: h, text: text, children: [] };
+        tree.push(currentGroup);
+      } else {
+        currentGroup.children.push({ heading: h, text: text });
+      }
+    }
   });
 
-  // スクロール連動でアクティブセクションをハイライト
+  // DOM 構築
+  var allLinks = []; // { link, target, parentLi }
+  tree.forEach(function(group) {
+    var li = document.createElement('li');
+    var row = document.createElement('div');
+    row.className = 'toc-h2';
+    var a = document.createElement('a');
+    a.href = '#' + group.heading.id;
+    a.textContent = group.text;
+    row.appendChild(a);
+
+    if (group.children.length > 0) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'toc-toggle';
+      btn.setAttribute('aria-label', '展開/折りたたみ');
+      row.appendChild(btn);
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        row.classList.toggle('expanded');
+      });
+    }
+
+    li.appendChild(row);
+
+    if (group.children.length > 0) {
+      var ul = document.createElement('ul');
+      ul.className = 'toc-children';
+      group.children.forEach(function(child) {
+        var clLi = document.createElement('li');
+        var clA = document.createElement('a');
+        clA.href = '#' + child.heading.id;
+        clA.textContent = child.text;
+        clLi.appendChild(clA);
+        ul.appendChild(clLi);
+        allLinks.push({ link: clA, target: child.heading, parentRow: row, isChild: true });
+      });
+      li.appendChild(ul);
+    }
+    tocEl.appendChild(li);
+    allLinks.push({ link: a, target: group.heading, parentRow: row, isChild: false });
+  });
+
+  // クリックで親を自動展開
+  allLinks.forEach(function(item) {
+    item.link.addEventListener('click', function() {
+      if (item.parentRow && !item.parentRow.classList.contains('expanded')) {
+        item.parentRow.classList.add('expanded');
+      }
+    });
+  });
+
+  // スクロール連動: アクティブな見出しを判定し、親グループを展開
   function updateActive() {
     var scrollY = window.scrollY + 120;
-    var current = tocLinks[0];
-    for (var i = 0; i < tocLinks.length; i++) {
-      if (tocLinks[i].target.offsetTop <= scrollY) {
-        current = tocLinks[i];
+    var currentIdx = -1;
+    for (var i = 0; i < allLinks.length; i++) {
+      if (allLinks[i].target.offsetTop <= scrollY) {
+        currentIdx = i;
       } else {
         break;
       }
     }
-    tocLinks.forEach(function(t) { t.link.classList.remove('active'); });
-    if (current) current.link.classList.add('active');
+    allLinks.forEach(function(t) {
+      t.link.classList.remove('active');
+      t.parentRow.classList.remove('active');
+    });
+    if (currentIdx === -1) return;
+    var current = allLinks[currentIdx];
+    current.link.classList.add('active');
+    current.parentRow.classList.add('active');
+    // 現在のセクションの親グループだけ展開、他は閉じる
+    document.querySelectorAll('.toc-h2.expanded').forEach(function(el) {
+      if (el !== current.parentRow) el.classList.remove('expanded');
+    });
+    if (current.isChild || current.parentRow.querySelector('.toc-toggle')) {
+      // 親に子があれば展開
+      if (current.parentRow.querySelector('.toc-toggle')) {
+        current.parentRow.classList.add('expanded');
+      }
+    }
   }
 
   var ticking = false;
