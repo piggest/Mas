@@ -41,7 +41,7 @@ test_target.add_dependency(host_target)
 # 各 build configuration の設定を整える
 test_target.build_configurations.each do |config|
   bs = config.build_settings
-  bs["PRODUCT_BUNDLE_IDENTIFIER"]      = "com.example.MasTests"
+  bs["PRODUCT_BUNDLE_IDENTIFIER"]      = "com.piggest.mas.tests"
   bs["MACOSX_DEPLOYMENT_TARGET"]       = deployment_target
   bs["SWIFT_VERSION"]                  = host_target.build_configurations.first.build_settings["SWIFT_VERSION"] || "5.8"
   bs["GENERATE_INFOPLIST_FILE"]        = "YES"

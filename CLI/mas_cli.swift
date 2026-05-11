@@ -8,7 +8,7 @@ import CoreGraphics
 // MARK: - Constants
 
 let appVersion = "3.4.2"
-let bundleIdentifier = "com.example.Mas"
+let bundleIdentifier = "com.piggest.mas"
 
 let historyFileURL: URL = {
     let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -193,13 +193,13 @@ func handleCapture(_ args: [String]) {
         let label: String
         switch subcommand {
         case "fullscreen":
-            notificationName = "com.example.Mas.capture.fullscreen"
+            notificationName = "com.piggest.mas.capture.fullscreen"
             label = "全画面キャプチャ"
         case "region":
-            notificationName = "com.example.Mas.capture.region"
+            notificationName = "com.piggest.mas.capture.region"
             label = "範囲選択キャプチャ"
         default:
-            notificationName = "com.example.Mas.capture.frame"
+            notificationName = "com.piggest.mas.capture.frame"
             label = "キャプチャ枠表示"
         }
 
@@ -216,7 +216,7 @@ func handleCapture(_ args: [String]) {
         let output = parseOutput(from: restArgs) ?? defaultOutputPath(prefix: "menu")
         let wait = delay ?? 1
         ensureAppRunning()
-        sendNotification("com.example.Mas.show.menu")
+        sendNotification("com.piggest.mas.show.menu")
         Thread.sleep(forTimeInterval: Double(wait))
         // ポップオーバーウィンドウ（タイトルなし、適切なサイズ）をキャプチャ
         let menuWindows = findMasWindows().filter { $0.title.isEmpty && $0.width > 100 && $0.height > 100 }
@@ -231,7 +231,7 @@ func handleCapture(_ args: [String]) {
         let output = parseOutput(from: restArgs) ?? defaultOutputPath(prefix: "library")
         let wait = delay ?? 1
         ensureAppRunning()
-        sendNotification("com.example.Mas.show.library")
+        sendNotification("com.piggest.mas.show.library")
         Thread.sleep(forTimeInterval: Double(wait))
         if !captureWindowByTitle(containing: "ライブラリ", to: output) {
             screencapture(to: output)
@@ -242,7 +242,7 @@ func handleCapture(_ args: [String]) {
         let output = parseOutput(from: restArgs) ?? defaultOutputPath(prefix: "settings")
         let wait = delay ?? 1
         ensureAppRunning()
-        sendNotification("com.example.Mas.show.settings")
+        sendNotification("com.piggest.mas.show.settings")
         Thread.sleep(forTimeInterval: Double(wait))
         if !captureWindowByTitle(containing: "設定", to: output) {
             screencapture(to: output)
@@ -253,9 +253,9 @@ func handleCapture(_ args: [String]) {
         if let delay = delay {
             ensureAppRunning()
             countdown(seconds: delay, label: "GIF録画")
-            sendNotification("com.example.Mas.capture.gif")
+            sendNotification("com.piggest.mas.capture.gif")
         } else {
-            sendNotification("com.example.Mas.capture.gif")
+            sendNotification("com.piggest.mas.capture.gif")
             print("GIF録画 コマンドを送信しました")
         }
 
@@ -263,9 +263,9 @@ func handleCapture(_ args: [String]) {
         if let delay = delay {
             ensureAppRunning()
             countdown(seconds: delay, label: "動画撮影")
-            sendNotification("com.example.Mas.capture.video")
+            sendNotification("com.piggest.mas.capture.video")
         } else {
-            sendNotification("com.example.Mas.capture.video")
+            sendNotification("com.piggest.mas.capture.video")
             print("動画撮影 コマンドを送信しました")
         }
 
@@ -304,7 +304,7 @@ func handleCapture(_ args: [String]) {
 
         // 1. メニュー
         print("[1/3] メニューをキャプチャ中...")
-        sendNotification("com.example.Mas.show.menu")
+        sendNotification("com.piggest.mas.show.menu")
         Thread.sleep(forTimeInterval: 1.5)
         let menuPath = (outputDir as NSString).appendingPathComponent("menu.png")
         let menuWindows = findMasWindows().filter { $0.title.isEmpty && $0.width > 100 && $0.height > 100 }
@@ -315,12 +315,12 @@ func handleCapture(_ args: [String]) {
         }
         print("  保存: \(menuPath)")
         // メニューを閉じる
-        sendNotification("com.example.Mas.show.menu")
+        sendNotification("com.piggest.mas.show.menu")
         Thread.sleep(forTimeInterval: 0.5)
 
         // 2. 設定ウィンドウ
         print("[2/3] 設定ウィンドウをキャプチャ中...")
-        sendNotification("com.example.Mas.show.settings")
+        sendNotification("com.piggest.mas.show.settings")
         Thread.sleep(forTimeInterval: 1.5)
         let settingsPath = (outputDir as NSString).appendingPathComponent("settings.png")
         if !captureWindowByTitle(containing: "設定", to: settingsPath) {
@@ -330,7 +330,7 @@ func handleCapture(_ args: [String]) {
 
         // 3. ライブラリ
         print("[3/3] ライブラリをキャプチャ中...")
-        sendNotification("com.example.Mas.show.library")
+        sendNotification("com.piggest.mas.show.library")
         Thread.sleep(forTimeInterval: 1.5)
         let libraryPath = (outputDir as NSString).appendingPathComponent("library.png")
         if !captureWindowByTitle(containing: "ライブラリ", to: libraryPath) {
@@ -640,7 +640,7 @@ func handleOpen(_ args: [String]) {
         exit(1)
     }
 
-    sendNotification("com.example.Mas.open.file", object: absPath)
+    sendNotification("com.piggest.mas.open.file", object: absPath)
     print("Mas エディタで開きます: \(URL(fileURLWithPath: absPath).lastPathComponent)")
 }
 
