@@ -248,6 +248,9 @@ struct EditorWindow: View {
             Button("閉じる") { closeWindow() }
             Divider()
             Button("クリップボードにコピー") { copyToClipboard() }
+            if let savedURL = screenshot.savedURL {
+                Button("ファイルパスをコピー") { copyFilePath(savedURL.path) }
+            }
             Divider()
             if !screenshot.isVideo {
                 Button(editMode ? "編集を終了" : "編集") {
@@ -1108,6 +1111,11 @@ struct EditorWindow: View {
         DispatchQueue.global(qos: .userInitiated).async {
             try? data.write(to: fileURL)
         }
+    }
+
+    /// 保存済みのファイルパスをクリップボードへコピー。
+    private func copyFilePath(_ path: String) {
+        ClipboardService().copyToClipboard(string: path)
     }
 
     /// 編集済み画像（アノテーション焼き付け版）をクリップボードへコピー。
