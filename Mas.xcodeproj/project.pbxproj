@@ -72,6 +72,7 @@
 		DC72F4D5D427101A6CC14BBA /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4009DABA3E02A6EE77D22CBC /* HotkeyManager.swift */; };
 		DE75A6AB1A334A3B7E4CACFC /* SleepProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8FC7F5621DDC9679E21490 /* SleepProviding.swift */; };
 		EAF180B1DEE2403ACB271CA3 /* MosaicAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83F83616E14B03BE4E917A2E /* MosaicAnnotation.swift */; };
+		EE417E04407B14DF1AB07FA2 /* ClipboardServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A52ED7CAA8EDA90ADC42863 /* ClipboardServiceTests.swift */; };
 		ELLIPSE001BUILD /* EllipseAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ELLIPSE001FILEREF /* EllipseAnnotation.swift */; };
 		FREEHAND01BUILD /* FreehandAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FREEHAND01FILEREF /* FreehandAnnotation.swift */; };
 		GIFPLTB01BUILD /* GifPlayerToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = GIFPLTB01FILEREF /* GifPlayerToolbar.swift */; };
@@ -105,6 +106,7 @@
 
 /* Begin PBXFileReference section */
 		002A68B3D208C945FEA1D830 /* PermissionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionService.swift; sourceTree = "<group>"; };
+		0A52ED7CAA8EDA90ADC42863 /* ClipboardServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClipboardServiceTests.swift; sourceTree = "<group>"; };
 		13156674DF91D1BDB557DA4F /* AnnotationGeometryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnnotationGeometryTests.swift; sourceTree = "<group>"; };
 		13C3BCAF14C9F2F9B1B60D89 /* WindowPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPickerView.swift; sourceTree = "<group>"; };
 		2089CBB684BD2E5D5853CAD1 /* RectAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectAnnotation.swift; sourceTree = "<group>"; };
@@ -247,6 +249,7 @@
 				13156674DF91D1BDB557DA4F /* AnnotationGeometryTests.swift */,
 				BBA7D2A8D79CE31C657E39FB /* OverlayWindowFactoryTests.swift */,
 				D0668E97F794A3C7BE893C4D /* SelectionStateTests.swift */,
+				0A52ED7CAA8EDA90ADC42863 /* ClipboardServiceTests.swift */,
 			);
 			name = PureLogic;
 			path = PureLogic;
@@ -566,6 +569,7 @@
 				904A8F81F1EEA5FE0E77DF63 /* MockAccessibility.swift in Sources */,
 				73425A1B2AC276C899A24FBB /* MockMouseEventTap.swift in Sources */,
 				1AFA2BD0DB7C2F68711D9CD9 /* RegionSelectionOverlayWiringTests.swift in Sources */,
+				EE417E04407B14DF1AB07FA2 /* ClipboardServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

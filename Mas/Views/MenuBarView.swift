@@ -190,6 +190,18 @@ struct MenuBarView: View {
                         .buttonStyle(NoHighlightButtonStyle())
                         .padding(.horizontal)
                         .padding(.vertical, 2)
+                        .contextMenu {
+                            if let savedURL = windowInfo.screenshot.savedURL {
+                                Button("ファイルパスをコピー") {
+                                    ClipboardService().copyToClipboard(string: savedURL.path)
+                                }
+                                Button("Finderで表示") {
+                                    NSWorkspace.shared.activateFileViewerSelecting([savedURL])
+                                }
+                                Divider()
+                            }
+                            Button("ウィンドウを閉じる") { closeWindow(windowInfo) }
+                        }
                     }
                 }
             }

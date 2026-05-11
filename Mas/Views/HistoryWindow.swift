@@ -564,6 +564,7 @@ struct HistoryEntryRow: View {
         .contextMenu {
             Button("エディタで開く") { onTap() }
             Button("Finderで表示") { showInFinder() }
+            Button("ファイルパスをコピー") { copyFilePath() }
             Divider()
             Menu("カテゴリ設定") {
                 ForEach(categories, id: \.self) { cat in
@@ -651,5 +652,9 @@ struct HistoryEntryRow: View {
     private func showInFinder() {
         let url = URL(fileURLWithPath: entry.filePath)
         NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    private func copyFilePath() {
+        ClipboardService().copyToClipboard(string: entry.filePath)
     }
 }

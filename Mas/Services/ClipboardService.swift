@@ -13,4 +13,12 @@ class ClipboardService {
         let nsImage = NSImage(cgImage: cgImage, size: size)
         return copyToClipboard(nsImage)
     }
+
+    /// 文字列をクリップボードへコピー（ファイルパス共有などに使う）。
+    @discardableResult
+    func copyToClipboard(string: String) -> Bool {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        return pasteboard.setString(string, forType: .string)
+    }
 }
