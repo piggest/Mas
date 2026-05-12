@@ -670,7 +670,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.MasTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.piggest.mas.tests;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.8;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mas.app/Contents/MacOS/Mas";
@@ -690,7 +690,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.ScreenshotApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.piggest.mas;
 				PRODUCT_NAME = Mas;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.8;
@@ -712,7 +712,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.MasTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.piggest.mas.tests;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.8;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mas.app/Contents/MacOS/Mas";
@@ -851,7 +851,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.ScreenshotApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.piggest.mas;
 				PRODUCT_NAME = Mas;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.8;

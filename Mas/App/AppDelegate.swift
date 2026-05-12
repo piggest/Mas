@@ -146,25 +146,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupDistributedNotifications() {
         let dnc = DistributedNotificationCenter.default()
         dnc.addObserver(self, selector: #selector(handleDistributedCaptureFullScreen),
-            name: NSNotification.Name("com.example.Mas.capture.fullscreen"), object: nil)
+            name: NSNotification.Name("com.piggest.mas.capture.fullscreen"), object: nil)
         dnc.addObserver(self, selector: #selector(handleDistributedCaptureRegion),
-            name: NSNotification.Name("com.example.Mas.capture.region"), object: nil)
+            name: NSNotification.Name("com.piggest.mas.capture.region"), object: nil)
         dnc.addObserver(self, selector: #selector(handleDistributedCaptureFrame),
-            name: NSNotification.Name("com.example.Mas.capture.frame"), object: nil)
+            name: NSNotification.Name("com.piggest.mas.capture.frame"), object: nil)
         dnc.addObserver(self, selector: #selector(handleDistributedShowHistory),
-            name: NSNotification.Name("com.example.Mas.show.history"), object: nil)
+            name: NSNotification.Name("com.piggest.mas.show.history"), object: nil)
         dnc.addObserver(self, selector: #selector(handleDistributedOpenFile(_:)),
-            name: NSNotification.Name("com.example.Mas.open.file"), object: nil)
+            name: NSNotification.Name("com.piggest.mas.open.file"), object: nil)
         dnc.addObserver(self, selector: #selector(handleDistributedShowMenu),
-            name: NSNotification.Name("com.example.Mas.show.menu"), object: nil)
+            name: NSNotification.Name("com.piggest.mas.show.menu"), object: nil)
         dnc.addObserver(self, selector: #selector(handleDistributedShowLibrary),
-            name: NSNotification.Name("com.example.Mas.show.library"), object: nil)
+            name: NSNotification.Name("com.piggest.mas.show.library"), object: nil)
         dnc.addObserver(self, selector: #selector(handleDistributedShowSettings),
-            name: NSNotification.Name("com.example.Mas.show.settings"), object: nil)
+            name: NSNotification.Name("com.piggest.mas.show.settings"), object: nil)
         dnc.addObserver(self, selector: #selector(handleDistributedGifRecording),
-            name: NSNotification.Name("com.example.Mas.capture.gif"), object: nil)
+            name: NSNotification.Name("com.piggest.mas.capture.gif"), object: nil)
         dnc.addObserver(self, selector: #selector(handleDistributedVideoRecording),
-            name: NSNotification.Name("com.example.Mas.capture.video"), object: nil)
+            name: NSNotification.Name("com.piggest.mas.capture.video"), object: nil)
     }
 
     @objc private func handleDistributedCaptureFullScreen() {

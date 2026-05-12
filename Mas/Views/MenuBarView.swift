@@ -301,7 +301,7 @@ struct MenuBarView: View {
     private func openSettings() {
         dismissMenu()
         DistributedNotificationCenter.default().postNotificationName(
-            NSNotification.Name("com.example.Mas.show.settings"),
+            NSNotification.Name("com.piggest.mas.show.settings"),
             object: nil,
             userInfo: nil,
             deliverImmediately: true

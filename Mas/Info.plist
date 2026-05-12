@@ -10,12 +10,16 @@
     <string>Mas</string>
     <key>CFBundleDisplayName</key>
     <string>Mas</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>Mas</string>
     <key>CFBundleIdentifier</key>
-    <string>com.example.Mas</string>
+    <string>com.piggest.mas</string>
     <key>CFBundleVersion</key>
-    <string>4.3.1</string>
+    <string>5.0.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>4.3.1</string>
+    <string>5.0.0</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>CFBundleDocumentTypes</key>
