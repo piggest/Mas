@@ -17,9 +17,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.piggest.mas</string>
     <key>CFBundleVersion</key>
-    <string>4.3.1</string>
+    <string>5.0.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>4.3.1</string>
+    <string>5.0.0</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>CFBundleDocumentTypes</key>
