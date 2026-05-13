@@ -538,6 +538,11 @@ struct MenuBarIconPicker: View {
 }
 
 struct AboutView: View {
+    @State private var screenRecordingGranted = false
+    @State private var accessibilityGranted = false
+    // 設定変更検知ループ（タブを開いたまま権限を変更されても更新される）
+    private let refreshTimer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
+
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
     }
@@ -565,6 +570,30 @@ struct AboutView: View {
                 .foregroundColor(.secondary)
                 .padding(.top, 8)
 
+            Divider()
+                .padding(.vertical, 4)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("権限")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                PermissionRow(
+                    title: "画面収録",
+                    description: "スクリーンショット・録画に必須",
+                    granted: screenRecordingGranted,
+                    settingsURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+                )
+
+                PermissionRow(
+                    title: "アクセシビリティ",
+                    description: "他アプリの右クリックメニューを保持したまま範囲選択するために必要",
+                    granted: accessibilityGranted,
+                    settingsURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+                )
+            }
+
             Spacer()
 
             Text("© 2026")
@@ -572,6 +601,53 @@ struct AboutView: View {
                 .foregroundColor(.secondary)
         }
         .padding()
+        .onAppear { refreshPermissions() }
+        .onReceive(refreshTimer) { _ in refreshPermissions() }
+    }
+
+    private func refreshPermissions() {
+        screenRecordingGranted = CGPreflightScreenCaptureAccess()
+        accessibilityGranted = AXIsProcessTrusted()
+    }
+}
+
+/// 権限の状態 1 行表示。許可済みなら緑チェック、未許可なら設定誘導ボタン。
+struct PermissionRow: View {
+    let title: String
+    let description: String
+    let granted: Bool
+    let settingsURL: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: granted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundColor(granted ? .green : .orange)
+                .font(.system(size: 16))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.callout)
+                Text(description)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            if !granted {
+                Button("設定を開く") {
+                    if let url = URL(string: settingsURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(Color.secondary.opacity(0.05))
+        .cornerRadius(6)
     }
 }
 
