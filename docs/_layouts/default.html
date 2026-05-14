@@ -1,5 +1,25 @@
+{%- assign is_en = page.permalink contains '/en/' -%}
+{%- if is_en -%}
+  {%- assign html_lang = 'en' -%}
+  {%- assign home_url = '/en/' -%}
+  {%- assign user_guide_url = '/en/user-guide' -%}
+  {%- assign user_guide_label = 'User Guide' -%}
+  {%- assign cli_url = '/en/cli' -%}
+  {%- assign toc_label = 'Contents' -%}
+  {%- assign lang_switch_url = '/' -%}
+  {%- assign lang_switch_label = '日本語' -%}
+{%- else -%}
+  {%- assign html_lang = 'ja' -%}
+  {%- assign home_url = '/' -%}
+  {%- assign user_guide_url = '/user-guide' -%}
+  {%- assign user_guide_label = 'ユーザーガイド' -%}
+  {%- assign cli_url = '/cli' -%}
+  {%- assign toc_label = '目次' -%}
+  {%- assign lang_switch_url = '/en/' -%}
+  {%- assign lang_switch_label = 'English' -%}
+{%- endif -%}
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="{{ html_lang }}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,6 +39,25 @@ body {
 .top-bar {
   background: linear-gradient(90deg, #8b6914, #a67c2e, #c4993a);
   height: 24px;
+  position: relative;
+}
+
+.lang-switch {
+  position: absolute;
+  right: 16px;
+  top: 4px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.9);
+}
+
+.lang-switch a {
+  color: rgba(255,255,255,0.9);
+  text-decoration: none;
+}
+
+.lang-switch a:hover {
+  color: #fff;
+  text-decoration: underline;
 }
 
 /* Navigation */
@@ -452,16 +491,18 @@ footer a:hover { color: #1d1d1f; }
 </head>
 <body>
 
-<div class="top-bar"></div>
+<div class="top-bar">
+  <span class="lang-switch"><a href="{{ lang_switch_url | relative_url }}">{{ lang_switch_label }}</a></span>
+</div>
 
 <nav class="nav">
   <div class="nav-inner">
-    <a class="home" href="{{ '/' | relative_url }}">
+    <a class="home" href="{{ home_url | relative_url }}">
       <img src="{{ '/images/icon.png' | relative_url }}" alt="Mas">
       Mas
     </a>
-    <a href="{{ '/user-guide' | relative_url }}">ユーザーガイド</a>
-    <a href="{{ '/cli' | relative_url }}">CLI</a>
+    <a href="{{ user_guide_url | relative_url }}">{{ user_guide_label }}</a>
+    <a href="{{ cli_url | relative_url }}">CLI</a>
   </div>
 </nav>
 
@@ -472,7 +513,7 @@ footer a:hover { color: #1d1d1f; }
 <div class="content-wrapper">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-inner">
-      <div class="sidebar-title">目次</div>
+      <div class="sidebar-title">{{ toc_label }}</div>
       <ul class="sidebar-toc" id="sidebar-toc"></ul>
     </div>
   </aside>
