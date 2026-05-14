@@ -1,5 +1,4 @@
-{%- assign is_en = page.url contains '/en/' -%}
-{%- if is_en -%}
+{%- if page.url contains '/en/' -%}
   {%- assign html_lang = 'en' -%}
   {%- assign home_url = '/en/' -%}
   {%- assign user_guide_url = '/en/user-guide' -%}
