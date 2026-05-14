@@ -6,7 +6,7 @@
   {%- assign user_guide_label = 'User Guide' -%}
   {%- assign cli_url = '/en/cli' -%}
   {%- assign toc_label = 'Contents' -%}
-  {%- assign lang_switch_url = '/' -%}
+  {%- assign lang_switch_url = page.url | replace_first: '/en/', '/' -%}
   {%- assign lang_switch_label = '日本語' -%}
 {%- else -%}
   {%- assign html_lang = 'ja' -%}
@@ -15,7 +15,7 @@
   {%- assign user_guide_label = 'ユーザーガイド' -%}
   {%- assign cli_url = '/cli' -%}
   {%- assign toc_label = '目次' -%}
-  {%- assign lang_switch_url = '/en/' -%}
+  {%- assign lang_switch_url = page.url | replace_first: '/', '/en/' -%}
   {%- assign lang_switch_label = 'English' -%}
 {%- endif -%}
 <!DOCTYPE html>
