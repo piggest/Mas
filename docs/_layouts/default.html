@@ -1,4 +1,4 @@
-{%- assign is_en = page.permalink contains '/en/' -%}
+{%- assign is_en = page.url contains '/en/' -%}
 {%- if is_en -%}
   {%- assign html_lang = 'en' -%}
   {%- assign home_url = '/en/' -%}
@@ -39,25 +39,25 @@ body {
 .top-bar {
   background: linear-gradient(90deg, #8b6914, #a67c2e, #c4993a);
   height: 24px;
-  position: relative;
 }
 
 .lang-switch {
-  position: absolute;
-  right: 16px;
-  top: 4px;
-  font-size: 12px;
-  color: rgba(255,255,255,0.9);
-}
-
-.lang-switch a {
-  color: rgba(255,255,255,0.9);
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6e6e73;
   text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid #e8e8ed;
+  border-radius: 980px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
-.lang-switch a:hover {
-  color: #fff;
-  text-decoration: underline;
+.lang-switch:hover {
+  background: rgba(0,113,227,0.08);
+  color: #0071e3;
+  border-color: rgba(0,113,227,0.2);
+  text-decoration: none;
 }
 
 /* Navigation */
@@ -491,9 +491,7 @@ footer a:hover { color: #1d1d1f; }
 </head>
 <body>
 
-<div class="top-bar">
-  <span class="lang-switch"><a href="{{ lang_switch_url | relative_url }}">{{ lang_switch_label }}</a></span>
-</div>
+<div class="top-bar"></div>
 
 <nav class="nav">
   <div class="nav-inner">
@@ -503,6 +501,7 @@ footer a:hover { color: #1d1d1f; }
     </a>
     <a href="{{ user_guide_url | relative_url }}">{{ user_guide_label }}</a>
     <a href="{{ cli_url | relative_url }}">CLI</a>
+    <a class="lang-switch" href="{{ lang_switch_url | relative_url }}">{{ lang_switch_label }}</a>
   </div>
 </nav>
 
