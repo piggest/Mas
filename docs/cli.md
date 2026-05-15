@@ -4,6 +4,8 @@ layout: default
 permalink: /cli/
 ---
 
+<p align="right" style="font-size: 12px; color: #86868b;"><a href="/Mas/en/cli/">English</a></p>
+
 # Mas CLI リファレンス
 
 `mas-cli` はMasの全機能にコマンドラインからアクセスできるツールです。

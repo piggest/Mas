@@ -4,6 +4,8 @@ layout: default
 permalink: /user-guide/
 ---
 
+<p align="right" style="font-size: 12px; color: #86868b;"><a href="/Mas/en/user-guide/">English</a></p>
+
 # Mas ユーザーガイド
 
 <p align="center">まるでマスですくうように<br>簡単に正確にスクリーンショットを作成します</p>
