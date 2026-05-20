@@ -47,7 +47,7 @@ Mas lives in the menu bar.
 2. Drag to select the area you want — the selection is cropped instantly
 3. The editor window opens, ready for annotations
 
-![Editor](../images/editor.png)
+![Editor](/Mas/images/editor.png)
 
 ---
 
@@ -66,7 +66,7 @@ Each capture method and its default shortcut.
 
 The editor window opens automatically after capture.
 
-![Menu](../images/menu.png)
+![Menu](/Mas/images/menu.png)
 
 ### Full screen
 
@@ -177,14 +177,14 @@ Click the pencil icon (✏️) at the bottom left of the editor window, or **rig
 
 ### Move
 
-<img src="../images/tools/move.png" width="20"> Click an annotation to select, drag to move, and use the handles to resize.
+<img src="/Mas/images/tools/move.png" width="20"> Click an annotation to select, drag to move, and use the handles to resize.
 
 ### Pen / Marker
 
 | Tool | Icon | Description |
 |--------|:-------:|------|
-| Pen | <img src="../images/tools/pen.png" width="20"> | Freehand drawing |
-| Marker | <img src="../images/tools/marker.png" width="20"> | Semi-transparent highlight (3× thickness) |
+| Pen | <img src="/Mas/images/tools/pen.png" width="20"> | Freehand drawing |
+| Marker | <img src="/Mas/images/tools/marker.png" width="20"> | Semi-transparent highlight (3× thickness) |
 
 ### Line / Arrow / Arrow with text
 
@@ -200,15 +200,15 @@ Draw rectangles and ellipses. Toggle between outline only and semi-transparent f
 
 ### Text
 
-<img src="../images/tools/text.png" width="20"> Place text on the image. Click to place, then type with the keyboard.
+<img src="/Mas/images/tools/text.png" width="20"> Place text on the image. Click to place, then type with the keyboard.
 
 ### Blur (mosaic)
 
-<img src="../images/tools/mosaic.png" width="20"> Apply a pixelation (mosaic) effect to a rectangular region. Useful for masking personal or sensitive information.
+<img src="/Mas/images/tools/mosaic.png" width="20"> Apply a pixelation (mosaic) effect to a rectangular region. Useful for masking personal or sensitive information.
 
 ### Crop
 
-<img src="../images/tools/trim.png" width="20"> Cut out a portion of the image.
+<img src="/Mas/images/tools/trim.png" width="20"> Cut out a portion of the image.
 
 1. Choose "Crop" from the toolbar
 2. Drag to set the crop region
@@ -216,7 +216,7 @@ Draw rectangles and ellipses. Toggle between outline only and semi-transparent f
 
 ### Text selection (OCR)
 
-<img src="../images/tools/ocr.png" width="20"> Recognize text in the screenshot, then select and copy character by character.
+<img src="/Mas/images/tools/ocr.png" width="20"> Recognize text in the screenshot, then select and copy character by character.
 
 1. Choose "Text selection" (magnifier icon) from the toolbar
 2. Text regions are highlighted automatically
@@ -388,7 +388,7 @@ Wait-for-change and wait-for-stable steps compare against the image from "the mo
 
 The window for managing capture history. Choose "Library" from the menu or press `⌘⇧L`.
 
-![Library](../images/library.png)
+![Library](/Mas/images/library.png)
 
 ### Display and actions
 
@@ -452,7 +452,7 @@ The "Open windows" section shows a thumbnail, pin state toggle, size info, and f
 
 Open the settings window from the menu's "Settings..." (`⌘,`). Five tabs.
 
-![Settings](../images/settings.png)
+![Settings](/Mas/images/settings.png)
 
 ### General tab
 
