@@ -198,6 +198,19 @@ Click the pencil icon (✏️) at the bottom left of the editor window, or **rig
 
 Draw rectangles and ellipses. Toggle between outline only and semi-transparent fill.
 
+### Speed lines
+
+Draw manga-style speed lines. **The area you drag becomes the "focus"** — the subject you want to emphasize — and lines converge on it from the edges of the whole image.
+
+- Clicks pass through the focus, so the subject you framed stays clickable
+- Only the ring just outside the focus is grabbable — clicking near the image edge won't select the speed lines
+- Moving and corner-resizing affect the focus only; the lines follow automatically
+- The size slider controls the width of each line — thicker lines mean fewer of them
+- Hold `Shift` while dragging to constrain the focus to a square
+- Lines use the currently selected color (black works best)
+- Turn on the outline option to add a thin streak along one side of each line, keeping the effect visible without changing the line's shape or width. The streak is white, or black when you pick a light color such as white or yellow
+- Speed lines sit below other annotations, so arrows and text stay readable
+
 ### Text
 
 <img src="/Mas/images/tools/text.png" width="20"> Place text on the image. Click to place, then type with the keyboard.
@@ -241,7 +254,7 @@ Click a button to open the selection menu for that group. The last tool you chos
 | Group | Tools |
 |----------|----------------|
 | Drawing | Pen / Marker |
-| Shapes | Line / Arrow / Arrow with text / Rectangle / Ellipse |
+| Shapes | Line / Arrow / Arrow with text / Rectangle / Ellipse / Speed lines |
 
 ---
 
