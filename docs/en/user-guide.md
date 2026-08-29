@@ -505,6 +505,7 @@ Open the settings window from the menu's "Settings..." (`⌘,`). Five tabs.
 |---------|------|
 | Pin (always on top) | Always ON / Latest only ON / Default OFF |
 | Close on successful drag | Close the window when drag-and-drop succeeds |
+| Show in Dock | Show the Dock icon while a capture window is open (off by default). The app also appears in the `⌘Tab` switcher |
 
 #### Menu bar
 
