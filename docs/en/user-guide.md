@@ -210,6 +210,7 @@ Draw manga-style speed lines. **The area you drag becomes the "focus"** — the 
 - Lines use the currently selected color (black works best)
 - Turn on the outline option to add a thin streak along one side of each line, keeping the effect visible without changing the line's shape or width. The streak is white, or black when you pick a light color such as white or yellow
 - Speed lines sit below other annotations, so arrows and text stay readable
+- Place several speed lines and they split the image into Voronoi regions by distance from each focus, so each one draws only within its own territory
 
 ### Text
 
