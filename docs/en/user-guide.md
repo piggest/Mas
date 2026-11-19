@@ -293,6 +293,8 @@ The capture action button's icon updates based on shooting mode (screenshot → 
 | Action | Behavior |
 |------|------|
 | Double-click | Hide the image and show only the frame (double-click again to restore) |
+| Drag the frame edge | The image zooms to fit the new window size (recapture resets it to 100%) |
+| Shift + drag the frame edge | Only the frame changes; the image keeps its zoom and stays where it is on screen. Handy for widening the recapture area |
 | Right-click | Context menu (close, copy, toggle edit mode, shutter) |
 
 ### Pass-through mode
